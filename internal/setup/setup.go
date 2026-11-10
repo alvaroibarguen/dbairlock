@@ -38,7 +38,9 @@ import (
 	"github.com/alvaroibarguen/dbairlock/internal/store"
 )
 
-// Lifetimes.
+// Lifetimes. Short-lived by design and not settings: a setup session or
+// recovery code grants control of sign-in, and both are used once, by
+// someone with host access, right after the code is printed.
 const (
 	SessionLifetime      = 30 * time.Minute
 	RecoveryCodeLifetime = 15 * time.Minute
@@ -136,7 +138,9 @@ func New(opts Options) (*Service, error) {
 		opts: opts,
 		// 5 attempts per minute per address, then a growing delay:
 		// 30 seconds after the fifth consecutive failure, doubling up to
-		// 15 minutes. A correct code resets it.
+		// 15 minutes. A correct code resets it. Not a setting: the code
+		// guards the whole instance before any admin exists, and guessing
+		// protection must not be switchable off.
 		limit:   ratelimit.New(opts.Clock, 12*time.Second, 5),
 		backoff: ratelimit.NewBackoff(opts.Clock, 5, 30*time.Second, 15*time.Minute),
 	}, nil

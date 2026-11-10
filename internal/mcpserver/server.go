@@ -33,7 +33,10 @@ import (
 	"github.com/alvaroibarguen/dbairlock/internal/targets"
 )
 
-// MaxBodyBytes is the request body limit of /mcp (phase 8).
+// MaxBodyBytes is the request body limit of /mcp (phase 8). Fixed: one
+// tool call carries at most one change, 256 KB is far more than a change
+// a person can review, and agents are the clients most likely to send
+// something unbounded.
 const MaxBodyBytes int64 = 256 << 10
 
 // Changes is the changes module as the MCP server uses it.

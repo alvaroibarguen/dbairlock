@@ -15,8 +15,9 @@ export default async function globalSetup() {
   startDevTargets()
   const idp = await startFakeOidc()
   const dataDir = mkdtempSync(join(tmpdir(), 'dbairlock-e2e-'))
+  // `make test-all` points DBAIRLOCK_BIN at a race-enabled build.
   const server = spawn(
-    '../bin/dbairlock',
+    process.env.DBAIRLOCK_BIN ?? '../bin/dbairlock',
     ['serve', '--data-dir', dataDir, '--listen', `127.0.0.1:${PORT}`],
     { stdio: ['ignore', 'ignore', 'pipe'] },
   )
@@ -47,8 +48,16 @@ export default async function globalSetup() {
   process.env.E2E_OIDC_ISSUER = idp.issuer
 
   return async () => {
-    server.kill('SIGTERM')
+    if (server.exitCode === null && server.signalCode === null) {
+      const exited = new Promise((r) => server.once('exit', r))
+      server.kill('SIGTERM')
+      await exited
+    }
     await idp.close()
+    // A race-enabled binary reports data races on stderr; fail the run.
+    if (log.includes('WARNING: DATA RACE')) {
+      throw new Error(`the server reported a data race:\n${log}`)
+    }
   }
 }
 

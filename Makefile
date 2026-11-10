@@ -33,7 +33,7 @@ GO_GEN     := internal/httpapi/gen internal/audit/auditdb internal/secrets/secre
 
 IMAGE      ?= dbairlock:latest
 
-.PHONY: dev build web-build web-sync go-build generate generate-check test lint e2e screenshots image clean
+.PHONY: dev build web-build web-sync go-build generate generate-check test test-all load lint e2e screenshots image clean
 
 ## dev: run the Go server (--dev) and the Vite dev server together; Ctrl-C stops both.
 dev:
@@ -86,12 +86,25 @@ generate-check: generate
 	@test -z "$$(git status --porcelain -- $(GO_GEN) $(WEB)/src/api)" || \
 		(echo "untracked generated files; run make generate and commit" >&2; git status --porcelain -- $(GO_GEN) $(WEB)/src/api >&2; exit 1)
 
-## test: Go tests, then dashboard unit tests.
+## test: Go tests (unit and integration; integration tests need Docker) with the race detector, then dashboard unit tests.
 test:
-	go test ./...
+	go test -race ./...
 ifneq ($(HAS_WEB),)
 	pnpm --dir $(WEB) test
 endif
+
+## test-all: the whole suite with the race detector on: `make test`, then Playwright against a race-enabled binary (bin/dbairlock-race), which stops at the first data race and fails the run.
+test-all: test web-build web-sync
+ifeq ($(HAS_WEB),)
+	@echo "web/package.json not found; no end-to-end tests to run" >&2; exit 1
+else
+	CGO_ENABLED=1 go build -race -trimpath -ldflags "$(LDFLAGS)" -o $(BIN)-race ./cmd/dbairlock
+	DBAIRLOCK_BIN=$(abspath $(BIN))-race GORACE=halt_on_error=1 pnpm --dir $(WEB) e2e
+endif
+
+## load: seed 50,000 changes and 500,000 audit events and time the list endpoints, the audit page API and audit verification.
+load:
+	go test -tags load -count=1 -run TestLoad -timeout 60m -v ./internal/app
 
 ## lint: golangci-lint (includes the depguard import rules), then dashboard lint.
 lint:

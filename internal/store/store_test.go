@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -255,5 +256,91 @@ func TestTxBeginsImmediate(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestStoreFullRollsBack checks what a full disk does to a transaction:
+// SQLITE_FULL fails it as a whole, nothing of it remains, and the store
+// works again once there is room. max_page_count stands in for the disk.
+func TestStoreFullRollsBack(t *testing.T) {
+	ctx := context.Background()
+	s := openTest(t, t.TempDir())
+	exec := func(tx *Tx, q string) error {
+		_, err := tx.ExecContext(ctx, q)
+		return err
+	}
+	if err := s.Tx(ctx, func(tx *Tx) error {
+		if err := exec(tx, `CREATE TABLE filler (b BLOB)`); err != nil {
+			return err
+		}
+		var pages int64
+		if err := tx.QueryRowContext(ctx, `PRAGMA page_count`).Scan(&pages); err != nil {
+			return err
+		}
+		return exec(tx, "PRAGMA max_page_count = "+strconv.FormatInt(pages+20, 10))
+	}); err != nil {
+		t.Fatal(err)
+	}
+	err := s.Tx(ctx, func(tx *Tx) error {
+		for range 1000 {
+			if err := exec(tx, `INSERT INTO filler (b) VALUES (zeroblob(4096))`); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "full") {
+		t.Fatalf("filling the database: %v", err)
+	}
+	var n int
+	if err := s.Reader().QueryRowContext(ctx, `SELECT count(*) FROM filler`).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("rows left by the failed transaction: %d %v", n, err)
+	}
+	if err := s.Tx(ctx, func(tx *Tx) error {
+		if err := exec(tx, `PRAGMA max_page_count = 4294967294`); err != nil {
+			return err
+		}
+		return exec(tx, `INSERT INTO filler (b) VALUES (zeroblob(4096))`)
+	}); err != nil {
+		t.Fatalf("write once there is room: %v", err)
+	}
+}
+
+func TestOpenRefusesReadOnlyDatabase(t *testing.T) {
+	dir := t.TempDir()
+	s := openTest(t, dir)
+	path := s.Path()
+	_ = s.Close()
+
+	// SQLite falls back to a read-only connection when it cannot open the
+	// file for writing; mode=ro forces that here without needing root.
+	ro, err := sql.Open("sqlite", dsn(path, false)+"&mode=ro")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = ro.Close() }()
+	if err := checkWritable(context.Background(), ro, path); !errors.Is(err, ErrReadOnly) {
+		t.Fatalf("read-only connection: %v", err)
+	}
+
+	rw, err := sql.Open("sqlite", dsn(path, false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = rw.Close() }()
+	if err := checkWritable(context.Background(), rw, path); err != nil {
+		t.Fatalf("writable connection: %v", err)
+	}
+
+	// A file left read-only is restored to 0600 and opened for writing.
+	if err := os.Chmod(path, 0o400); err != nil {
+		t.Fatal(err)
+	}
+	s = openTest(t, dir)
+	if err := s.Tx(context.Background(), func(tx *Tx) error {
+		_, err := tx.ExecContext(context.Background(), `PRAGMA user_version = 0`)
+		return err
+	}); err != nil {
+		t.Fatalf("write after reopening a 0400 file: %v", err)
 	}
 }

@@ -332,6 +332,23 @@ func (tg *target) Labels(ctx context.Context) ([]string, error) {
 	return out, nil
 }
 
+// InTransaction implements connectortest.TransactionTarget: the label is
+// a connection attribute, visible before the run's transaction begins.
+// The session counts as inside its transaction while it runs a locking
+// read (SELECT ... FOR UPDATE), which the connector issues only after
+// BEGIN. information_schema.innodb_trx is not used: a session waiting for
+// a row lock during optimization ("statistics") is not listed there yet.
+func (tg *target) InTransaction(ctx context.Context, label string) (bool, error) {
+	rows, err := tg.AdminQuery(ctx, "SELECT count(*) FROM information_schema.processlist p "+
+		"JOIN performance_schema.session_connect_attrs a ON a.PROCESSLIST_ID = p.ID "+
+		"WHERE p.COMMAND = 'Query' AND p.INFO LIKE '%FOR UPDATE%' "+
+		"AND a.ATTR_NAME = '"+labelAttr+"' AND a.ATTR_VALUE = '"+strings.ReplaceAll(label, "'", "''")+"'")
+	if err != nil {
+		return false, err
+	}
+	return len(rows) == 1 && rows[0][0] != "0", nil
+}
+
 func (tg *target) Kill(ctx context.Context, label string) error {
 	rows, err := tg.AdminQuery(ctx, "SELECT PROCESSLIST_ID FROM performance_schema.session_connect_attrs WHERE ATTR_NAME = '"+labelAttr+"' AND ATTR_VALUE = '"+strings.ReplaceAll(label, "'", "''")+"'")
 	if err != nil {

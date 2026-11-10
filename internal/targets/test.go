@@ -15,7 +15,10 @@ import (
 	"github.com/alvaroibarguen/dbairlock/internal/targets/targetsdb"
 )
 
-// testTimeout bounds one connection test.
+// testTimeout bounds one connection test. Not a setting: a test connects
+// (itself bounded by the connector's 10-second connect timeout), reads the
+// server version and checks privileges; anything slower is the answer the
+// admin needs, and it keeps the request well inside proxy timeouts.
 const testTimeout = 30 * time.Second
 
 // maxMessage bounds a test failure message.

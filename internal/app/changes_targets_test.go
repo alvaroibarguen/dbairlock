@@ -1,10 +1,10 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"strconv"
@@ -361,6 +361,18 @@ func mysqlTargets(t *testing.T) *myTargets {
 				return err
 			}
 			defer func() { _ = root.Close() }()
+			// The log line can come before the mapped port accepts
+			// connections (Docker Desktop's port forwarder lags), so wait
+			// for the server to answer.
+			for {
+				if err = root.PingContext(ctx); err == nil || ctx.Err() != nil {
+					break
+				}
+				time.Sleep(250 * time.Millisecond)
+			}
+			if err != nil {
+				return err
+			}
 			_, err = root.ExecContext(ctx, fmt.Sprintf("CREATE USER '%s'@'%%' IDENTIFIED BY '%s'", tgtAppUser, tgtAppPassword))
 			return err
 		})
@@ -418,6 +430,16 @@ type proxy struct {
 	mu    sync.Mutex
 	down  bool
 	conns map[net.Conn]struct{}
+
+	// stalled holds every byte in both directions until it is cleared, as
+	// a hung network or an overloaded server would.
+	stalled atomic.Bool
+	// loseAfter, when set, is a byte pattern of a client message: the
+	// proxy forwards the message that contains it, then drops every reply
+	// and closes all connections, so the server acts on the message but
+	// the client never learns the result.
+	loseAfter atomic.Pointer[[]byte]
+	losing    atomic.Bool
 }
 
 func newProxy(t *testing.T, backend string) *proxy {
@@ -429,6 +451,7 @@ func newProxy(t *testing.T, backend string) *proxy {
 	p := &proxy{ln: ln, backend: backend, conns: map[net.Conn]struct{}{}}
 	t.Cleanup(func() {
 		_ = ln.Close()
+		p.stalled.Store(false)
 		p.killAll()
 	})
 	go p.serve()
@@ -464,12 +487,39 @@ func (p *proxy) forward(c net.Conn) {
 	p.conns[c], p.conns[b] = struct{}{}, struct{}{}
 	p.mu.Unlock()
 	done := make(chan struct{}, 2)
-	pipe := func(dst, src net.Conn) {
-		_, _ = io.Copy(dst, src)
-		done <- struct{}{}
+	pipe := func(dst, src net.Conn, fromClient bool) {
+		defer func() { done <- struct{}{} }()
+		buf := make([]byte, 32<<10)
+		for {
+			n, err := src.Read(buf)
+			if n > 0 {
+				for p.stalled.Load() {
+					time.Sleep(10 * time.Millisecond)
+				}
+				chunk := buf[:n]
+				if !fromClient && p.losing.Load() {
+					chunk = nil // the reply is lost
+				}
+				if _, werr := dst.Write(chunk); werr != nil {
+					return
+				}
+				if pat := p.loseAfter.Load(); fromClient && pat != nil && bytes.Contains(chunk, *pat) {
+					p.losing.Store(true)
+					// Give the server time to act on the message, then
+					// cut every connection.
+					go func() {
+						time.Sleep(500 * time.Millisecond)
+						p.killAll()
+					}()
+				}
+			}
+			if err != nil {
+				return
+			}
+		}
 	}
-	go pipe(b, c)
-	go pipe(c, b)
+	go pipe(b, c, true)
+	go pipe(c, b, false)
 	<-done
 	_ = c.Close()
 	_ = b.Close()
@@ -487,6 +537,20 @@ func (p *proxy) setDown(down bool) {
 	if down {
 		p.killAll()
 	}
+}
+
+// setStalled stops (or resumes) forwarding in both directions. Connections
+// stay open and new ones are accepted, but no byte gets through.
+func (p *proxy) setStalled(stalled bool) { p.stalled.Store(stalled) }
+
+// loseReplyAfter arms the proxy: the next client message containing
+// pattern reaches the server, its reply is lost, and every connection is
+// then cut. resetLoss disarms it and lets replies through again.
+func (p *proxy) loseReplyAfter(pattern []byte) { p.loseAfter.Store(&pattern) }
+
+func (p *proxy) resetLoss() {
+	p.loseAfter.Store(nil)
+	p.losing.Store(false)
 }
 
 // killAll closes every forwarded connection, as a network failure would.

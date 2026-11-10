@@ -9,7 +9,10 @@ import (
 	"github.com/alvaroibarguen/dbairlock/internal/connector"
 )
 
-// SchemaTTL is how long an introspected schema is reused.
+// SchemaTTL is how long an introspected schema is reused. Not a setting:
+// it only decides how fresh editor completion is (validation and the dry
+// run always use the live database), and a minute keeps introspection off
+// the target while someone types.
 const SchemaTTL = 60 * time.Second
 
 // maxSearchResults bounds SearchSchema.

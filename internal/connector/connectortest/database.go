@@ -467,6 +467,12 @@ func testUnavailable(t *testing.T, h Harness) {
 			done <- err
 		}()
 		waitLabel(t, e.tg, label)
+		// The kill must land after BEGIN. A label set at connect time is
+		// visible before that, and a kill then is correctly ErrUnavailable
+		// (nothing ran), so wait until the server shows its transaction.
+		if tt, ok := e.tg.(TransactionTarget); ok {
+			waitTransaction(t, tt, label, done)
+		}
 		if err := e.tg.Kill(context.Background(), label); err != nil {
 			t.Fatalf("Kill: %v", err)
 		}
@@ -503,6 +509,28 @@ func waitLabel(t *testing.T, tg Target, label string) {
 		time.Sleep(50 * time.Millisecond)
 	}
 	t.Fatalf("label %q never appeared; sessions: %q", label, labels)
+}
+
+// waitTransaction waits until the run labelled label has an open
+// transaction on the server. done receives the run's result if it ends
+// first.
+func waitTransaction(t *testing.T, tt TransactionTarget, label string, done <-chan error) {
+	t.Helper()
+	for range 600 { // 30 seconds
+		in, err := tt.InTransaction(context.Background(), label)
+		if err != nil {
+			t.Fatalf("InTransaction: %v", err)
+		}
+		if in {
+			return
+		}
+		select {
+		case err := <-done:
+			t.Fatalf("the run ended before its transaction was seen: %v", err)
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+	t.Fatalf("the session %q never opened a transaction", label)
 }
 
 func testLabel(t *testing.T, h Harness) {

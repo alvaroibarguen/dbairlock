@@ -40,7 +40,10 @@ import (
 	"github.com/alvaroibarguen/dbairlock/internal/targets"
 )
 
-// Limits of one change (phase 7).
+// Limits of one change (phase 7). They are constants, not settings (see
+// docs/configuration.md): they bound what one review can honestly cover,
+// and a change that needs more should be split, not allowed by an admin.
+// The database CHECK constraints in migration 00005 repeat them.
 const (
 	MaxStatements     = 20
 	MaxStatementBytes = 64 << 10
@@ -48,7 +51,9 @@ const (
 	MaxReason         = 4000
 	MaxComment        = 4000
 	// RefreshInterval is the shortest time between two preview refreshes of
-	// one change.
+	// one change. Fixed because each refresh is a real dry run (row locks
+	// included) on a production database: it protects the target, not a
+	// preference of the team.
 	RefreshInterval = 10 * time.Second
 	// PreviewLabel labels every dry run on the target.
 	PreviewLabel = "dbairlock preview"

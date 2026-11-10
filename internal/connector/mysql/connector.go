@@ -92,10 +92,20 @@ const (
 	tlsVerifyIdentity = "verify-identity"
 )
 
+// Pool and connect limits. Constants, not settings (docs/configuration.md):
+// every target tolerates them, and dbairlock runs at most one change per
+// target at a time (on a dedicated connection) plus occasional previews. A
+// target that cannot accept a connection within 10 seconds counts as
+// unreachable, and an execution is then deferred, never failed. Idle
+// connections are closed after 5 minutes and every connection is renewed
+// after 30, so a failover or a password change is picked up without
+// holding sessions on the target.
 const (
 	defaultPort    = 3306
 	poolMaxConns   = 2
 	connectTimeout = 10 * time.Second
+	poolMaxIdle    = 5 * time.Minute
+	poolMaxLife    = 30 * time.Minute
 	maxDatabaseLen = 64
 	maxUsernameLen = 32
 	programName    = "dbairlock"
@@ -297,8 +307,8 @@ func (c *Connector) Open(_ context.Context, cfg connector.Config, password []byt
 	pool := sql.OpenDB(dc)
 	pool.SetMaxOpenConns(poolMaxConns)
 	pool.SetMaxIdleConns(poolMaxConns)
-	pool.SetConnMaxIdleTime(5 * time.Minute)
-	pool.SetConnMaxLifetime(30 * time.Minute)
+	pool.SetConnMaxIdleTime(poolMaxIdle)
+	pool.SetConnMaxLifetime(poolMaxLife)
 	return &conn{pool: pool, base: base, db: cfg.String(keyDatabase)}, nil
 }
 

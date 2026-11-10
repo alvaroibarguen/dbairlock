@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"sync/atomic"
 
 	"github.com/pressly/goose/v3"
@@ -118,6 +119,12 @@ func dsn(path string, readOnly bool) string {
 }
 
 func open(ctx context.Context, path string) (s *Store, err error) {
+	// Restrict an existing file before opening it. SQLite opens a file it
+	// cannot write read-only without saying so, and that connection would
+	// stay read-only even after a later chmod.
+	if err := os.Chmod(path, 0o600); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil, fmt.Errorf("store: restrict database file permissions: %w", err)
+	}
 	writer, err := sql.Open("sqlite", dsn(path, false))
 	if err != nil {
 		return nil, fmt.Errorf("store: open writer: %w", err)
@@ -134,10 +141,16 @@ func open(ctx context.Context, path string) (s *Store, err error) {
 	// Connect the writer first: it is the connection that switches a new file
 	// to WAL mode, which the read-only connections cannot do.
 	if err := writer.PingContext(ctx); err != nil {
+		if isReadOnly(err) {
+			return nil, readOnlyError(path, err)
+		}
 		return nil, fmt.Errorf("store: open %s: %w", path, err)
 	}
 	if err := os.Chmod(path, 0o600); err != nil {
 		return nil, fmt.Errorf("store: restrict database file permissions: %w", err)
+	}
+	if err := checkWritable(ctx, writer, path); err != nil {
+		return nil, err
 	}
 	if err := migrate(ctx, writer); err != nil {
 		return nil, err
@@ -158,6 +171,45 @@ func open(ctx context.Context, path string) (s *Store, err error) {
 	s = &Store{path: path, writer: writer, reader: reader}
 	s.ready.Store(true)
 	return s, nil
+}
+
+// ErrReadOnly means the database cannot be written: the file, its
+// directory or the filesystem is read-only. Starting anyway would serve
+// requests and then fail every change.
+var ErrReadOnly = errors.New("store: the database cannot be written")
+
+// checkWritable writes the header field user_version back unchanged in a
+// transaction it rolls back, so a database SQLite could only open
+// read-only is refused at start rather than at the first real write.
+func checkWritable(ctx context.Context, writer *sql.DB, path string) error {
+	tx, err := writer.BeginTx(ctx, nil) // BEGIN IMMEDIATE (see dsn)
+	if err == nil {
+		var v int64
+		if err = tx.QueryRowContext(ctx, `PRAGMA user_version`).Scan(&v); err == nil {
+			_, err = tx.ExecContext(ctx, `PRAGMA user_version = `+strconv.FormatInt(v, 10))
+		}
+		if rbErr := tx.Rollback(); err == nil && rbErr != nil {
+			err = rbErr
+		}
+	}
+	if err != nil {
+		return readOnlyError(path, err)
+	}
+	return nil
+}
+
+func readOnlyError(path string, err error) error {
+	return fmt.Errorf("%w: %s (check that the file, the data directory and the filesystem are writable by this user): %w",
+		ErrReadOnly, path, err)
+}
+
+// isReadOnly reports whether err is SQLite's SQLITE_READONLY, in any of
+// its extended forms (for example a read-only directory, where the
+// write-ahead log cannot be created).
+func isReadOnly(err error) bool {
+	const sqliteReadOnly = 8
+	var coded interface{ Code() int }
+	return errors.As(err, &coded) && coded.Code()&0xff == sqliteReadOnly
 }
 
 // migrate applies every pending embedded migration on the writer handle.

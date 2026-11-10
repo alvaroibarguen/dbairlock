@@ -24,7 +24,7 @@ const publicURL = "https://dbairlock.test"
 // harness is a non-dev instance wired to a fake OpenID provider, with a
 // fake clock shared by both.
 type harness struct {
-	t      *testing.T
+	t      testing.TB
 	dir    string
 	app    *App
 	h      http.Handler
@@ -33,7 +33,7 @@ type harness struct {
 	banner *bytes.Buffer
 }
 
-func newHarness(t *testing.T) *harness {
+func newHarness(t testing.TB) *harness {
 	t.Helper()
 	idp := oidctest.New()
 	t.Cleanup(idp.Close)
