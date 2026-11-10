@@ -217,6 +217,143 @@ connection pool is created. Archiving a connection removes its password.
 Mutating API requests from another origin are rejected with
 `http.CrossOriginProtection` (403, code `cross_origin`).
 
+## Web security
+
+Checked and tightened in phase 11. Everything here is enforced by tests
+named in each part.
+
+### Content Security Policy
+
+Every response carries this policy (`internal/platform/httpx/headers.go`):
+
+```
+default-src 'self'; script-src 'self';
+style-src 'self' 'sha256-StEa…' 'sha256-47DE…' ['nonce-…' on the dashboard page];
+img-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none';
+base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+```
+
+- **Scripts:** same-origin files only. No inline script, no `'unsafe-eval'`,
+  no nonce or hash for scripts. The built `index.html` has no inline script;
+  the theme is applied by the bundle before the first render. zod is set to
+  `jitless`, so it does not probe for `new Function` (which the browser would
+  report as a violation even though zod catches the error).
+- **Styles: no `'unsafe-inline'`.** Three things in the dashboard need inline
+  `<style>`, and each is allowed narrowly:
+  - *sonner* (toasts) inserts one fixed stylesheet, appending the element
+    empty and then adding the text. Both texts are allowed by hash.
+    `web/src/test/csp.test.ts` recomputes the hash from the installed sonner,
+    so an upgrade that changes the CSS fails with the new hash.
+  - *CodeMirror* (the SQL editor) keeps its styles in one `<style>` element
+    whose text grows as editors mount, so no hash can cover it. The server
+    generates a 128-bit nonce for each response of the dashboard page, puts
+    it in the policy and in `<meta name="csp-nonce">`, and the editor sets it
+    on its element (`EditorView.cspNonce`). The nonce applies to styles only.
+    The page is served `Cache-Control: no-store` without `ETag` or
+    `Last-Modified`, so a cached page with an old nonce is never reused.
+  - *Base UI* would insert a `<style>` to hide the scrollbar of Select
+    popups. `CSPProvider disableStyleElements` turns that off
+    (`web/src/ui/StrictStyles.tsx`) and `index.css` carries the same rule.
+  
+  Style *properties* that React, Base UI and CodeMirror set from script go
+  through the CSSOM, which CSP does not govern, so they need no exception.
+- **Everything else:** same-origin fonts (Geist is self-hosted), no `data:`
+  images, no plugins, no `<base>`, forms post only to this origin, and no
+  site may frame the dashboard.
+- **Verified in a browser.** Every Playwright test fails on any CSP violation
+  in any page it opens (`web/e2e/csp.ts`, which also covers the second
+  user's browser context). `web/e2e/security.spec.ts` checks the headers a
+  real browser receives, that an injected inline script and style are
+  blocked and noticed, and that toast styles still apply. The whole suite,
+  including the SQL editor, passes with no violation.
+
+### Other headers
+
+| Header | Value |
+|---|---|
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `DENY` (for browsers that ignore `frame-ancestors`) |
+| `Referrer-Policy` | `no-referrer` |
+| `Permissions-Policy` | camera, microphone, geolocation, display capture, payment, USB, serial, HID, MIDI, motion sensors and Topics all denied |
+| `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy` | `same-origin` |
+| `Strict-Transport-Security` | `max-age=31536000`, only while `instance.public_url` starts with `https://`. No `includeSubDomains` or `preload`: dbairlock is usually one host in a domain it does not own. The setting is read per request, so changing it needs no restart. |
+
+The header middleware is the outermost layer, so the dashboard, its assets,
+the API, MCP, health probes and every error (404, 405, 413, a cross-origin
+403, a panic's 500) carry them. `TestSecurityHeadersOnEveryResponse`
+(`internal/app/headers_test.go`) checks each of these, with and without an
+HTTPS public URL. The only responses without them are the few that Go's HTTP
+server writes itself before any handler runs (for example `400 Bad Request`
+for a malformed request line); those are short plain-text bodies.
+
+### Access levels and the route access test
+
+Every route declares who may call it:
+
+- REST operations, in `internal/httpapi/access.go`, by operationId:
+  `public` (health, readiness, instance metadata, starting and finishing
+  Google sign-in, sign-out of the caller's own cookie), `setup` (the setup
+  and recovery code routes, which need the code or the short-lived session
+  it grants, and work only in setup or recovery), `dev` (`--dev` only, 404
+  otherwise) or `user` with an optional required action (`database.manage`,
+  `settings.manage`, `user.manage`, `audit.read`, `change.submit`).
+- Routes outside the OpenAPI contract, where `internal/app/app.go`
+  registers them: `/mcp` (`token`: an API token, never a session cookie)
+  and `/` (the dashboard's static files; all data comes from the API).
+
+The REST middleware enforces the declaration before any handler runs, and
+refuses (403) an operation that has none. Handlers authorize again against
+the specific resource. `TestEveryOperationDeclaresAccess` fails if an
+operation in `api/openapi.yaml` has no declaration or a declaration names no
+operation, and if a public operation other than sign-out is not a `GET`.
+`TestRouteAccess` (`internal/app/routes_test.go`) walks the complete list of
+routes actually registered on the root mux and, for each:
+
+- fails if it has no declared access level, or is in the contract but not
+  registered (or the reverse);
+- sends every mutating method from another origin (both `Sec-Fetch-Site:
+  cross-site` and a foreign `Origin`), with a signed-in admin's cookie, and
+  expects 403 `cross_origin`; cross-origin protection wraps every route,
+  `/mcp` and the dashboard included (MCP clients are not browsers and send
+  neither header);
+- expects 401 without a session for `user` routes, 403 for a member on
+  admin-only routes, 401 for `/mcp` with a session cookie instead of a
+  token, 404 for `dev` routes, and no success for `setup` routes once setup
+  is complete.
+
+### Rate limits
+
+All limits are per client address (the forwarded address only from
+`network.trusted_proxies`) and kept in memory.
+
+| What | Limit | Test |
+|---|---|---|
+| Sign-in start and callback | 20, then one every 3 s; redirects to `/signin?error=rate_limited` | `TestSignInIsRateLimited` |
+| Setup code | 5 per minute, then after 5 failures a lock-out doubling from 30 s to 15 min | `TestSetupEndToEnd` |
+| Recovery code | the same limiter as the setup code | `TestRecoveryCodeIsRateLimited` |
+| Bad API tokens on `/mcp` (added in phase 11) | 10 free failures, then a lock-out doubling from 1 s to 5 min; a valid token resets it | `TestBadAPITokensAreRateLimited` |
+| MCP tool calls, per token | `limits.mcp_calls_per_minute`, plus `limits.mcp_previews_per_hour` and `limits.mcp_submissions_per_hour` | `TestMCP/rate_limits`, `TestLimits` |
+| Preview refresh, per change | one every 10 s | `TestChangeReview` |
+
+API tokens carry 256 random bits, so the token limit is about bounding
+database lookups from a misbehaving client, not about guessing. While an
+address is locked out, even a valid token from it waits, which can briefly
+affect other agents behind the same NAT after one of them sends a bad token
+repeatedly.
+
+### No HTML injection
+
+SQL, titles, reasons, comments, error messages and everything an agent
+writes are rendered as React text. There is no `dangerouslySetInnerHTML`,
+`innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`,
+`DOMParser`, `srcDoc` or `eval` anywhere in `web/src`; CodeMirror shows SQL
+as editor text and the read-only SQL view renders highlighted runs as React
+text. Every `href` is a fixed path built in code. An ESLint rule
+(`no-restricted-syntax` in `web/eslint.config.js`, plus `no-eval`,
+`no-new-func` and `no-script-url`) keeps all of these out, and
+`web/src/test/html-injection.test.ts` checks that each pattern is still
+caught.
+
 ## Reporting a vulnerability
 
 Please report security problems privately, not in a public issue: use

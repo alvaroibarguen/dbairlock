@@ -1,4 +1,4 @@
-import { expect, type Page, test } from '@playwright/test'
+import { expect, type Page, test } from './csp.ts'
 import { CLIENT_ID, CLIENT_SECRET } from './fake-oidc.ts'
 import { ADMIN_STATE, MEMBER_STATE } from './state.ts'
 

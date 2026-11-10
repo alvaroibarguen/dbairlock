@@ -102,37 +102,6 @@ func Recover() Middleware {
 	}
 }
 
-// contentSecurityPolicy allows only same-origin resources. Inline styles are
-// allowed because UI primitives set positioning through style attributes;
-// inline scripts are not.
-const contentSecurityPolicy = "default-src 'self'; " +
-	"script-src 'self'; " +
-	"style-src 'self' 'unsafe-inline'; " +
-	"img-src 'self' data:; " +
-	"font-src 'self'; " +
-	"connect-src 'self'; " +
-	"object-src 'none'; " +
-	"base-uri 'self'; " +
-	"form-action 'self'; " +
-	"frame-ancestors 'none'"
-
-// SecurityHeaders sets defensive headers on every response.
-func SecurityHeaders() Middleware {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			h := w.Header()
-			h.Set("Content-Security-Policy", contentSecurityPolicy)
-			h.Set("X-Content-Type-Options", "nosniff")
-			h.Set("X-Frame-Options", "DENY")
-			h.Set("Referrer-Policy", "same-origin")
-			h.Set("Cross-Origin-Opener-Policy", "same-origin")
-			h.Set("Cross-Origin-Resource-Policy", "same-origin")
-			h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
 // BodyLimit caps the request body at n bytes. Reading past the limit returns
 // an *http.MaxBytesError, which handlers map to ErrRequestTooLarge. Requests
 // that declare a larger Content-Length are rejected up front.

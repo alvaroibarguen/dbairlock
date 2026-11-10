@@ -1,4 +1,4 @@
-import { type Browser, expect, type Page, test } from '@playwright/test'
+import { type Browser, expect, type Page, test } from './csp.ts'
 import { MEMBER_STATE } from './state.ts'
 import { db, reachable, SAMPLE_MYSQL, SAMPLE_POSTGRES } from './targets.ts'
 

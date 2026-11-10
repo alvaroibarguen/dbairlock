@@ -1,7 +1,7 @@
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { networkInterfaces } from 'node:os'
-import { expect, type Page, test } from '@playwright/test'
+import { expect, type Page, test } from './csp.ts'
 import { MEMBER_STATE } from './state.ts'
 import { reachable, SAMPLE_POSTGRES } from './targets.ts'
 

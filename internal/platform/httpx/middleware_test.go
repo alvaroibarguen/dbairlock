@@ -106,19 +106,6 @@ func TestRecoverReraisesAbortHandler(t *testing.T) {
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
 }
 
-func TestSecurityHeaders(t *testing.T) {
-	rec := httptest.NewRecorder()
-	SecurityHeaders()(http.NotFoundHandler()).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
-	for _, k := range []string{"Content-Security-Policy", "X-Content-Type-Options", "X-Frame-Options", "Referrer-Policy", "Cross-Origin-Opener-Policy"} {
-		if rec.Header().Get(k) == "" {
-			t.Errorf("missing %s", k)
-		}
-	}
-	if csp := rec.Header().Get("Content-Security-Policy"); !strings.Contains(csp, "frame-ancestors 'none'") || strings.Contains(csp, "script-src 'self' 'unsafe-inline'") {
-		t.Errorf("unexpected CSP: %s", csp)
-	}
-}
-
 func TestBodyLimit(t *testing.T) {
 	var readErr error
 	h := BodyLimit(8)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
