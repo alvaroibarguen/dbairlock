@@ -192,6 +192,12 @@ teardown fails the run if the server's log contains a data race report.
 `e2e/global-setup.ts` takes the binary from `DBAIRLOCK_BIN` (test tooling
 only; the server itself still reads no environment variables).
 
+Results, after merging main (with p11-safety, p11-websec and p11-a11y):
+`go test -race -count=1 ./...` passed in every package, integration tests
+included (Docker), with no data race reported. Playwright against the
+race-enabled binary: 110 passed, 23 skipped (the suite's own skips), and no
+data race in the server log. No races needed fixing.
+
 ## "Why not configurable" comments
 
 Added next to the constants that `docs/configuration.md` lists as fixed:
