@@ -238,6 +238,9 @@ type Change struct {
 	// the same author with the same SQL, which is returned instead.
 	AlreadyExisted bool
 
+	// Sequence is set when the change is a step of a sequence.
+	Sequence *SequenceRef
+
 	Actions       Actions
 	PreviewMaxAge time.Duration
 	ServerTime    time.Time

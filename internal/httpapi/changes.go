@@ -31,6 +31,11 @@ type Changes interface {
 	ExecuteNow(ctx context.Context, p identity.Principal, ref string) (changes.Change, error)
 	RetryNow(ctx context.Context, p identity.Principal, ref string) (changes.Change, error)
 	Events(ctx context.Context, p identity.Principal, ref string) ([]audit.Entry, error)
+
+	CreateSequence(ctx context.Context, p identity.Principal, in changes.SequenceDraft) (changes.Sequence, error)
+	GetSequence(ctx context.Context, p identity.Principal, ref string) (changes.Sequence, error)
+	CancelSequence(ctx context.Context, p identity.Principal, ref, reason string) (changes.Sequence, error)
+	SequenceEvents(ctx context.Context, p identity.Principal, ref string) ([]audit.Entry, error)
 }
 
 // ListChanges lists changes.
@@ -274,11 +279,20 @@ func (s *Server) ListChangeEvents(ctx context.Context, req gen.ListChangeEventsR
 	if err != nil {
 		return nil, err
 	}
-	out := gen.ListChangeEvents200JSONResponse{Events: []gen.ChangeEvent{}}
+	list, err := eventList(entries)
+	if err != nil {
+		return nil, err
+	}
+	return gen.ListChangeEvents200JSONResponse(list), nil
+}
+
+// eventList is the timeline of a change or a sequence.
+func eventList(entries []audit.Entry) (gen.ChangeEventList, error) {
+	out := gen.ChangeEventList{Events: []gen.ChangeEvent{}}
 	for _, e := range entries {
 		payload := map[string]any{}
 		if err := json.Unmarshal(e.Payload, &payload); err != nil {
-			return nil, err
+			return out, err
 		}
 		actor := gen.ChangeEventActor{Via: gen.ChangeEventActorVia(e.Actor.Via)}
 		if e.Actor.UserID != "" {
@@ -379,6 +393,7 @@ func summaryBody(c changes.Change) gen.ChangeSummary {
 		StatusDetail: optStr(c.StatusDetail), Revision: c.Revision, Attempts: c.Attempts,
 		NextAttemptAt: c.NextAttemptAt, Statements: []gen.ChangeStatement{},
 		CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt, SubmittedAt: c.SubmittedAt,
+		Sequence: sequenceRefBody(c.Sequence),
 	}
 	for _, st := range c.Statements {
 		out.Statements = append(out.Statements, statementBody(st))
@@ -407,6 +422,7 @@ func changeBody(c changes.Change) gen.Change {
 		},
 		AlreadyExisted: c.AlreadyExisted, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 		SubmittedAt: c.SubmittedAt, DecidedAt: c.DecidedAt, ExecutedAt: c.ExecutedAt, ExpiresAt: c.ExpiresAt,
+		Sequence: sequenceRefBody(c.Sequence),
 	}
 	for _, st := range c.Statements {
 		out.Statements = append(out.Statements, statementBody(st))
@@ -456,8 +472,26 @@ func changeError(err error) *httpx.Error {
 		stateE   *changes.StateError
 		transErr *changes.TransitionError
 		soonErr  *changes.TooSoonError
+		stepErr  *changes.StepError
 	)
 	switch {
+	case errors.As(err, &stepErr):
+		// A problem in one step of a sequence: the step's error, with the
+		// step in the details and its fields under steps[i].
+		he := changeError(stepErr.Err)
+		if he == nil {
+			return nil
+		}
+		out := *he
+		out.Fields = make([]httpx.FieldError, len(he.Fields))
+		for i, f := range he.Fields {
+			out.Fields[i] = httpx.FieldError{Field: "steps[" + strconv.Itoa(stepErr.Step) + "]." + f.Field, Message: f.Message}
+		}
+		details, _ := he.Details.(gen.ErrorDetails)
+		details.Step = ptr(stepErr.Step + 1)
+		out.Details = details
+		out.Message = "Step " + strconv.Itoa(stepErr.Step+1) + ": " + he.Message
+		return &out
 	case errors.As(err, &inputErr):
 		fields := make([]httpx.FieldError, len(inputErr.Fields))
 		for i, f := range inputErr.Fields {

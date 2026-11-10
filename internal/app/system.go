@@ -35,6 +35,22 @@ var noticeVerbs = map[string]string{
 }
 
 func (c changeNotifier) Notify(ctx context.Context, tx *store.Tx, n changes.Notice) error {
+	if n.Sequence {
+		verb := "stopped"
+		if n.Event == "sequence.completed" {
+			verb = "completed"
+		}
+		return c.n.Enqueue(ctx, tx, notify.Event{
+			Type: n.Event, URL: n.URL,
+			Text: "Sequence #" + strconv.FormatInt(n.Number, 10) + " " + verb + ": " + n.Title,
+			Fields: []notify.Field{
+				{Key: "sequence", Label: "Sequence", Value: n.Number},
+				{Key: "title", Label: "Title", Value: n.Title},
+				{Key: "author", Label: "Author", Value: n.Author},
+				{Key: "outcome", Label: "Outcome", Value: n.Message},
+			},
+		})
+	}
 	status := statusLabels[n.Status]
 	if status == "" {
 		status = string(n.Status)
@@ -47,6 +63,9 @@ func (c changeNotifier) Notify(ctx context.Context, tx *store.Tx, n changes.Noti
 	}
 	if n.Reviewer != "" {
 		fields = append(fields, notify.Field{Key: "reviewer", Label: "Reviewer", Value: n.Reviewer})
+	}
+	if n.Step != "" {
+		fields = append(fields, notify.Field{Key: "sequence_step", Label: "Sequence", Value: n.Step})
 	}
 	fields = append(fields, notify.Field{Key: "status", Label: "Status", Value: status})
 	verb := noticeVerbs[n.Event]

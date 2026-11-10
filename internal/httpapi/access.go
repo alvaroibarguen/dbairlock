@@ -117,6 +117,13 @@ var operationAccess = map[string]Access{
 	"RetryChange":          anyUser,
 	"ListChangeEvents":     anyUser,
 
+	// Sequences: the changes module checks authorship, and every step is a
+	// change with the rules above.
+	"CreateSequence":     anyUser,
+	"GetSequence":        anyUser,
+	"CancelSequence":     anyUser,
+	"ListSequenceEvents": anyUser,
+
 	// Audit, system and notifications
 	"ListAuditEvents":      allowed(identity.ActionAuditRead),
 	"GetAuditVerification": allowed(identity.ActionSettingsManage),

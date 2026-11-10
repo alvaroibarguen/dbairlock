@@ -12,7 +12,7 @@ import (
 )
 
 const claimCandidates = `-- name: ClaimCandidates :many
-SELECT id, number, connection_id, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_detail, status_message, sql_hash, preview_hash, previewed_at, preview_error, preview_changed, revision, attempts, next_attempt_at, last_attempt_error, execute_requested_at, last_refresh_at, created_at, updated_at, submitted_at, decided_at, executed_at, expires_at FROM change_requests c
+SELECT id, number, connection_id, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_detail, status_message, sql_hash, preview_hash, previewed_at, preview_error, preview_changed, revision, attempts, next_attempt_at, last_attempt_error, execute_requested_at, last_refresh_at, created_at, updated_at, submitted_at, decided_at, executed_at, expires_at, sequence_id, step FROM change_requests c
 WHERE c.status = 'approved'
   AND (c.next_attempt_at IS NULL OR c.next_attempt_at <= CAST(?1 AS INTEGER))
   AND NOT EXISTS (
@@ -62,6 +62,8 @@ func (q *Queries) ClaimCandidates(ctx context.Context, now int64) ([]ChangeReque
 			&i.DecidedAt,
 			&i.ExecutedAt,
 			&i.ExpiresAt,
+			&i.SequenceID,
+			&i.Step,
 		); err != nil {
 			return nil, err
 		}
@@ -83,7 +85,7 @@ WHERE change_requests.id = ? AND change_requests.status = 'approved'
       SELECT 1 FROM change_requests e
       WHERE e.connection_id = change_requests.connection_id AND e.status = 'executing'
   )
-RETURNING id, number, connection_id, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_detail, status_message, sql_hash, preview_hash, previewed_at, preview_error, preview_changed, revision, attempts, next_attempt_at, last_attempt_error, execute_requested_at, last_refresh_at, created_at, updated_at, submitted_at, decided_at, executed_at, expires_at
+RETURNING id, number, connection_id, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_detail, status_message, sql_hash, preview_hash, previewed_at, preview_error, preview_changed, revision, attempts, next_attempt_at, last_attempt_error, execute_requested_at, last_refresh_at, created_at, updated_at, submitted_at, decided_at, executed_at, expires_at, sequence_id, step
 `
 
 type ClaimChangeParams struct {
@@ -125,6 +127,8 @@ func (q *Queries) ClaimChange(ctx context.Context, arg ClaimChangeParams) (Chang
 		&i.DecidedAt,
 		&i.ExecutedAt,
 		&i.ExpiresAt,
+		&i.SequenceID,
+		&i.Step,
 	)
 	return i, err
 }
@@ -208,9 +212,9 @@ func (q *Queries) DeferChange(ctx context.Context, arg DeferChangeParams) error 
 }
 
 const findOpenDuplicate = `-- name: FindOpenDuplicate :one
-SELECT id, number, connection_id, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_detail, status_message, sql_hash, preview_hash, previewed_at, preview_error, preview_changed, revision, attempts, next_attempt_at, last_attempt_error, execute_requested_at, last_refresh_at, created_at, updated_at, submitted_at, decided_at, executed_at, expires_at FROM change_requests
+SELECT id, number, connection_id, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_detail, status_message, sql_hash, preview_hash, previewed_at, preview_error, preview_changed, revision, attempts, next_attempt_at, last_attempt_error, execute_requested_at, last_refresh_at, created_at, updated_at, submitted_at, decided_at, executed_at, expires_at, sequence_id, step FROM change_requests
 WHERE author_id = ? AND connection_id = ? AND sql_hash = ?
-  AND status IN ('pending_review', 'approved') AND id <> ?
+  AND status IN ('pending_review', 'approved') AND id <> ? AND sequence_id IS NULL
 ORDER BY number LIMIT 1
 `
 
@@ -260,6 +264,44 @@ func (q *Queries) FindOpenDuplicate(ctx context.Context, arg FindOpenDuplicatePa
 		&i.DecidedAt,
 		&i.ExecutedAt,
 		&i.ExpiresAt,
+		&i.SequenceID,
+		&i.Step,
+	)
+	return i, err
+}
+
+const findOpenSequence = `-- name: FindOpenSequence :one
+SELECT id, number, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_message, current_step, steps, steps_hash, created_at, updated_at, finished_at FROM change_sequences
+WHERE author_id = ? AND steps_hash = ? AND status = 'running'
+ORDER BY number LIMIT 1
+`
+
+type FindOpenSequenceParams struct {
+	AuthorID  string
+	StepsHash string
+}
+
+func (q *Queries) FindOpenSequence(ctx context.Context, arg FindOpenSequenceParams) (ChangeSequence, error) {
+	row := q.db.QueryRowContext(ctx, findOpenSequence, arg.AuthorID, arg.StepsHash)
+	var i ChangeSequence
+	err := row.Scan(
+		&i.ID,
+		&i.Number,
+		&i.AuthorID,
+		&i.Via,
+		&i.ApiTokenID,
+		&i.AgentName,
+		&i.Title,
+		&i.Reason,
+		&i.Status,
+		&i.StatusCode,
+		&i.StatusMessage,
+		&i.CurrentStep,
+		&i.Steps,
+		&i.StepsHash,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.FinishedAt,
 	)
 	return i, err
 }
@@ -322,8 +364,37 @@ func (q *Queries) FinishExecution(ctx context.Context, arg FinishExecutionParams
 	return err
 }
 
+const finishSequence = `-- name: FinishSequence :exec
+UPDATE change_sequences SET
+    status = ?, status_code = ?, status_message = ?, current_step = ?, finished_at = ?, updated_at = ?
+WHERE id = ? AND status = 'running'
+`
+
+type FinishSequenceParams struct {
+	Status        string
+	StatusCode    string
+	StatusMessage string
+	CurrentStep   int64
+	FinishedAt    sql.NullInt64
+	UpdatedAt     int64
+	ID            string
+}
+
+func (q *Queries) FinishSequence(ctx context.Context, arg FinishSequenceParams) error {
+	_, err := q.db.ExecContext(ctx, finishSequence,
+		arg.Status,
+		arg.StatusCode,
+		arg.StatusMessage,
+		arg.CurrentStep,
+		arg.FinishedAt,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	return err
+}
+
 const getChange = `-- name: GetChange :one
-SELECT id, number, connection_id, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_detail, status_message, sql_hash, preview_hash, previewed_at, preview_error, preview_changed, revision, attempts, next_attempt_at, last_attempt_error, execute_requested_at, last_refresh_at, created_at, updated_at, submitted_at, decided_at, executed_at, expires_at FROM change_requests WHERE id = ?
+SELECT id, number, connection_id, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_detail, status_message, sql_hash, preview_hash, previewed_at, preview_error, preview_changed, revision, attempts, next_attempt_at, last_attempt_error, execute_requested_at, last_refresh_at, created_at, updated_at, submitted_at, decided_at, executed_at, expires_at, sequence_id, step FROM change_requests WHERE id = ?
 `
 
 func (q *Queries) GetChange(ctx context.Context, id string) (ChangeRequest, error) {
@@ -360,12 +431,14 @@ func (q *Queries) GetChange(ctx context.Context, id string) (ChangeRequest, erro
 		&i.DecidedAt,
 		&i.ExecutedAt,
 		&i.ExpiresAt,
+		&i.SequenceID,
+		&i.Step,
 	)
 	return i, err
 }
 
 const getChangeByNumber = `-- name: GetChangeByNumber :one
-SELECT id, number, connection_id, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_detail, status_message, sql_hash, preview_hash, previewed_at, preview_error, preview_changed, revision, attempts, next_attempt_at, last_attempt_error, execute_requested_at, last_refresh_at, created_at, updated_at, submitted_at, decided_at, executed_at, expires_at FROM change_requests WHERE number = ?
+SELECT id, number, connection_id, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_detail, status_message, sql_hash, preview_hash, previewed_at, preview_error, preview_changed, revision, attempts, next_attempt_at, last_attempt_error, execute_requested_at, last_refresh_at, created_at, updated_at, submitted_at, decided_at, executed_at, expires_at, sequence_id, step FROM change_requests WHERE number = ?
 `
 
 func (q *Queries) GetChangeByNumber(ctx context.Context, number int64) (ChangeRequest, error) {
@@ -402,6 +475,66 @@ func (q *Queries) GetChangeByNumber(ctx context.Context, number int64) (ChangeRe
 		&i.DecidedAt,
 		&i.ExecutedAt,
 		&i.ExpiresAt,
+		&i.SequenceID,
+		&i.Step,
+	)
+	return i, err
+}
+
+const getSequence = `-- name: GetSequence :one
+SELECT id, number, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_message, current_step, steps, steps_hash, created_at, updated_at, finished_at FROM change_sequences WHERE id = ?
+`
+
+func (q *Queries) GetSequence(ctx context.Context, id string) (ChangeSequence, error) {
+	row := q.db.QueryRowContext(ctx, getSequence, id)
+	var i ChangeSequence
+	err := row.Scan(
+		&i.ID,
+		&i.Number,
+		&i.AuthorID,
+		&i.Via,
+		&i.ApiTokenID,
+		&i.AgentName,
+		&i.Title,
+		&i.Reason,
+		&i.Status,
+		&i.StatusCode,
+		&i.StatusMessage,
+		&i.CurrentStep,
+		&i.Steps,
+		&i.StepsHash,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.FinishedAt,
+	)
+	return i, err
+}
+
+const getSequenceByNumber = `-- name: GetSequenceByNumber :one
+SELECT id, number, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_message, current_step, steps, steps_hash, created_at, updated_at, finished_at FROM change_sequences WHERE number = ?
+`
+
+func (q *Queries) GetSequenceByNumber(ctx context.Context, number int64) (ChangeSequence, error) {
+	row := q.db.QueryRowContext(ctx, getSequenceByNumber, number)
+	var i ChangeSequence
+	err := row.Scan(
+		&i.ID,
+		&i.Number,
+		&i.AuthorID,
+		&i.Via,
+		&i.ApiTokenID,
+		&i.AgentName,
+		&i.Title,
+		&i.Reason,
+		&i.Status,
+		&i.StatusCode,
+		&i.StatusMessage,
+		&i.CurrentStep,
+		&i.Steps,
+		&i.StepsHash,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.FinishedAt,
 	)
 	return i, err
 }
@@ -410,8 +543,8 @@ const insertChange = `-- name: InsertChange :exec
 INSERT INTO change_requests (
     id, number, connection_id, author_id, via, api_token_id, agent_name,
     title, reason, status, sql_hash, preview_hash, previewed_at, preview_error,
-    revision, created_at, updated_at, submitted_at, expires_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    revision, created_at, updated_at, submitted_at, expires_at, sequence_id, step
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertChangeParams struct {
@@ -434,6 +567,8 @@ type InsertChangeParams struct {
 	UpdatedAt    int64
 	SubmittedAt  sql.NullInt64
 	ExpiresAt    sql.NullInt64
+	SequenceID   sql.NullString
+	Step         sql.NullInt64
 }
 
 func (q *Queries) InsertChange(ctx context.Context, arg InsertChangeParams) error {
@@ -457,6 +592,8 @@ func (q *Queries) InsertChange(ctx context.Context, arg InsertChangeParams) erro
 		arg.UpdatedAt,
 		arg.SubmittedAt,
 		arg.ExpiresAt,
+		arg.SequenceID,
+		arg.Step,
 	)
 	return err
 }
@@ -510,6 +647,48 @@ func (q *Queries) InsertReview(ctx context.Context, arg InsertReviewParams) erro
 		arg.PreviewHash,
 		arg.Revision,
 		arg.CreatedAt,
+	)
+	return err
+}
+
+const insertSequence = `-- name: InsertSequence :exec
+
+INSERT INTO change_sequences (
+    id, number, author_id, via, api_token_id, agent_name, title, reason,
+    status, current_step, steps, steps_hash, created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'running', 0, ?, ?, ?, ?)
+`
+
+type InsertSequenceParams struct {
+	ID         string
+	Number     int64
+	AuthorID   string
+	Via        string
+	ApiTokenID string
+	AgentName  string
+	Title      string
+	Reason     string
+	Steps      int64
+	StepsHash  string
+	CreatedAt  int64
+	UpdatedAt  int64
+}
+
+// Sequences (migration 00009).
+func (q *Queries) InsertSequence(ctx context.Context, arg InsertSequenceParams) error {
+	_, err := q.db.ExecContext(ctx, insertSequence,
+		arg.ID,
+		arg.Number,
+		arg.AuthorID,
+		arg.Via,
+		arg.ApiTokenID,
+		arg.AgentName,
+		arg.Title,
+		arg.Reason,
+		arg.Steps,
+		arg.StepsHash,
+		arg.CreatedAt,
+		arg.UpdatedAt,
 	)
 	return err
 }
@@ -571,7 +750,7 @@ func (q *Queries) InterruptExecutions(ctx context.Context, arg InterruptExecutio
 }
 
 const listApprovedWithReviewer = `-- name: ListApprovedWithReviewer :many
-SELECT DISTINCT c.id, c.number, c.connection_id, c.author_id, c.via, c.api_token_id, c.agent_name, c.title, c.reason, c.status, c.status_code, c.status_detail, c.status_message, c.sql_hash, c.preview_hash, c.previewed_at, c.preview_error, c.preview_changed, c.revision, c.attempts, c.next_attempt_at, c.last_attempt_error, c.execute_requested_at, c.last_refresh_at, c.created_at, c.updated_at, c.submitted_at, c.decided_at, c.executed_at, c.expires_at FROM change_requests c
+SELECT DISTINCT c.id, c.number, c.connection_id, c.author_id, c.via, c.api_token_id, c.agent_name, c.title, c.reason, c.status, c.status_code, c.status_detail, c.status_message, c.sql_hash, c.preview_hash, c.previewed_at, c.preview_error, c.preview_changed, c.revision, c.attempts, c.next_attempt_at, c.last_attempt_error, c.execute_requested_at, c.last_refresh_at, c.created_at, c.updated_at, c.submitted_at, c.decided_at, c.executed_at, c.expires_at, c.sequence_id, c.step FROM change_requests c
 JOIN reviews r ON r.change_id = c.id
 WHERE c.status IN ('pending_review', 'approved') AND r.reviewer_id = ? AND r.voided_at IS NULL
 ORDER BY c.number
@@ -617,6 +796,8 @@ func (q *Queries) ListApprovedWithReviewer(ctx context.Context, reviewerID strin
 			&i.DecidedAt,
 			&i.ExecutedAt,
 			&i.ExpiresAt,
+			&i.SequenceID,
+			&i.Step,
 		); err != nil {
 			return nil, err
 		}
@@ -632,12 +813,16 @@ func (q *Queries) ListApprovedWithReviewer(ctx context.Context, reviewerID strin
 }
 
 const listChanges = `-- name: ListChanges :many
-SELECT id, number, connection_id, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_detail, status_message, sql_hash, preview_hash, previewed_at, preview_error, preview_changed, revision, attempts, next_attempt_at, last_attempt_error, execute_requested_at, last_refresh_at, created_at, updated_at, submitted_at, decided_at, executed_at, expires_at FROM change_requests c
+SELECT id, number, connection_id, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_detail, status_message, sql_hash, preview_hash, previewed_at, preview_error, preview_changed, revision, attempts, next_attempt_at, last_attempt_error, execute_requested_at, last_refresh_at, created_at, updated_at, submitted_at, decided_at, executed_at, expires_at, sequence_id, step FROM change_requests c
 WHERE c.number < ?1
   AND (CAST(?2 AS TEXT) = '' OR c.status = ?2)
   AND (CAST(?3 AS TEXT) = '' OR c.connection_id = ?3)
   AND (CAST(?4 AS TEXT) = '' OR c.author_id = ?4)
   AND (CAST(?5 AS INTEGER) = 0 OR c.status IN ('draft', 'pending_review', 'approved', 'executing'))
+  -- A sequence is listed once, as its current step.
+  AND (c.sequence_id IS NULL OR c.step = (
+      SELECT s.current_step FROM change_sequences s WHERE s.id = c.sequence_id
+  ))
   AND (CAST(?6 AS TEXT) = '' OR (
       c.status = 'pending_review' AND c.author_id <> ?6
       AND NOT EXISTS (
@@ -708,6 +893,8 @@ func (q *Queries) ListChanges(ctx context.Context, arg ListChangesParams) ([]Cha
 			&i.DecidedAt,
 			&i.ExecutedAt,
 			&i.ExpiresAt,
+			&i.SequenceID,
+			&i.Step,
 		); err != nil {
 			return nil, err
 		}
@@ -723,7 +910,7 @@ func (q *Queries) ListChanges(ctx context.Context, arg ListChangesParams) ([]Cha
 }
 
 const listDueForExpiry = `-- name: ListDueForExpiry :many
-SELECT id, number, connection_id, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_detail, status_message, sql_hash, preview_hash, previewed_at, preview_error, preview_changed, revision, attempts, next_attempt_at, last_attempt_error, execute_requested_at, last_refresh_at, created_at, updated_at, submitted_at, decided_at, executed_at, expires_at FROM change_requests
+SELECT id, number, connection_id, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_detail, status_message, sql_hash, preview_hash, previewed_at, preview_error, preview_changed, revision, attempts, next_attempt_at, last_attempt_error, execute_requested_at, last_refresh_at, created_at, updated_at, submitted_at, decided_at, executed_at, expires_at, sequence_id, step FROM change_requests
 WHERE status IN ('pending_review', 'approved') AND expires_at IS NOT NULL AND expires_at <= ?
 ORDER BY number
 `
@@ -768,6 +955,8 @@ func (q *Queries) ListDueForExpiry(ctx context.Context, expiresAt sql.NullInt64)
 			&i.DecidedAt,
 			&i.ExecutedAt,
 			&i.ExpiresAt,
+			&i.SequenceID,
+			&i.Step,
 		); err != nil {
 			return nil, err
 		}
@@ -783,7 +972,7 @@ func (q *Queries) ListDueForExpiry(ctx context.Context, expiresAt sql.NullInt64)
 }
 
 const listExecuting = `-- name: ListExecuting :many
-SELECT id, number, connection_id, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_detail, status_message, sql_hash, preview_hash, previewed_at, preview_error, preview_changed, revision, attempts, next_attempt_at, last_attempt_error, execute_requested_at, last_refresh_at, created_at, updated_at, submitted_at, decided_at, executed_at, expires_at FROM change_requests WHERE status = 'executing' ORDER BY number
+SELECT id, number, connection_id, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_detail, status_message, sql_hash, preview_hash, previewed_at, preview_error, preview_changed, revision, attempts, next_attempt_at, last_attempt_error, execute_requested_at, last_refresh_at, created_at, updated_at, submitted_at, decided_at, executed_at, expires_at, sequence_id, step FROM change_requests WHERE status = 'executing' ORDER BY number
 `
 
 func (q *Queries) ListExecuting(ctx context.Context) ([]ChangeRequest, error) {
@@ -826,6 +1015,8 @@ func (q *Queries) ListExecuting(ctx context.Context) ([]ChangeRequest, error) {
 			&i.DecidedAt,
 			&i.ExecutedAt,
 			&i.ExpiresAt,
+			&i.SequenceID,
+			&i.Step,
 		); err != nil {
 			return nil, err
 		}
@@ -879,7 +1070,7 @@ func (q *Queries) ListExecutions(ctx context.Context, changeID string) ([]Execut
 }
 
 const listOpenByAuthor = `-- name: ListOpenByAuthor :many
-SELECT id, number, connection_id, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_detail, status_message, sql_hash, preview_hash, previewed_at, preview_error, preview_changed, revision, attempts, next_attempt_at, last_attempt_error, execute_requested_at, last_refresh_at, created_at, updated_at, submitted_at, decided_at, executed_at, expires_at FROM change_requests
+SELECT id, number, connection_id, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_detail, status_message, sql_hash, preview_hash, previewed_at, preview_error, preview_changed, revision, attempts, next_attempt_at, last_attempt_error, execute_requested_at, last_refresh_at, created_at, updated_at, submitted_at, decided_at, executed_at, expires_at, sequence_id, step FROM change_requests
 WHERE author_id = ? AND status IN ('draft', 'pending_review', 'approved')
 ORDER BY number
 `
@@ -924,6 +1115,8 @@ func (q *Queries) ListOpenByAuthor(ctx context.Context, authorID string) ([]Chan
 			&i.DecidedAt,
 			&i.ExecutedAt,
 			&i.ExpiresAt,
+			&i.SequenceID,
+			&i.Step,
 		); err != nil {
 			return nil, err
 		}
@@ -963,6 +1156,109 @@ func (q *Queries) ListReviews(ctx context.Context, changeID string) ([]Review, e
 			&i.CreatedAt,
 			&i.VoidedAt,
 			&i.VoidReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSequencesByID = `-- name: ListSequencesByID :many
+SELECT id, number, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_message, current_step, steps, steps_hash, created_at, updated_at, finished_at FROM change_sequences WHERE id IN (/*SLICE:ids*/?)
+`
+
+func (q *Queries) ListSequencesByID(ctx context.Context, ids []string) ([]ChangeSequence, error) {
+	query := listSequencesByID
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ChangeSequence{}
+	for rows.Next() {
+		var i ChangeSequence
+		if err := rows.Scan(
+			&i.ID,
+			&i.Number,
+			&i.AuthorID,
+			&i.Via,
+			&i.ApiTokenID,
+			&i.AgentName,
+			&i.Title,
+			&i.Reason,
+			&i.Status,
+			&i.StatusCode,
+			&i.StatusMessage,
+			&i.CurrentStep,
+			&i.Steps,
+			&i.StepsHash,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.FinishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSequencesToAdvance = `-- name: ListSequencesToAdvance :many
+SELECT s.id, s.number, s.author_id, s.via, s.api_token_id, s.agent_name, s.title, s.reason, s.status, s.status_code, s.status_message, s.current_step, s.steps, s.steps_hash, s.created_at, s.updated_at, s.finished_at FROM change_sequences s
+JOIN change_requests c ON c.sequence_id = s.id AND c.step = s.current_step
+WHERE s.status = 'running' AND c.status = 'draft' AND s.current_step > 0
+ORDER BY s.number
+`
+
+func (q *Queries) ListSequencesToAdvance(ctx context.Context) ([]ChangeSequence, error) {
+	rows, err := q.db.QueryContext(ctx, listSequencesToAdvance)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ChangeSequence{}
+	for rows.Next() {
+		var i ChangeSequence
+		if err := rows.Scan(
+			&i.ID,
+			&i.Number,
+			&i.AuthorID,
+			&i.Via,
+			&i.ApiTokenID,
+			&i.AgentName,
+			&i.Title,
+			&i.Reason,
+			&i.Status,
+			&i.StatusCode,
+			&i.StatusMessage,
+			&i.CurrentStep,
+			&i.Steps,
+			&i.StepsHash,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.FinishedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1064,6 +1360,66 @@ func (q *Queries) ListStatementsOfChanges(ctx context.Context, ids []string) ([]
 			&i.Error,
 			&i.Preview,
 			&i.PreviousPreview,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSteps = `-- name: ListSteps :many
+SELECT id, number, connection_id, author_id, via, api_token_id, agent_name, title, reason, status, status_code, status_detail, status_message, sql_hash, preview_hash, previewed_at, preview_error, preview_changed, revision, attempts, next_attempt_at, last_attempt_error, execute_requested_at, last_refresh_at, created_at, updated_at, submitted_at, decided_at, executed_at, expires_at, sequence_id, step FROM change_requests WHERE sequence_id = ? ORDER BY step
+`
+
+func (q *Queries) ListSteps(ctx context.Context, sequenceID sql.NullString) ([]ChangeRequest, error) {
+	rows, err := q.db.QueryContext(ctx, listSteps, sequenceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ChangeRequest{}
+	for rows.Next() {
+		var i ChangeRequest
+		if err := rows.Scan(
+			&i.ID,
+			&i.Number,
+			&i.ConnectionID,
+			&i.AuthorID,
+			&i.Via,
+			&i.ApiTokenID,
+			&i.AgentName,
+			&i.Title,
+			&i.Reason,
+			&i.Status,
+			&i.StatusCode,
+			&i.StatusDetail,
+			&i.StatusMessage,
+			&i.SqlHash,
+			&i.PreviewHash,
+			&i.PreviewedAt,
+			&i.PreviewError,
+			&i.PreviewChanged,
+			&i.Revision,
+			&i.Attempts,
+			&i.NextAttemptAt,
+			&i.LastAttemptError,
+			&i.ExecuteRequestedAt,
+			&i.LastRefreshAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.SubmittedAt,
+			&i.DecidedAt,
+			&i.ExecutedAt,
+			&i.ExpiresAt,
+			&i.SequenceID,
+			&i.Step,
 		); err != nil {
 			return nil, err
 		}
@@ -1191,6 +1547,21 @@ type SetRefreshAttemptParams struct {
 
 func (q *Queries) SetRefreshAttempt(ctx context.Context, arg SetRefreshAttemptParams) error {
 	_, err := q.db.ExecContext(ctx, setRefreshAttempt, arg.LastRefreshAt, arg.ID)
+	return err
+}
+
+const setSequenceStep = `-- name: SetSequenceStep :exec
+UPDATE change_sequences SET current_step = ?, updated_at = ? WHERE id = ? AND status = 'running'
+`
+
+type SetSequenceStepParams struct {
+	CurrentStep int64
+	UpdatedAt   int64
+	ID          string
+}
+
+func (q *Queries) SetSequenceStep(ctx context.Context, arg SetSequenceStepParams) error {
+	_, err := q.db.ExecContext(ctx, setSequenceStep, arg.CurrentStep, arg.UpdatedAt, arg.ID)
 	return err
 }
 

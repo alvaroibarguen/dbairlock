@@ -233,7 +233,8 @@ func TestMCP(t *testing.T) {
 			}
 		}
 		slices.Sort(names)
-		want := []string{"cancel_change", "find_tables", "get_change", "get_schema", "list_changes", "list_connections", "list_tables", "preview_change", "submit_change"}
+		want := []string{"cancel_change", "cancel_sequence", "find_tables", "get_change", "get_schema", "get_sequence", "list_changes",
+			"list_connections", "list_tables", "preview_change", "submit_change", "submit_sequence"}
 		if !slices.Equal(names, want) {
 			t.Errorf("tools = %v", names)
 		}
@@ -480,6 +481,94 @@ func TestMCP(t *testing.T) {
 			}
 		}
 		e.px.setDown(false)
+	})
+
+	t.Run("sequences", func(t *testing.T) {
+		args := map[string]any{
+			"title": "Copy Eve to billing", "reason": "Ticket 9.",
+			"steps": []map[string]any{
+				{"connection": "target", "statements": []string{"UPDATE users SET status = 'migrated' WHERE id = 5"}},
+				{"connection": "billing", "title": "Create the customer", "statements": []string{"INSERT INTO customers (id, display_name) VALUES (5, 'Eve')"}},
+			},
+		}
+		out := c.ok("submit_sequence", args)
+		seqNo := num(out["number"])
+		steps := list(out["steps"])
+		if seqNo == 0 || out["status"] != "running" || num(out["current_step"]) != 1 || len(steps) != 2 ||
+			out["review_url"] != publicURL+"/sequences/"+itoa(int(seqNo)) || !strings.Contains(out["message"].(string), "not undone") {
+			t.Fatalf("submit_sequence = %v", out)
+		}
+		s1, s2 := obj(steps[0]), obj(steps[1])
+		if s1["status"] != "pending_review" || num(obj(list(s1["statements"])[0])["rows_affected"]) != 1 ||
+			s2["status"] != "draft" || s2["title"] != "Create the customer" || obj(list(s2["statements"])[0])["rows_affected"] != nil {
+			t.Errorf("steps = %v", steps)
+		}
+		// A retry returns the same sequence.
+		if again := c.ok("submit_sequence", args); num(again["number"]) != seqNo || again["already_existed"] != true {
+			t.Errorf("retry = %v", again)
+		}
+		// The waiting step says what it waits for.
+		got := c.ok("get_change", map[string]any{"number": num(s2["number"])})
+		if num(got["sequence"]) != seqNo || num(got["step"]) != 2 || !strings.Contains(got["message"].(string), "after step 1 has run") {
+			t.Errorf("get_change of step 2 = %v", got)
+		}
+		// list_changes shows the sequence once, as its current step.
+		found := 0
+		for _, x := range list(c.ok("list_changes", nil)["changes"]) {
+			if num(obj(x)["sequence"]) == seqNo {
+				found++
+				if num(obj(x)["step"]) != 1 || num(obj(x)["steps"]) != 2 {
+					t.Errorf("listed step = %v", x)
+				}
+			}
+		}
+		if found != 1 {
+			t.Errorf("sequence listed %d times", found)
+		}
+
+		// A bad later step: the error names it, and nothing is created.
+		before := e.count("SELECT count(*) FROM change_requests")
+		c.fails("submit_sequence", map[string]any{"title": "Bad", "reason": "x", "steps": []map[string]any{
+			{"connection": "target", "statements": []string{"UPDATE users SET name = 'ok' WHERE id = 4"}},
+			{"connection": "billing", "statements": []string{"DELETE FROM customers"}},
+		}}, "Step 2", "WHERE", "nothing was created")
+		c.fails("submit_sequence", map[string]any{"title": "Bad", "reason": "x", "steps": []map[string]any{
+			{"connection": "target", "statements": []string{"UPDATE users SET name = 'ok' WHERE id = 4"}},
+			{"connection": "nowhere", "statements": []string{"DELETE FROM customers WHERE id = 1"}},
+		}}, "Step 2", "nowhere")
+		if n := e.count("SELECT count(*) FROM change_requests"); n != before {
+			t.Error("a refused sequence created changes")
+		}
+
+		// A person approves step 1; step 2 is then previewed for review.
+		first, err := e.a.changes.Get(e.ctx(e.bob), e.bob, itoa(int(num(s1["number"]))))
+		if err != nil {
+			t.Fatal(err)
+		}
+		e.mustApprove(e.bob, first)
+		e.run()
+		got = c.ok("get_sequence", map[string]any{"number": seqNo})
+		if num(got["current_step"]) != 2 || obj(list(got["steps"])[1])["status"] != "pending_review" ||
+			!strings.Contains(got["message"].(string), "Applied and not rolled back: step 1") {
+			t.Errorf("after step 1 = %v", got)
+		}
+
+		// Cancelling stops it; step 1 stays applied.
+		got = c.ok("cancel_sequence", map[string]any{"number": seqNo, "reason": "Done by hand."})
+		if got["status"] != "stopped" || got["status_code"] != "cancelled" || !strings.Contains(got["message"].(string), "step 1") {
+			t.Errorf("cancel_sequence = %v", got)
+		}
+		c.fails("cancel_sequence", map[string]any{"number": seqNo}, "stopped")
+		// Another person's sequence does not exist for the agent.
+		bobs, err := e.a.changes.CreateSequence(e.ctx(e.bob), e.bob, changes.SequenceDraft{Title: "Bob's", Steps: []changes.StepDraft{
+			{ConnectionID: e.conn, Statements: []string{"UPDATE users SET name = 'B1' WHERE id = 4"}},
+			{ConnectionID: e.conn, Statements: []string{"UPDATE users SET name = 'B2' WHERE id = 4"}},
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.fails("get_sequence", map[string]any{"number": bobs.Number}, "No such")
+		c.fails("cancel_sequence", map[string]any{"number": bobs.Number}, "No such")
 	})
 
 	t.Run("rate limits", func(t *testing.T) {

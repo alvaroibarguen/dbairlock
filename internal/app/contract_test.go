@@ -87,6 +87,11 @@ func TestRequestBodiesMatchTheContract(t *testing.T) {
 		{"POST", "/api/changes", `{"connection_id":"c","title":"t","statements":[{"sql":"DELETE FROM t WHERE id = 1","rows":1}]}`},
 		{"POST", "/api/changes/preview", `{"connection_id":"c","statements":[],"dry":true}`},
 		{"POST", "/api/changes/x/reviews", `{"decision":"approve","force":true}`},
+		{"POST", "/api/sequences", `{"title":"t","steps":[{"connection_id":"c","statements":["DELETE FROM t WHERE id = 1"],"run":"now"},{"connection_id":"c","statements":["x"]}]}`},
+		{"POST", "/api/sequences", `{"title":"t","steps":[{"connection_id":"c","statements":["x"]}],"atomic":true}`},
+		{"POST", "/api/sequences", `{"title":"t","steps":[{"statements":["x"]},{"connection_id":"c","statements":["x"]}]}`},
+		{"POST", "/api/sequences", `{"title":"t","steps":"one"}`},
+		{"POST", "/api/sequences/x/cancel", `{"reason":"r","force":true}`},
 		{"POST", "/api/connections", `{"name":"n","connector":"postgres","config":{},"password":"p","ssl":true}`},
 		{"PUT", "/api/setup/signin", `{"public_url":"https://x.test","clientId":"y"}`},
 		// Wrong types and missing required members.

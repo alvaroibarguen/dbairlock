@@ -32,6 +32,18 @@ const (
 	ExecutionDeferred    Action = "execution.deferred"
 	ExecutionInterrupted Action = "execution.interrupted"
 
+	// Sequences (subject "sequence"): ordered changes across connections.
+	// Each step also records its own change and execution events.
+	SequenceCreated   Action = "sequence.created"
+	SequenceSubmitted Action = "sequence.submitted"
+	// SequenceAdvanced: a step executed and the next one becomes current.
+	SequenceAdvanced  Action = "sequence.advanced"
+	SequenceCompleted Action = "sequence.completed"
+	// SequenceStopped: a step failed, was rejected, expired or was
+	// cancelled; the later steps were cancelled, the earlier ones stay
+	// applied.
+	SequenceStopped Action = "sequence.stopped"
+
 	// Secrets. Payloads carry the secret's reference, never its value.
 	SecretSet      Action = "secret.set"
 	SecretReplaced Action = "secret.replaced"

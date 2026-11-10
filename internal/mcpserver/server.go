@@ -46,6 +46,9 @@ type Changes interface {
 	Get(ctx context.Context, p identity.Principal, ref string) (changes.Change, error)
 	List(ctx context.Context, p identity.Principal, f changes.ListFilter) (changes.Page, error)
 	Cancel(ctx context.Context, p identity.Principal, ref, reason string) (changes.Change, error)
+	CreateSequence(ctx context.Context, p identity.Principal, in changes.SequenceDraft) (changes.Sequence, error)
+	GetSequence(ctx context.Context, p identity.Principal, ref string) (changes.Sequence, error)
+	CancelSequence(ctx context.Context, p identity.Principal, ref, reason string) (changes.Sequence, error)
 }
 
 // Targets is the targets module as the MCP server uses it.
@@ -80,6 +83,7 @@ type Server struct {
 // initialization.
 const Instructions = `dbairlock lets you propose row-level data changes (INSERT, UPDATE, DELETE) to production databases. A person reviews and approves every change before dbairlock runs it; you cannot approve or run anything yourself.
 Workflow: call list_connections and find_tables to locate the right connection and table, then list_tables or get_schema for columns. Check your SQL with preview_change, then call submit_change and give the user the review URL it returns. Use get_change to follow up later; do not poll in a tight loop.
+When one change must run only after another has run, possibly on different databases, use submit_sequence: its steps are reviewed and run in order, each atomic on its own database, and steps already run are not undone if a later one stops. Follow it with get_sequence.
 Only single-table INSERT, UPDATE and DELETE statements are accepted, and UPDATE and DELETE need a WHERE clause. You see row counts, never row data.`
 
 // New returns the MCP server.
@@ -98,6 +102,7 @@ func New(opts Options) (*Server, error) {
 		})
 	s.registerDiscovery()
 	s.registerChanges()
+	s.registerSequences()
 	return s, nil
 }
 

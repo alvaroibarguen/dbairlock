@@ -41,10 +41,18 @@ func (s *Server) toolError(ctx context.Context, tool string, err error) error {
 		ie  *changes.InputError
 		se  *changes.StateError
 		dup *changes.DuplicateError
+		ste *changes.StepError
 	)
 	switch {
 	case errors.As(err, &ue), errors.As(err, &rl):
 		return err
+	case errors.As(err, &ste):
+		var inner *changes.DryRunError
+		if errors.As(ste.Err, &inner) {
+			detail := strings.TrimPrefix(dryRunMessage(inner), "The change was not submitted and nothing was created. ")
+			return agentErr(fmt.Sprintf("The sequence was not submitted and nothing was created. Step %d: %s", ste.Step+1, detail))
+		}
+		return s.toolError(ctx, tool, ste.Err)
 	case errors.As(err, &dre):
 		return agentErr(dryRunMessage(dre))
 	case errors.As(err, &ie):
@@ -135,6 +143,14 @@ func inputMessage(e *changes.InputError) string {
 // fieldLabel converts a changes field name to the tool argument it came
 // from.
 func fieldLabel(field string) string {
+	// steps[1].statements[0] -> "Step 2, Statement 1".
+	if rest, ok := strings.CutPrefix(field, "steps["); ok {
+		if idx, sub, ok := strings.Cut(rest, "]."); ok {
+			if n, err := strconv.Atoi(idx); err == nil {
+				return "Step " + strconv.Itoa(n+1) + ", " + fieldLabel(sub)
+			}
+		}
+	}
 	if rest, ok := strings.CutPrefix(field, "statements["); ok {
 		if n, err := strconv.Atoi(strings.TrimSuffix(rest, "]")); err == nil {
 			return statementLabel(n)

@@ -1101,6 +1101,118 @@ paths:
                 $ref: "#/components/schemas/ChangeEventList"
         default:
           $ref: "#/components/responses/Error"
+  /api/sequences:
+    post:
+      operationId: createSequence
+      summary: Submit a sequence
+      description: |
+        Submits 2 to 10 steps that run in order, each a change on its own
+        connection. Every step's statements are validated against its
+        connection; only the first step is dry-run (the later steps' rows
+        may depend on the earlier ones) and submitted for review. A later
+        step is dry-run and submitted when the step before it has run.
+        Each step is atomic on its own database; the sequence as a whole is
+        not, and steps already run are not undone if a later one stops. On
+        a problem nothing is created: 422 `validation_failed` (fields like
+        `steps[1].statements[0]`), 422 `statements_invalid` or 502
+        `target_unavailable` with `details.step`. If the caller already has
+        a running sequence with identical steps, it is returned (200) with
+        `already_existed`.
+      tags: [sequences]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SequenceCreate"
+      responses:
+        "200":
+          description: A running sequence with identical steps already existed; it is returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sequence"
+        "201":
+          description: The new sequence; its first step is in review.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sequence"
+        "422":
+          $ref: "#/components/responses/Error"
+        "502":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/sequences/{id}:
+    get:
+      operationId: getSequence
+      summary: One sequence
+      description: |
+        The sequence and its steps in order, with counts but no row images
+        (each step is a change: `GET /api/changes/{number}` has its
+        detail). `id` is the sequence's id or its number. Any signed-in
+        user.
+      tags: [sequences]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The sequence.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sequence"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/sequences/{id}/cancel:
+    post:
+      operationId: cancelSequence
+      summary: Cancel a sequence
+      description: |
+        The author or an admin stops a running sequence: its current step
+        is cancelled (or, if it is executing right now, finishes) and every
+        later step is cancelled. Steps already run stay applied.
+      tags: [sequences]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangeCancel"
+      responses:
+        "200":
+          description: The stopped sequence.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sequence"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/sequences/{id}/events:
+    get:
+      operationId: listSequenceEvents
+      summary: The timeline of a sequence
+      description: |
+        The sequence's own audit events (created, submitted, advanced,
+        completed, stopped), oldest first. Each step's events are in that
+        step's timeline. Any signed-in user.
+      tags: [sequences]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeEventList"
+        default:
+          $ref: "#/components/responses/Error"
   /api/audit:
     get:
       operationId: listAuditEvents
@@ -1637,6 +1749,9 @@ components:
         change_number:
           type: integer
           format: int64
+        step:
+          type: integer
+          description: For a sequence, the step (from 1) whose statements the problem is in.
     StatementIssue:
       type: object
       required: [statement, code, message, position]
@@ -1847,10 +1962,10 @@ components:
           description: The webhook body. `generic` posts one flat JSON object; `slack` posts what Slack incoming webhooks accept.
         notify.events:
           type: array
-          maxItems: 5
+          maxItems: 7
           items:
             type: string
-            enum: [change.submitted, change.approved, change.rejected, change.executed, change.failed]
+            enum: [change.submitted, change.approved, change.rejected, change.executed, change.failed, sequence.completed, sequence.stopped]
             maxLength: 32
           description: The events that are sent.
     SettingValuesPatch:
@@ -2472,6 +2587,141 @@ components:
         submitted_at:
           type: string
           format: date-time
+        sequence:
+          $ref: "#/components/schemas/SequenceRef"
+    SequenceStatus:
+      type: string
+      enum: [running, completed, stopped]
+    SequenceRef:
+      type: object
+      description: Places a change in its sequence. A sequence is listed once, as its current step.
+      required: [id, number, title, status, step, steps, current_step]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        number:
+          type: integer
+          format: int64
+        title:
+          type: string
+        status:
+          $ref: "#/components/schemas/SequenceStatus"
+        step:
+          type: integer
+          description: This change's position in the sequence, from 1.
+        steps:
+          type: integer
+        current_step:
+          type: integer
+          description: The step (from 1) that is open now, or the one that ended the sequence.
+    SequenceActions:
+      type: object
+      required: [cancel]
+      additionalProperties: false
+      properties:
+        cancel:
+          type: boolean
+    Sequence:
+      type: object
+      description: |
+        Ordered changes across connections. Each step is atomic on its own
+        database; the sequence as a whole is not. `status_message` says why
+        a stopped sequence stopped.
+      required:
+        - id
+        - number
+        - author
+        - via
+        - title
+        - reason
+        - status
+        - current_step
+        - steps
+        - actions
+        - already_existed
+        - created_at
+        - updated_at
+        - server_time
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        number:
+          type: integer
+          format: int64
+        author:
+          $ref: "#/components/schemas/ChangePerson"
+        via:
+          type: string
+          enum: [web, mcp]
+        agent_name:
+          type: string
+        title:
+          type: string
+        reason:
+          type: string
+        status:
+          $ref: "#/components/schemas/SequenceStatus"
+        status_code:
+          type: string
+          enum: [failed, rejected, expired, cancelled]
+        status_message:
+          type: string
+        current_step:
+          type: integer
+          description: The step (from 1) that is open now, or the one that ended the sequence.
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChangeSummary"
+        actions:
+          $ref: "#/components/schemas/SequenceActions"
+        already_existed:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+        server_time:
+          type: string
+          format: date-time
+    SequenceStepCreate:
+      type: object
+      required: [connection_id, statements]
+      additionalProperties: false
+      properties:
+        connection_id:
+          type: string
+          maxLength: 64
+        title:
+          type: string
+          maxLength: 1000
+          description: Optional; defaults to the sequence's title with the step.
+        statements:
+          $ref: "#/components/schemas/Statements"
+    SequenceCreate:
+      type: object
+      required: [title, steps]
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          maxLength: 1000
+        reason:
+          type: string
+          maxLength: 20000
+        steps:
+          type: array
+          minItems: 2
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/SequenceStepCreate"
     Change:
       type: object
       required:
@@ -2588,6 +2838,8 @@ components:
           $ref: "#/components/schemas/ChangeActions"
         already_existed:
           type: boolean
+        sequence:
+          $ref: "#/components/schemas/SequenceRef"
         created_at:
           type: string
           format: date-time

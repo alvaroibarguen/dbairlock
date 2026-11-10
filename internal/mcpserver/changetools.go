@@ -121,6 +121,8 @@ type changeOut struct {
 	SubmittedAt       *time.Time       `json:"submitted_at,omitempty"`
 	ExpiresAt         *time.Time       `json:"expires_at,omitempty" jsonschema:"When an unexecuted change stops being runnable"`
 	ExecutedAt        *time.Time       `json:"executed_at,omitempty"`
+	Sequence          int64            `json:"sequence,omitempty" jsonschema:"When the change is a step of a sequence: the sequence number (get_sequence)"`
+	Step              int              `json:"step,omitempty" jsonschema:"When the change is a step of a sequence: its position, from 1"`
 }
 
 type listIn struct {
@@ -136,6 +138,9 @@ type ChangeSummary struct {
 	Status     string    `json:"status"`
 	CreatedAt  time.Time `json:"created_at"`
 	ReviewURL  string    `json:"review_url"`
+	Sequence   int64     `json:"sequence,omitempty" jsonschema:"When the change is the current step of a sequence: the sequence number (get_sequence). A sequence is listed once, as its current step"`
+	Step       int       `json:"step,omitempty" jsonschema:"The step's position in its sequence, from 1"`
+	Steps      int       `json:"steps,omitempty" jsonschema:"How many steps the sequence has"`
 }
 
 type listOut struct {
@@ -329,6 +334,9 @@ func (s *Server) getChange(ctx context.Context, c call[numberIn]) (result[change
 		Reviews: []ReviewInfo{}, CreatedAt: ch.CreatedAt, SubmittedAt: ch.SubmittedAt, ExpiresAt: ch.ExpiresAt,
 		ExecutedAt: ch.ExecutedAt, Execution: execution(ch),
 	}
+	if q := ch.Sequence; q != nil {
+		out.Sequence, out.Step = q.Number, q.Step+1
+	}
 	for _, r := range ch.Reviews {
 		who := r.Reviewer.Name
 		if who == "" {
@@ -363,6 +371,14 @@ func statusLabel(st changes.Status) string {
 // describe says in one or two sentences what ch's status means and what
 // happens next.
 func describe(ch changes.Change) string {
+	if q := ch.Sequence; q != nil {
+		switch {
+		case ch.Status == changes.StatusDraft && q.Status == changes.SequenceRunning:
+			return fmt.Sprintf("Waiting: step %d of sequence #%d. It is previewed and goes to review after step %d has run.", q.Step+1, q.Number, q.Step)
+		case ch.Status == changes.StatusCancelled && ch.StatusCode == changes.CancelledSequenceStopped:
+			return fmt.Sprintf("Cancelled: sequence #%d stopped before this step ran (%s). Call get_sequence for the steps that were applied.", q.Number, ch.StatusMessage)
+		}
+	}
 	switch ch.Status {
 	case changes.StatusDraft:
 		return "A draft: it is not submitted for review yet. The user can submit it from the dashboard."
@@ -426,10 +442,14 @@ func (s *Server) listChanges(ctx context.Context, c call[listIn]) (result[listOu
 	}
 	out := listOut{Changes: []ChangeSummary{}, More: page.NextBefore != 0}
 	for _, ch := range page.Changes {
-		out.Changes = append(out.Changes, ChangeSummary{
+		sum := ChangeSummary{
 			Number: ch.Number, Title: ch.Title, Connection: ch.ConnectionName, Status: string(ch.Status),
 			CreatedAt: ch.CreatedAt, ReviewURL: s.reviewURL(ch.Number),
-		})
+		}
+		if q := ch.Sequence; q != nil {
+			sum.Sequence, sum.Step, sum.Steps = q.Number, q.Step+1, q.Steps
+		}
+		out.Changes = append(out.Changes, sum)
 	}
 	return result[listOut]{out: out, summary: fmt.Sprintf("%d changes.", len(out.Changes))}, nil
 }

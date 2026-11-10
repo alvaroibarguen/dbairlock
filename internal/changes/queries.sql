@@ -5,8 +5,8 @@ UPDATE change_counter SET last = last + 1 WHERE id = 1 RETURNING last;
 INSERT INTO change_requests (
     id, number, connection_id, author_id, via, api_token_id, agent_name,
     title, reason, status, sql_hash, preview_hash, previewed_at, preview_error,
-    revision, created_at, updated_at, submitted_at, expires_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    revision, created_at, updated_at, submitted_at, expires_at, sequence_id, step
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: GetChange :one
 SELECT * FROM change_requests WHERE id = ?;
@@ -17,7 +17,7 @@ SELECT * FROM change_requests WHERE number = ?;
 -- name: FindOpenDuplicate :one
 SELECT * FROM change_requests
 WHERE author_id = ? AND connection_id = ? AND sql_hash = ?
-  AND status IN ('pending_review', 'approved') AND id <> ?
+  AND status IN ('pending_review', 'approved') AND id <> ? AND sequence_id IS NULL
 ORDER BY number LIMIT 1;
 
 -- name: UpdateContent :exec
@@ -117,6 +117,10 @@ WHERE c.number < sqlc.arg(before_number)
   AND (CAST(sqlc.arg(connection_id) AS TEXT) = '' OR c.connection_id = sqlc.arg(connection_id))
   AND (CAST(sqlc.arg(author_id) AS TEXT) = '' OR c.author_id = sqlc.arg(author_id))
   AND (CAST(sqlc.arg(open_only) AS INTEGER) = 0 OR c.status IN ('draft', 'pending_review', 'approved', 'executing'))
+  -- A sequence is listed once, as its current step.
+  AND (c.sequence_id IS NULL OR c.step = (
+      SELECT s.current_step FROM change_sequences s WHERE s.id = c.sequence_id
+  ))
   AND (CAST(sqlc.arg(reviewer_id) AS TEXT) = '' OR (
       c.status = 'pending_review' AND c.author_id <> sqlc.arg(reviewer_id)
       AND NOT EXISTS (
@@ -192,3 +196,42 @@ SELECT * FROM executions WHERE change_id = ? ORDER BY attempt, started_at;
 
 -- name: CountExecutions :one
 SELECT count(*) FROM executions WHERE change_id = ?;
+
+-- Sequences (migration 00009).
+
+-- name: InsertSequence :exec
+INSERT INTO change_sequences (
+    id, number, author_id, via, api_token_id, agent_name, title, reason,
+    status, current_step, steps, steps_hash, created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'running', 0, ?, ?, ?, ?);
+
+-- name: GetSequence :one
+SELECT * FROM change_sequences WHERE id = ?;
+
+-- name: GetSequenceByNumber :one
+SELECT * FROM change_sequences WHERE number = ?;
+
+-- name: FindOpenSequence :one
+SELECT * FROM change_sequences
+WHERE author_id = ? AND steps_hash = ? AND status = 'running'
+ORDER BY number LIMIT 1;
+
+-- name: ListSequencesByID :many
+SELECT * FROM change_sequences WHERE id IN (sqlc.slice(ids));
+
+-- name: ListSteps :many
+SELECT * FROM change_requests WHERE sequence_id = ? ORDER BY step;
+
+-- name: SetSequenceStep :exec
+UPDATE change_sequences SET current_step = ?, updated_at = ? WHERE id = ? AND status = 'running';
+
+-- name: FinishSequence :exec
+UPDATE change_sequences SET
+    status = ?, status_code = ?, status_message = ?, current_step = ?, finished_at = ?, updated_at = ?
+WHERE id = ? AND status = 'running';
+
+-- name: ListSequencesToAdvance :many
+SELECT s.* FROM change_sequences s
+JOIN change_requests c ON c.sequence_id = s.id AND c.step = s.current_step
+WHERE s.status = 'running' AND c.status = 'draft' AND s.current_step > 0
+ORDER BY s.number;

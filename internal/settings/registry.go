@@ -79,6 +79,7 @@ var NotifyFormats = []string{"generic", "slack"}
 // NotifyEventNames are the accepted entries of notify.events.
 var NotifyEventNames = []string{
 	"change.submitted", "change.approved", "change.rejected", "change.executed", "change.failed",
+	"sequence.completed", "sequence.stopped",
 }
 
 // Definition declares one setting. Min and Max bound an int (Min 1 on a
@@ -138,7 +139,7 @@ var definitions = []Definition{
 
 	{Key: NotifyEnabled.name, Type: TypeBool, Default: false},
 	{Key: NotifyFormat.name, Type: TypeString, Default: "generic", Min: 1, MaxLen: 16, check: oneOf(NotifyFormats)},
-	{Key: NotifyEvents.name, Type: TypeStringList, Default: slices.Clone(NotifyEventNames), MaxLen: 32, MaxItems: 5, check: someOf(NotifyEventNames)},
+	{Key: NotifyEvents.name, Type: TypeStringList, Default: slices.Clone(NotifyEventNames), MaxLen: 32, MaxItems: 7, check: someOf(NotifyEventNames)},
 }
 
 // oneOf accepts exactly one of allowed.

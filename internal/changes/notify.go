@@ -21,8 +21,16 @@ type Notifier interface {
 // SQL, row data or reasons.
 type Notice struct {
 	// Event is change.submitted, change.approved, change.rejected,
-	// change.executed or change.failed.
-	Event    string
+	// change.executed or change.failed, or sequence.completed or
+	// sequence.stopped.
+	Event string
+	// Sequence is true for a sequence event: Number and Title are the
+	// sequence's, Database is empty (its steps may use several), and
+	// Message says how it ended ("Stopped: step 2 failed.").
+	Sequence bool
+	Message  string
+	// Step places a change in its sequence ("step 2 of 3"), or is empty.
+	Step     string
 	Number   int64
 	Title    string
 	Database string // the connection's name
@@ -60,6 +68,11 @@ func (s *Service) notify(ctx context.Context, tx *store.Tx, action audit.Action,
 	if c, err := s.opts.Targets.Get(ctx, row.ConnectionID); err == nil {
 		n.Database = c.Name
 	}
+	if ref, err := sequenceRefFor(ctx, tx, row); err != nil {
+		return err
+	} else if ref != nil {
+		n.Step = fmt.Sprintf("step %d of %d of sequence #%d", ref.Step+1, ref.Steps, ref.Number)
+	}
 	users, err := s.opts.Directory.Users(ctx, tx, []string{row.AuthorID})
 	if err != nil {
 		return err
@@ -72,6 +85,39 @@ func (s *Service) notify(ctx context.Context, tx *store.Tx, action audit.Action,
 	}
 	if base := settings.Get(s.opts.Settings, settings.InstancePublicURL); base != "" {
 		n.URL = fmt.Sprintf("%s/changes/%d", strings.TrimRight(base, "/"), row.Number)
+	}
+	return s.opts.Notifier.Notify(ctx, tx, n)
+}
+
+// sequenceNoticeEvents maps the sequence audit actions that notify to their
+// notice event.
+var sequenceNoticeEvents = map[audit.Action]string{
+	audit.SequenceCompleted: "sequence.completed",
+	audit.SequenceStopped:   "sequence.stopped",
+}
+
+// notifySequence queues the notice for action on sequence id, if action is
+// one that notifies.
+func (s *Service) notifySequence(ctx context.Context, tx *store.Tx, action audit.Action, id string) error {
+	event, ok := sequenceNoticeEvents[action]
+	if !ok || s.opts.Notifier == nil {
+		return nil
+	}
+	row, err := changesdb.New(tx).GetSequence(ctx, id)
+	if err != nil {
+		return fmt.Errorf("changes: read sequence for notification: %w", err)
+	}
+	n := Notice{Event: event, Sequence: true, Number: row.Number, Title: row.Title, Message: row.StatusMessage}
+	if action == audit.SequenceCompleted {
+		n.Message = fmt.Sprintf("All %d steps executed.", row.Steps)
+	}
+	users, err := s.opts.Directory.Users(ctx, tx, []string{row.AuthorID})
+	if err != nil {
+		return err
+	}
+	n.Author = users[row.AuthorID].Email
+	if base := settings.Get(s.opts.Settings, settings.InstancePublicURL); base != "" {
+		n.URL = fmt.Sprintf("%s/sequences/%d", strings.TrimRight(base, "/"), row.Number)
 	}
 	return s.opts.Notifier.Notify(ctx, tx, n)
 }

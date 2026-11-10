@@ -15,6 +15,10 @@
 // failure: nothing ran, so the change goes back to approved and is retried
 // with backoff until its approval expires. Any error after the transaction
 // began is final.
+//
+// A step of a sequence runs like any change. Each cycle also previews and
+// submits the next step of a sequence whose previous step executed, in
+// case that did not happen right after the execution.
 package executor
 
 import (
@@ -37,6 +41,10 @@ import (
 type Changes interface {
 	FailInterrupted(ctx context.Context) (int, error)
 	ExpireDue(ctx context.Context) (int, error)
+	// AdvanceSequences previews and submits the next step of every
+	// sequence whose previous step executed but whose next step was not
+	// submitted yet (normally done right after the execution).
+	AdvanceSequences(ctx context.Context) (int, error)
 	ClaimNext(ctx context.Context) (*changes.Claim, error)
 	RecordExecuted(ctx context.Context, claim changes.Claim, results []connector.Result) error
 	RecordFailed(ctx context.Context, claim changes.Claim, f changes.Failure) error
@@ -154,6 +162,9 @@ func (e *Executor) cycle(ctx context.Context) int {
 	sys := systemCtx(context.WithoutCancel(ctx))
 	if _, err := e.opts.Changes.ExpireDue(sys); err != nil {
 		e.opts.Logger.Error("executor: expiring changes failed", slog.Any("error", err))
+	}
+	if _, err := e.opts.Changes.AdvanceSequences(sys); err != nil {
+		e.opts.Logger.Error("executor: previewing the next step of a sequence failed", slog.Any("error", err))
 	}
 	started := 0
 	for ctx.Err() == nil {

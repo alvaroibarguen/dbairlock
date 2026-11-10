@@ -87,16 +87,21 @@ func (o runOutcome) expectations() []expectation {
 // checkTitle validates and normalizes a title: one line, 1 to 200
 // characters.
 func checkTitle(fe *fieldErrs, title string) string {
+	return checkTitleAt(fe, "title", title)
+}
+
+// checkTitleAt is checkTitle for the field named field.
+func checkTitleAt(fe *fieldErrs, field, title string) string {
 	title = strings.TrimSpace(title)
 	switch {
 	case !utf8.ValidString(title):
-		fe.add("title", "The title is not valid text.")
+		fe.add(field, "The title is not valid text.")
 	case title == "":
-		fe.add("title", "Enter a title.")
+		fe.add(field, "Enter a title.")
 	case utf8.RuneCountInString(title) > MaxTitle:
-		fe.add("title", "Use at most %d characters.", MaxTitle)
+		fe.add(field, "Use at most %d characters.", MaxTitle)
 	case strings.ContainsFunc(title, unicode.IsControl):
-		fe.add("title", "The title must be one line of plain text.")
+		fe.add(field, "The title must be one line of plain text.")
 	}
 	return title
 }
@@ -120,18 +125,24 @@ func checkText(fe *fieldErrs, field, text string, limit int) string {
 // 20 statements, none empty, each at most 64 KB. Surrounding whitespace is
 // trimmed; the result is exactly the text that is hashed and executed.
 func checkStatements(fe *fieldErrs, in []string) []string {
+	return checkStatementsAt(fe, "statements", in)
+}
+
+// checkStatementsAt is checkStatements with field names under prefix
+// ("steps[1].statements").
+func checkStatementsAt(fe *fieldErrs, prefix string, in []string) []string {
 	if len(in) == 0 {
-		fe.add("statements", "Add at least one statement.")
+		fe.add(prefix, "Add at least one statement.")
 		return nil
 	}
 	if len(in) > MaxStatements {
-		fe.add("statements", "A change can have at most %d statements.", MaxStatements)
+		fe.add(prefix, "A change can have at most %d statements.", MaxStatements)
 		return nil
 	}
 	out := make([]string, len(in))
 	for i, s := range in {
 		s = strings.TrimSpace(s)
-		field := fmt.Sprintf("statements[%d]", i)
+		field := fmt.Sprintf("%s[%d]", prefix, i)
 		switch {
 		case !utf8.ValidString(s):
 			fe.add(field, "The statement is not valid UTF-8 text.")
@@ -185,6 +196,23 @@ func sentence(msg string) string {
 		msg += "."
 	}
 	return msg
+}
+
+// validateOnly checks sqls against the connection's rules without touching
+// the database: what a sequence step that waits for an earlier step gets
+// at submission, since its rows may depend on that step. The outcome has
+// no results, so it is never ok(); use valid().
+func (s *Service) validateOnly(c targets.Connection, sqls []string) (runOutcome, error) {
+	out := runOutcome{Conn: c}
+	res, err := s.validate(c, sqls)
+	if err != nil {
+		return out, err
+	}
+	out.Statements = res
+	if c.ArchivedAt != nil {
+		out.Problem = &Issue{Code: CodeArchived, Message: "This connection is archived; changes cannot run on it.", Position: -1}
+	}
+	return out, nil
 }
 
 // errRevalidated stops a dry run whose statements no longer pass

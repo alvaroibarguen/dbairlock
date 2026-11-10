@@ -66,6 +66,9 @@ func (s *Service) assemble(ctx context.Context, p identity.Principal, row change
 	if err := s.fill(ctx, &c, row, stmts, reviews, users, conns, detail); err != nil {
 		return Change{}, err
 	}
+	if c.Sequence, err = sequenceRefFor(ctx, db, row); err != nil {
+		return Change{}, err
+	}
 	if detail {
 		execs, err := q.ListExecutions(ctx, row.ID)
 		if err != nil {
@@ -147,8 +150,9 @@ func (s *Service) actions(p identity.Principal, c Change, reviews []changesdb.Re
 	})
 	pending := c.Status == StatusPendingReview
 	return Actions{
-		Edit:           author && submit && (c.Status == StatusDraft || pending),
-		Submit:         author && submit && c.Status == StatusDraft,
+		Edit: author && submit && (c.Status == StatusDraft || pending),
+		// A step of a sequence is submitted when the step before it ran.
+		Submit:         author && submit && c.Status == StatusDraft && c.Sequence == nil,
 		Cancel:         ((author && submit) || admin) && c.Status.Open(),
 		Approve:        review && !author && pending && !approvedAlready,
 		Reject:         review && !author && pending,
@@ -227,8 +231,22 @@ func (s *Service) List(ctx context.Context, p identity.Principal, f ListFilter) 
 	}
 	ids := make([]string, len(rows))
 	authors := make([]string, len(rows))
+	seqIDs := []string{}
 	for i, r := range rows {
 		ids[i], authors[i] = r.ID, r.AuthorID
+		if r.SequenceID.Valid {
+			seqIDs = append(seqIDs, r.SequenceID.String)
+		}
+	}
+	seqs := map[string]changesdb.ChangeSequence{}
+	if len(seqIDs) > 0 {
+		list, err := q.ListSequencesByID(ctx, seqIDs)
+		if err != nil {
+			return Page{}, fmt.Errorf("changes: list sequences: %w", err)
+		}
+		for _, sq := range list {
+			seqs[sq.ID] = sq
+		}
 	}
 	stmts := []changesdb.ChangeStatement{}
 	if len(ids) > 0 {
@@ -251,6 +269,9 @@ func (s *Service) List(ctx context.Context, p identity.Principal, f ListFilter) 
 			return Page{}, err
 		}
 		c.Approvals = -1 // not computed in lists
+		if sq, ok := seqs[r.SequenceID.String]; ok && r.SequenceID.Valid {
+			c.Sequence = refOf(sq, r.Step.Int64)
+		}
 		page.Changes = append(page.Changes, visible(p, c))
 	}
 	if !isAgent(p) {

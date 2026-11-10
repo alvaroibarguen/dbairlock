@@ -947,6 +947,104 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sequences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit a sequence
+         * @description Submits 2 to 10 steps that run in order, each a change on its own
+         *     connection. Every step's statements are validated against its
+         *     connection; only the first step is dry-run (the later steps' rows
+         *     may depend on the earlier ones) and submitted for review. A later
+         *     step is dry-run and submitted when the step before it has run.
+         *     Each step is atomic on its own database; the sequence as a whole is
+         *     not, and steps already run are not undone if a later one stops. On
+         *     a problem nothing is created: 422 `validation_failed` (fields like
+         *     `steps[1].statements[0]`), 422 `statements_invalid` or 502
+         *     `target_unavailable` with `details.step`. If the caller already has
+         *     a running sequence with identical steps, it is returned (200) with
+         *     `already_existed`.
+         */
+        post: operations["createSequence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sequences/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One sequence
+         * @description The sequence and its steps in order, with counts but no row images
+         *     (each step is a change: `GET /api/changes/{number}` has its
+         *     detail). `id` is the sequence's id or its number. Any signed-in
+         *     user.
+         */
+        get: operations["getSequence"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sequences/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a sequence
+         * @description The author or an admin stops a running sequence: its current step
+         *     is cancelled (or, if it is executing right now, finishes) and every
+         *     later step is cancelled. Steps already run stay applied.
+         */
+        post: operations["cancelSequence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sequences/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The timeline of a sequence
+         * @description The sequence's own audit events (created, submitted, advanced,
+         *     completed, stopped), oldest first. Each step's events are in that
+         *     step's timeline. Any signed-in user.
+         */
+        get: operations["listSequenceEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/audit": {
         parameters: {
             query?: never;
@@ -1253,6 +1351,8 @@ export interface components {
             change_id?: string;
             /** Format: int64 */
             change_number?: number;
+            /** @description For a sequence, the step (from 1) whose statements the problem is in. */
+            step?: number;
         };
         StatementIssue: {
             /** @description Zero-based index of the statement. */
@@ -1342,7 +1442,7 @@ export interface components {
              */
             "notify.format": "generic" | "slack";
             /** @description The events that are sent. */
-            "notify.events": ("change.submitted" | "change.approved" | "change.rejected" | "change.executed" | "change.failed")[];
+            "notify.events": ("change.submitted" | "change.approved" | "change.rejected" | "change.executed" | "change.failed" | "sequence.completed" | "sequence.stopped")[];
         };
         /** @description The settings to change; omitted settings are unchanged. */
         SettingValuesPatch: {
@@ -1381,7 +1481,7 @@ export interface components {
              */
             "notify.format"?: "generic" | "slack";
             /** @description The events that are sent. */
-            "notify.events"?: ("change.submitted" | "change.approved" | "change.rejected" | "change.executed" | "change.failed")[];
+            "notify.events"?: ("change.submitted" | "change.approved" | "change.rejected" | "change.executed" | "change.failed" | "sequence.completed" | "sequence.stopped")[];
         };
         /** @description One input of a connection form, declared by the connector. */
         ConnectorField: {
@@ -1699,6 +1799,69 @@ export interface components {
             updated_at: string;
             /** Format: date-time */
             submitted_at?: string;
+            sequence?: components["schemas"]["SequenceRef"];
+        };
+        /** @enum {string} */
+        SequenceStatus: "running" | "completed" | "stopped";
+        /** @description Places a change in its sequence. A sequence is listed once, as its current step. */
+        SequenceRef: {
+            id: string;
+            /** Format: int64 */
+            number: number;
+            title: string;
+            status: components["schemas"]["SequenceStatus"];
+            /** @description This change's position in the sequence, from 1. */
+            step: number;
+            steps: number;
+            /** @description The step (from 1) that is open now, or the one that ended the sequence. */
+            current_step: number;
+        };
+        SequenceActions: {
+            cancel: boolean;
+        };
+        /**
+         * @description Ordered changes across connections. Each step is atomic on its own
+         *     database; the sequence as a whole is not. `status_message` says why
+         *     a stopped sequence stopped.
+         */
+        Sequence: {
+            id: string;
+            /** Format: int64 */
+            number: number;
+            author: components["schemas"]["ChangePerson"];
+            /** @enum {string} */
+            via: "web" | "mcp";
+            agent_name?: string;
+            title: string;
+            reason: string;
+            status: components["schemas"]["SequenceStatus"];
+            /** @enum {string} */
+            status_code?: "failed" | "rejected" | "expired" | "cancelled";
+            status_message?: string;
+            /** @description The step (from 1) that is open now, or the one that ended the sequence. */
+            current_step: number;
+            steps: components["schemas"]["ChangeSummary"][];
+            actions: components["schemas"]["SequenceActions"];
+            already_existed: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            finished_at?: string;
+            /** Format: date-time */
+            server_time: string;
+        };
+        SequenceStepCreate: {
+            connection_id: string;
+            /** @description Optional; defaults to the sequence's title with the step. */
+            title?: string;
+            statements: components["schemas"]["Statements"];
+        };
+        SequenceCreate: {
+            title: string;
+            reason?: string;
+            steps: components["schemas"]["SequenceStepCreate"][];
         };
         Change: {
             id: string;
@@ -1748,6 +1911,7 @@ export interface components {
             executions: components["schemas"]["ChangeExecution"][];
             actions: components["schemas"]["ChangeActions"];
             already_existed: boolean;
+            sequence?: components["schemas"]["SequenceRef"];
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -3188,6 +3352,116 @@ export interface operations {
         };
     };
     listChangeEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Events. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeEventList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createSequence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SequenceCreate"];
+            };
+        };
+        responses: {
+            /** @description A running sequence with identical steps already existed; it is returned. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sequence"];
+                };
+            };
+            /** @description The new sequence; its first step is in review. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sequence"];
+                };
+            };
+            422: components["responses"]["Error"];
+            502: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getSequence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sequence. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sequence"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    cancelSequence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeCancel"];
+            };
+        };
+        responses: {
+            /** @description The stopped sequence. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sequence"];
+                };
+            };
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listSequenceEvents: {
         parameters: {
             query?: never;
             header?: never;

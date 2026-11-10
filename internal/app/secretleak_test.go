@@ -245,6 +245,27 @@ func TestSecretLeak(t *testing.T) {
 		}
 		ok(do(ada, "POST", "/api/changes/"+changeRef+"/refresh-preview", nil), http.StatusConflict)
 	}
+	// A sequence on the same connection, its first step run and then
+	// cancelled.
+	sequenceRef := "x"
+	if live != nil {
+		r := ok(do(bob, "POST", "/api/sequences", map[string]any{
+			"title": "Two renames", "reason": "Ticket 2", "steps": []map[string]any{
+				{"connection_id": connID, "statements": []string{"UPDATE users SET name = 'Yan' WHERE id = 4"}},
+				{"connection_id": connID, "statements": []string{"UPDATE users SET name = 'Xia' WHERE id = 5"}},
+			},
+		}), http.StatusCreated)
+		sequenceRef = r.body["id"].(string)
+		first := obj(list(r.body["steps"])[0])["id"].(string)
+		r = ok(do(ada, "GET", "/api/changes/"+first, nil), 200)
+		ok(do(ada, "POST", "/api/changes/"+first+"/reviews", map[string]any{
+			"decision": "approve", "sql_hash": r.body["sql_hash"], "preview_hash": r.body["preview_hash"],
+		}), 200)
+		a.executor.RunOnce(context.Background())
+		if r := ok(do(bob, "POST", "/api/sequences/"+sequenceRef+"/cancel", map[string]any{"reason": "enough"}), 200); r.body["status"] != "stopped" {
+			t.Fatalf("sequence: %s", r.Body)
+		}
+	}
 	a.notify.RunOnce(context.Background())
 	if r := ok(do(ada, "GET", "/api/notifications", nil), 200); !strings.Contains(r.Body.String(), "change.submitted") && live != nil {
 		t.Errorf("no notification was attempted: %s", r.Body)
@@ -270,12 +291,19 @@ func TestSecretLeak(t *testing.T) {
 		{"get_change", map[string]any{"number": 1}},
 		{"get_change", map[string]any{"number": 2}},
 		{"cancel_change", map[string]any{"number": 2, "reason": "done"}},
+		{"submit_sequence", map[string]any{"title": "Agent sequence", "reason": "r", "steps": []map[string]any{
+			{"connection": "leaky", "statements": []string{"UPDATE users SET name = 'Q1' WHERE id = 3"}},
+			{"connection": "leaky", "statements": []string{"UPDATE users SET name = 'Q2' WHERE id = 3"}},
+		}}},
+		{"get_sequence", map[string]any{"number": 1}},
+		{"cancel_sequence", map[string]any{"number": 1}},
 		{"list_tables", map[string]any{"connection": "nope"}},
 	}
 	for _, tool := range tools {
 		r := mc.call(tool.name, tool.args)
 		lc.add("MCP "+tool.name, r.text)
-		if live != nil && r.isErr && tool.args["connection"] != "nope" && tool.args["connection"] != "unreachable" && tool.name != "get_change" && tool.name != "cancel_change" {
+		if live != nil && r.isErr && tool.args["connection"] != "nope" && tool.args["connection"] != "unreachable" && tool.name != "get_change" && tool.name != "cancel_change" &&
+			tool.name != "get_sequence" && tool.name != "cancel_sequence" {
 			t.Errorf("MCP %s(%v) failed: %s", tool.name, tool.args, r.text)
 		}
 	}
@@ -442,7 +470,7 @@ func TestSecretLeak(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ids := map[string]string{"users": bobID, "connections": connID, "changes": changeRef, "tokens": "x", "oauth": "x"}
+	ids := map[string]string{"users": bobID, "connections": connID, "changes": changeRef, "sequences": sequenceRef, "tokens": "x", "oauth": "x"}
 	param := regexp.MustCompile(`\{[^}]+\}`)
 	walked := 0
 	for path, item := range doc.Paths.Map() {

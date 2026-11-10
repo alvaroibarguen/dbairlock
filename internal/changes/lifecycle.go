@@ -188,7 +188,16 @@ func (s *Service) OnUserRemoved(ctx context.Context, tx *store.Tx, ev identity.U
 	if err != nil {
 		return fmt.Errorf("changes: list changes of removed user: %w", err)
 	}
-	for _, row := range own {
+	for _, listed := range own {
+		// Read it again: cancelling one step of a sequence stops the
+		// sequence, which cancels its other open steps in this transaction.
+		row, err := q.GetChange(ctx, listed.ID)
+		if err != nil {
+			return fmt.Errorf("changes: read change: %w", err)
+		}
+		if !Status(row.Status).Open() {
+			continue
+		}
 		if err := s.cancelTx(ctx, tx, row, CancelledAuthorGone, "The author was removed."); err != nil {
 			return err
 		}

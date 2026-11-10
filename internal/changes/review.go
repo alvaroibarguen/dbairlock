@@ -76,6 +76,9 @@ func (s *Service) Review(ctx context.Context, p identity.Principal, ref string, 
 			return ErrSelfReview
 		}
 		if Status(cur.Status) != StatusPendingReview {
+			if err := waitingStepErr(ctx, tx, cur); err != nil {
+				return err
+			}
 			return stateErr("This change is no longer in review; it is %s.", label(Status(cur.Status)))
 		}
 		if err := s.requireActive(ctx, tx, p.UserID); err != nil {

@@ -120,15 +120,20 @@ func (s *Service) Preview(ctx context.Context, p identity.Principal, connectionI
 // connectionFor loads the connection a new change targets, adding a field
 // error if it does not exist or is archived.
 func (s *Service) connectionFor(ctx context.Context, fe *fieldErrs, id string) (targets.Connection, error) {
+	return s.connectionForAt(ctx, fe, "connection_id", id)
+}
+
+// connectionForAt is connectionFor for the field named field.
+func (s *Service) connectionForAt(ctx context.Context, fe *fieldErrs, field, id string) (targets.Connection, error) {
 	c, err := s.opts.Targets.Get(ctx, id)
 	switch {
 	case errors.Is(err, targets.ErrNotFound):
-		fe.add("connection_id", "Choose a connection.")
+		fe.add(field, "Choose a connection.")
 		return c, nil
 	case err != nil:
 		return c, err
 	case c.ArchivedAt != nil:
-		fe.add("connection_id", "This connection is archived.")
+		fe.add(field, "This connection is archived.")
 	}
 	return c, nil
 }
@@ -378,7 +383,12 @@ func (s *Service) record(ctx context.Context, tx *store.Tx, action audit.Action,
 	if err := s.opts.Audit.Record(ctx, tx, audit.Event{Action: action, SubjectType: "change", SubjectID: changeID, Payload: payload}); err != nil {
 		return err
 	}
-	return s.notify(ctx, tx, action, changeID)
+	if err := s.notify(ctx, tx, action, changeID); err != nil {
+		return err
+	}
+	// A step of a sequence moves its sequence on, or stops it, in the same
+	// transaction (sequence.go).
+	return s.onStepEvent(ctx, tx, action, changeID)
 }
 
 // load reads change ref (its id, or its number) through db.
@@ -446,9 +456,15 @@ func (s *Service) Edit(ctx context.Context, p identity.Principal, ref string, in
 
 	var out runOutcome
 	hash := row.SqlHash
+	// A step of a sequence that waits for an earlier step is validated, not
+	// dry-run: its rows may depend on that step. It is previewed when it
+	// becomes the current step.
+	waiting := row.SequenceID.Valid && Status(row.Status) == StatusDraft
+	// The duplicate rule is for single changes only (migration 00009).
+	checkDup := Status(row.Status) == StatusPendingReview && !row.SequenceID.Valid
 	if sqls != nil {
 		hash = SQLHash(sqls)
-		if Status(row.Status) == StatusPendingReview {
+		if checkDup {
 			dup, err := s.findDuplicate(ctx, s.opts.Store.Reader(), p.UserID, row.ConnectionID, hash, row.ID)
 			if err != nil {
 				return Change{}, err
@@ -457,11 +473,20 @@ func (s *Service) Edit(ctx context.Context, p identity.Principal, ref string, in
 				return Change{}, &DuplicateError{ID: dup.ID, Number: dup.Number}
 			}
 		}
-		if out, err = s.dryRun(ctx, c, sqls); err != nil {
-			return Change{}, err
-		}
-		if Status(row.Status) == StatusPendingReview && !out.ok() {
-			return Change{}, out.err()
+		if waiting {
+			if out, err = s.validateOnly(c, sqls); err != nil {
+				return Change{}, err
+			}
+			if !out.valid() || out.Problem != nil {
+				return Change{}, out.err()
+			}
+		} else {
+			if out, err = s.dryRun(ctx, c, sqls); err != nil {
+				return Change{}, err
+			}
+			if Status(row.Status) == StatusPendingReview && !out.ok() {
+				return Change{}, out.err()
+			}
 		}
 		c = out.Conn
 	}
@@ -493,7 +518,7 @@ func (s *Service) Edit(ctx context.Context, p identity.Principal, ref string, in
 		}
 		payload := map[string]any{"number": cur.Number, "revision": next}
 		if sqls != nil {
-			if Status(cur.Status) == StatusPendingReview {
+			if checkDup {
 				dup, err := s.findDuplicate(ctx, tx, p.UserID, cur.ConnectionID, hash, cur.ID)
 				if err != nil {
 					return err
@@ -669,6 +694,9 @@ func (s *Service) Submit(ctx context.Context, p identity.Principal, ref string, 
 	if row.AuthorID != p.UserID {
 		return Change{}, ErrNotAuthor
 	}
+	if row.SequenceID.Valid {
+		return Change{}, stateErr("The steps of a sequence are not submitted one by one: each step is submitted for review when the step before it has run.")
+	}
 	if _, err := transition(Status(row.Status), EventSubmit); err != nil {
 		return Change{}, stateErr("Only a draft can be submitted; this change is %s.", label(Status(row.Status)))
 	}
@@ -764,6 +792,9 @@ func (s *Service) RefreshPreview(ctx context.Context, p identity.Principal, ref 
 		return Change{}, RefreshOutcome{}, err
 	}
 	if Status(row.Status) != StatusPendingReview {
+		if err := waitingStepErr(ctx, s.opts.Store.Reader(), row); err != nil {
+			return Change{}, RefreshOutcome{}, err
+		}
 		return Change{}, RefreshOutcome{}, stateErr("Only a change in review has a preview to update; this one is %s.", label(Status(row.Status)))
 	}
 	// Reserve the refresh first, so concurrent requests cannot run more

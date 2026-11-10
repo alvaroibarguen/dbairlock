@@ -243,12 +243,14 @@ func (s *Service) RecordExecuted(ctx context.Context, claim Claim, results []con
 	if err != nil {
 		return err
 	}
-	return s.opts.Store.Tx(ctx, func(tx *store.Tx) error {
+	var sequenceID string
+	err = s.opts.Store.Tx(ctx, func(tx *store.Tx) error {
 		q := changesdb.New(tx)
 		cur, err := q.GetChange(ctx, claim.ChangeID)
 		if err != nil {
 			return fmt.Errorf("changes: read change: %w", err)
 		}
+		sequenceID = cur.SequenceID.String
 		to, err := transition(Status(cur.Status), EventSucceed)
 		if err != nil {
 			return err
@@ -268,6 +270,19 @@ func (s *Service) RecordExecuted(ctx context.Context, claim Claim, results []con
 			"number": cur.Number, "attempt": claim.Attempt, "statements": audits,
 		})
 	})
+	if err != nil || sequenceID == "" {
+		return err
+	}
+	// The outcome is recorded. Preview the next step of the sequence now,
+	// after this step committed; if that does not work, the executor's next
+	// cycle tries again (AdvanceSequences). Its error is not this
+	// execution's: returning it would make the executor record the outcome
+	// again.
+	if err := s.advanceSequence(ctx, sequenceID); err != nil {
+		s.opts.Logger.Error("changes: previewing the next step of a sequence failed; the executor tries again",
+			"change", claim.Number, "error", err)
+	}
+	return nil
 }
 
 // Failure is why an execution failed. Nothing it attempted is committed,

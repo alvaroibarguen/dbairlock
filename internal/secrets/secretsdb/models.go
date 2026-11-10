@@ -73,6 +73,28 @@ type ChangeRequest struct {
 	DecidedAt          sql.NullInt64
 	ExecutedAt         sql.NullInt64
 	ExpiresAt          sql.NullInt64
+	SequenceID         sql.NullString
+	Step               sql.NullInt64
+}
+
+type ChangeSequence struct {
+	ID            string
+	Number        int64
+	AuthorID      string
+	Via           string
+	ApiTokenID    string
+	AgentName     string
+	Title         string
+	Reason        string
+	Status        string
+	StatusCode    string
+	StatusMessage string
+	CurrentStep   int64
+	Steps         int64
+	StepsHash     string
+	CreatedAt     int64
+	UpdatedAt     int64
+	FinishedAt    sql.NullInt64
 }
 
 type ChangeStatement struct {
