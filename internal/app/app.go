@@ -160,7 +160,9 @@ func build(ctx context.Context, opts Options, st *store.Store) (*App, error) {
 	})
 
 	mux := &routeMux{mux: http.NewServeMux()}
-	api.Register(mux)
+	if err := api.Register(mux); err != nil {
+		return nil, err
+	}
 	// Agents reach the MCP server with API tokens (PLAN 4.1).
 	mcpSrv, err := mcpserver.New(mcpserver.Options{
 		Version: opts.Version, Changes: mods.changes, Targets: mods.targets, Settings: mods.settings,

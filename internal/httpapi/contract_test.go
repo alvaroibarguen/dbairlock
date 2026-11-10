@@ -12,9 +12,6 @@ import (
 	"github.com/alvaroibarguen/dbairlock/internal/settings"
 )
 
-// secretExtension marks a schema property as a secret in api/openapi.yaml.
-const secretExtension = "x-dbairlock-secret"
-
 func loadContract(t *testing.T) *openapi3.T {
 	t.Helper()
 	doc, err := openapi3.NewLoader().LoadFromFile("../../api/openapi.yaml")
@@ -22,14 +19,6 @@ func loadContract(t *testing.T) *openapi3.T {
 		t.Fatal(err)
 	}
 	return doc
-}
-
-func isSecretSchema(s *openapi3.Schema) bool {
-	if s == nil {
-		return false
-	}
-	v, ok := s.Extensions[secretExtension]
-	return s.WriteOnly || (ok && fmt.Sprint(v) == "true")
 }
 
 // walkSchema calls fn for every property schema reachable from ref, with a

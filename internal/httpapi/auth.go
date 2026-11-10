@@ -69,6 +69,11 @@ func (s *Server) authenticate(f gen.StrictHandlerFunc, operationID string) gen.S
 			logx.FromContext(ctx).ErrorContext(ctx, "operation has no declared access level", slog.String("operation", operationID))
 			return nil, identity.ErrForbidden
 		}
+		if access.Level == LevelDev && !s.deps.Dev {
+			// The handler refuses too; refusing here answers 404 before
+			// the request is validated against the contract.
+			return nil, identity.ErrDevOnly
+		}
 		ctx = context.WithValue(ctx, httpKey{}, httpPair{w: w, r: r})
 		if s.deps.Identity != nil {
 			if token := s.readCookie(r, cookieSession); token != "" {

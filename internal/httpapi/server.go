@@ -56,16 +56,26 @@ func New(deps Deps) *Server {
 	return &Server{deps: deps}
 }
 
-// Register mounts every API route on mux.
-func (s *Server) Register(mux gen.ServeMux) {
-	strict := gen.NewStrictHandlerWithOptions(s, []gen.StrictMiddlewareFunc{s.authenticate}, gen.StrictHTTPServerOptions{
+// Register mounts every API route on mux. Every request is validated against
+// the contract before it is decoded (validate.go). It fails only if the
+// contract embedded in the binary cannot be loaded.
+func (s *Server) Register(mux gen.ServeMux) error {
+	routes, err := contractRoutes()
+	if err != nil {
+		return err
+	}
+	// The last strict middleware runs first: authenticate, then the contract.
+	middlewares := []gen.StrictMiddlewareFunc{validateContract(routes), s.authenticate}
+	strict := gen.NewStrictHandlerWithOptions(s, middlewares, gen.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  requestError,
 		ResponseErrorHandlerFunc: responseError,
 	})
 	gen.HandlerWithOptions(strict, gen.StdHTTPServerOptions{
 		BaseRouter:       mux,
+		Middlewares:      []gen.MiddlewareFunc{bufferBody},
 		ErrorHandlerFunc: requestError,
 	})
+	return nil
 }
 
 // GetHealthz reports liveness.

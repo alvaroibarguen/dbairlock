@@ -4,6 +4,9 @@ generate:
   std-http-server: true
   strict-server: true
   models: true
+  # GetSwagger: the contract, embedded so the server validates every request
+  # against it (internal/httpapi/validate.go).
+  embedded-spec: true
 output: gen.go
 output-options:
   skip-prune: false

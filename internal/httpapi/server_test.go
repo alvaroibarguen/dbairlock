@@ -30,7 +30,9 @@ func (f fakeReady) Ready(context.Context) error { return f.err }
 
 func newMux(deps Deps) *http.ServeMux {
 	mux := http.NewServeMux()
-	New(deps).Register(mux)
+	if err := New(deps).Register(mux); err != nil {
+		panic(err)
+	}
 	return mux
 }
 
