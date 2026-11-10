@@ -81,8 +81,19 @@ Found and fixed along the way:
 
 Noted, not changed: in `--dev` mode setup is skipped, so `instance.public_url` is empty and agents get a relative review link (`/changes/1`) until it is set. Normal setup requires the public URL.
 
+## After Phase 11
+
+Added at the owner's request on 2026-11-10, after the plan's phases:
+
+- **MCP OAuth sign-in** (`fe515bf`). PLAN.md listed it as out of scope for v1. dbairlock is the authorization server of its own `/mcp`: discovery (RFC 9728 and RFC 8414), dynamic client registration, a consent page in the dashboard, PKCE S256, loopback-only redirect URIs, one-hour access tokens bound to `/mcp`, rotating refresh tokens whose reuse revokes the grant, and revocation. Grants are listed under Settings → API tokens → Connected apps; the setting `mcp.oauth_enabled` (default on) turns it off. API tokens keep working. Checked with Claude Code 2.1.322: `claude mcp add --transport http dbairlock <url>/mcp`, then `claude mcp login`, consent in the browser, tool calls and `claude mcp logout`. Client ID metadata documents, which the current MCP spec prefers, are not offered: they would make dbairlock fetch URLs callers name from inside the network. Details and the threat model are in [security.md](security.md).
+- **API request bodies are checked against the OpenAPI schema** (`26e4932`): unknown fields, wrong types and missing required fields get 400; value rules (ranges, lengths, enums) are still answered by each module with 422 and a message per field.
+- **New change** moved from the queue header to a green button under the logo in the rail, on every screen, with an `N` shortcut (`a71b187`); the review screen's Statement heading no longer repeats the table and kind (`befd79b`).
+
+The full suite (`make test-all`: race detector, integration, Playwright 118 passed and 23 skipped by design) passes after these changes.
+
 ## Not verified
 
+- **The interactive `/mcp` menu inside Claude Code** was not clicked through; `claude mcp login` runs the same OAuth flow and was checked.
 - **The CI workflow** has never run on GitHub; nothing is pushed.
 - **Browsers other than Chromium**, and screen readers by hand.
 - **HSTS on a real HTTPS deployment**, a real full filesystem and a real read-only mount (simulated in tests), and concurrent load (requests were timed one at a time).
@@ -93,5 +104,5 @@ Noted, not changed: in `--dev` mode setup is skipped, so `instance.public_url` i
 1. Refuse a sign-in whose email belongs to another active user (the recreated-account finding).
 2. Reject identifiers containing invisible or confusable Unicode characters.
 3. Move the oldest Postgres test target to 15 after 2026-11-12, and drop the TypeScript 6 hook once typescript-eslint and openapi-typescript support TypeScript 7.
-4. Run the CI workflow on GitHub and connect Claude Code to a dev instance once the repository is pushed.
-5. Likely features, not built: a schema browser, a read-only table browser, editor linting and formatting, table and column restrictions on previews, per-database permissions, per-token database scopes, MCP OAuth, a revert action using stored before images, more connectors, other sign-in providers, scheduled execution windows, and a Postgres metadata store for larger installations.
+4. Run the CI workflow on GitHub once the repository is pushed.
+5. Likely features, not built: a schema browser, a read-only table browser, editor linting and formatting, table and column restrictions on previews, per-database permissions, per-token and per-grant database scopes, a revert action using stored before images, more connectors, other sign-in providers, scheduled execution windows, and a Postgres metadata store for larger installations.
