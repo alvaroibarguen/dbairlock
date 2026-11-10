@@ -26,6 +26,7 @@ func TestPostgresSpecific(t *testing.T) {
 	t.Run("statement fields must match the SQL", func(t *testing.T) { testTampered(t, srv) })
 	t.Run("missing default schema", func(t *testing.T) { testMissingSchema(t, srv) })
 	t.Run("update after image", func(t *testing.T) { testAfterImage(t, srv) })
+	t.Run("hostile text on a server with standard_conforming_strings off", func(t *testing.T) { testHostileOnServer(t, srv) })
 }
 
 func open(t *testing.T, tg connectortest.Target, role connectortest.Role, mutate func(connector.Config)) connector.Conn {

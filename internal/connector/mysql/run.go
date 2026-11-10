@@ -507,6 +507,15 @@ func (r *runner) statement(i int, st connector.Statement, exp *connector.Expecta
 		if res.RowsAffected == 0 {
 			return res, connector.ErrNoRows
 		}
+		// The before image is selected with the WHERE text the validator
+		// extracted; the statement must change exactly those rows, or the
+		// preview would show other rows than the ones that change. (An
+		// execution needs no such check: its fingerprint and count are
+		// compared with this dry run's.)
+		if (st.Kind == connector.KindUpdate || st.Kind == connector.KindDelete) && res.RowsAffected != int64(len(before.rows)) {
+			return res, fmt.Errorf("the statement changed %d rows but its WHERE clause matched %d, so the preview would not show what changes (a trigger may be skipping rows)",
+				res.RowsAffected, len(before.rows))
+		}
 	}
 
 	if st.Kind == connector.KindUpdate && len(meta.pk) > 0 && len(before.rows) > 0 {
