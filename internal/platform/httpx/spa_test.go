@@ -14,7 +14,18 @@ func testFS() fstest.MapFS {
 		"index.html":           {Data: []byte("<!doctype html><title>app</title>")},
 		"assets/app-abc123.js": {Data: []byte("console.log(1)")},
 		"favicon.svg":          {Data: []byte("<svg/>")},
+		"manifest.webmanifest": {Data: []byte(`{"name":"app"}`)},
 		".keep":                {Data: nil},
+	}
+}
+
+func TestSPAManifestContentType(t *testing.T) {
+	rec := get(t, SPA(testFS()), "GET", "/manifest.webmanifest")
+	if rec.Code != 200 {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	if got := rec.Header().Get("Content-Type"); got != "application/manifest+json" {
+		t.Errorf("Content-Type = %q, want application/manifest+json", got)
 	}
 }
 

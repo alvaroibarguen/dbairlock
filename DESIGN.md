@@ -14,6 +14,10 @@ Graphite panels, hairline seams, and colour only where state lives. The UI reads
 - Other screens (Audit log, Connections, Settings) use a list pane plus a detail pane, or one full-width pane with a 44 px pane header.
 - Responsive: panes collapse by priority. Below 1280 px the rows pane becomes a tab inside the detail pane; below 768 px the queue and detail stack and the rail becomes a top bar with a menu button. Usable by keyboard alone at 375 px.
 
+## Mark and app icon
+
+The mark is two green airlock doors (`#7ee0a1`) holding one light row (`#e6e8eb`) between them, on a graphite tile (`#16181c`, 7/32 corner radius). It keeps these dark colours in both themes, like an app icon. Sources: `web/public/favicon.svg` (and the `Logo` component, the same drawing), `icon-192.png`, `icon-512.png` and `apple-touch-icon.png` as full-bleed squares for platforms that apply their own mask, listed in `manifest.webmanifest`. The mark sits inside the central 80% so maskable crops never cut it.
+
 ## Colour tokens
 
 Dark is the default theme; light is a full first-class theme. The system setting decides, with a manual override (System / Dark / Light) in the user menu. All colours are CSS variables in `web/src/ui/tokens.css`, exposed to Tailwind through `@theme`.

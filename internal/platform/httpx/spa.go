@@ -108,6 +108,11 @@ func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string) 
 	} else {
 		w.Header().Set("Cache-Control", cacheNone)
 	}
+	// Go's MIME table does not know the web app manifest; without this it
+	// would be sniffed as text/plain.
+	if strings.HasSuffix(name, ".webmanifest") {
+		w.Header().Set("Content-Type", "application/manifest+json")
+	}
 	http.ServeContent(w, r, name, info.ModTime(), rs)
 	return true
 }

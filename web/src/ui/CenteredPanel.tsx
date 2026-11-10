@@ -33,18 +33,23 @@ export function CenteredPanel({
 }
 
 /**
- * The dbairlock mark: a green outlined square with "ab" in mono. The letters
- * are drawn by CSS, not text, so they never become part of the name of the
- * link that holds the mark ("dbairlock home").
+ * The dbairlock mark, the same drawing as the app icon (web/public/favicon.svg):
+ * two airlock doors holding one row between them, on a graphite tile. The
+ * tile keeps its dark colours in both themes, like an app icon. Hidden from
+ * assistive technology; the link that holds it carries the name.
  */
 export function Logo({ className }: { className?: string }) {
   return (
-    <span
+    <svg
       aria-hidden="true"
-      className={cn(
-        "grid size-7 shrink-0 place-items-center rounded-[7px] border-[1.5px] border-green font-mono text-xs font-semibold text-green before:content-['ab']",
-        className,
-      )}
-    />
+      focusable="false"
+      viewBox="0 0 32 32"
+      className={cn('size-7 shrink-0', className)}
+    >
+      <rect width="32" height="32" rx="7" fill="#16181c" />
+      <rect x="7" y="7" width="3" height="18" rx="1.5" fill="#7ee0a1" />
+      <rect x="22" y="7" width="3" height="18" rx="1.5" fill="#7ee0a1" />
+      <rect x="12.5" y="14.5" width="7" height="3" rx="1.5" fill="#e6e8eb" />
+    </svg>
   )
 }
