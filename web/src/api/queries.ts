@@ -54,6 +54,8 @@ export const queryKeys = {
     all: ['changes'] as const,
     list: (filters: Record<string, unknown> = {}) => ['changes', 'list', filters] as const,
     detail: (id: string) => ['changes', 'detail', id] as const,
+    // Under changes, so invalidating every change refreshes sequences too.
+    sequence: (id: string) => ['changes', 'sequence', id] as const,
   },
   connectors: () => ['connectors'] as const,
   connections: {
@@ -456,6 +458,49 @@ export async function executeChange(id: string): Promise<Change> {
 
 export async function retryChange(id: string): Promise<Change> {
   const { data } = await api.POST('/api/changes/{id}/retry', { params: { path: { id } } })
+  return requireData(data)
+}
+
+export type Sequence = components['schemas']['Sequence']
+export type SequenceCreate = components['schemas']['SequenceCreate']
+export type SequenceRef = components['schemas']['SequenceRef']
+
+/** One sequence, by id or number, with its steps (counts, no rows). */
+export const sequenceQuery = (id: string) =>
+  queryOptions({
+    queryKey: queryKeys.changes.sequence(id),
+    queryFn: async ({ signal }) => {
+      const { data } = await api.GET('/api/sequences/{id}', { signal, params: { path: { id } } })
+      return requireData(data)
+    },
+    refetchInterval: LIVE_INTERVAL,
+  })
+
+/** The sequence's own timeline: created, submitted, advanced, completed, stopped. */
+export const sequenceEventsQuery = (id: string) =>
+  queryOptions({
+    queryKey: [...queryKeys.changes.sequence(id), 'events'] as const,
+    queryFn: async ({ signal }) => {
+      const { data } = await api.GET('/api/sequences/{id}/events', {
+        signal,
+        params: { path: { id } },
+      })
+      return requireData(data).events
+    },
+    refetchInterval: LIVE_INTERVAL,
+  })
+
+/** Validates every step, dry-runs step 1 and submits the sequence. */
+export async function createSequence(body: SequenceCreate): Promise<Sequence> {
+  const { data } = await api.POST('/api/sequences', { body })
+  return requireData(data)
+}
+
+export async function cancelSequence(id: string, reason?: string): Promise<Sequence> {
+  const { data } = await api.POST('/api/sequences/{id}/cancel', {
+    params: { path: { id } },
+    body: reason ? { reason } : {},
+  })
   return requireData(data)
 }
 

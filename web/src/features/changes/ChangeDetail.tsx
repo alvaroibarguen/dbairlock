@@ -24,6 +24,7 @@ import {
   Skeleton,
   SqlBlock,
   StatusBadge,
+  StatusDot,
   toast,
   Tooltip,
   typing,
@@ -63,7 +64,16 @@ function errorMessage(err: unknown): string {
  * the timeline. The SQL and the rows come first; agent-written text is
  * plain text.
  */
-export function ChangeDetail({ id, back }: { id: string; back?: ReactNode }) {
+export function ChangeDetail({
+  id,
+  back,
+  embedded = false,
+}: {
+  id: string
+  back?: ReactNode
+  /** Inside a sequence's stepper: headings one level down, no page title, no Cancel (the sequence has its own). */
+  embedded?: boolean
+}) {
   const query = useQuery(changeQuery(id))
   if (query.isPending) {
     return (
@@ -108,7 +118,15 @@ export function ChangeDetail({ id, back }: { id: string; back?: ReactNode }) {
       </>
     )
   }
-  return <Loaded id={id} change={query.data} receivedAt={query.dataUpdatedAt} back={back} />
+  return (
+    <Loaded
+      id={id}
+      change={query.data}
+      receivedAt={query.dataUpdatedAt}
+      back={back}
+      embedded={embedded}
+    />
+  )
 }
 
 function Loaded({
@@ -116,11 +134,13 @@ function Loaded({
   change,
   receivedAt,
   back,
+  embedded,
 }: {
   id: string
   change: Change
   receivedAt: number
   back?: ReactNode
+  embedded: boolean
 }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -275,43 +295,79 @@ function Loaded({
       )}
     </>
   )
+  const showCancel = a.cancel && !embedded
   const hasActions =
-    a.approve || a.reject || a.edit || a.submit || a.execute_now || a.retry_now || a.cancel
+    a.approve || a.reject || a.edit || a.submit || a.execute_now || a.retry_now || showCancel
+  const seq = change.sequence
+  const waiting = seq !== undefined && change.status === 'draft'
+  const sectionLevel = embedded ? 'h4' : 'h2'
+
+  const badges = (
+    <div className="flex flex-wrap items-center gap-2 text-sm text-dim">
+      {waiting ? (
+        <Badge>
+          <StatusDot status="draft" />
+          Waiting
+        </Badge>
+      ) : (
+        <StatusBadge status={change.status} />
+      )}
+      {(pending || change.status === 'approved') && (
+        <Badge mono>
+          {change.approvals} / {change.required_approvals} approvals
+        </Badge>
+      )}
+      <AuthorTag change={change} />
+      <span className="font-mono text-xs text-mute tabular">
+        {change.submitted_at
+          ? `opened ${ago(Date.parse(change.submitted_at), serverNow)}`
+          : `${seq ? 'created' : 'drafted'} ${ago(Date.parse(change.created_at), serverNow)}`}
+      </span>
+    </div>
+  )
 
   return (
     <div className="@container flex flex-col">
-      <header className="border-b border-seam px-4 pt-[18px] pb-4 sm:px-6">
-        <div className="flex items-center gap-2 font-mono text-xs text-mute tabular">
-          {back}
-          <span>{changeRef(change.number)}</span>
-          <span aria-hidden="true">/</span>
-          <span className="truncate">{change.connection.name}</span>
-          <span>{connector.name}</span>
-        </div>
-        <h1
-          id="detail-title"
-          className="mt-1.5 mb-3 text-2xl font-semibold tracking-[-0.01em] break-words text-text"
-        >
-          {change.title}
-        </h1>
-        <div className="flex flex-wrap items-center gap-2 text-sm text-dim">
-          <StatusBadge status={change.status} />
-          {(pending || change.status === 'approved') && (
-            <Badge mono>
-              {change.approvals} / {change.required_approvals} approvals
-            </Badge>
+      {embedded ? (
+        <div className="border-b border-seam px-3 py-3 sm:px-4">{badges}</div>
+      ) : (
+        <header className="border-b border-seam px-4 pt-[18px] pb-4 sm:px-6">
+          <div className="flex items-center gap-2 font-mono text-xs text-mute tabular">
+            {back}
+            <span>{changeRef(change.number)}</span>
+            <span aria-hidden="true">/</span>
+            <span className="truncate">{change.connection.name}</span>
+            <span>{connector.name}</span>
+          </div>
+          <h1
+            id="detail-title"
+            className="mt-1.5 mb-3 text-2xl font-semibold tracking-[-0.01em] break-words text-text"
+          >
+            {change.title}
+          </h1>
+          {seq && (
+            <p className="mb-3 text-base text-dim">
+              Step {seq.step} of {seq.steps} of sequence{' '}
+              <Link
+                className="font-mono text-blue underline"
+                to={`/sequences/${seq.number}?step=${seq.step}`}
+              >
+                {changeRef(seq.number)}
+              </Link>{' '}
+              <span className="break-words">{seq.title}</span>
+            </p>
           )}
-          <AuthorTag change={change} />
-          <span className="font-mono text-xs text-mute tabular">
-            {change.submitted_at
-              ? `opened ${ago(Date.parse(change.submitted_at), serverNow)}`
-              : `drafted ${ago(Date.parse(change.created_at), serverNow)}`}
-          </span>
-        </div>
-      </header>
+          {badges}
+        </header>
+      )}
 
       {hasActions && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-seam px-4 py-3 sm:px-6">
+        <div
+          className={cn(
+            'flex flex-wrap items-center gap-2 border-b border-seam py-3',
+            embedded ? 'px-3 sm:px-4' : 'px-4 sm:px-6',
+          )}
+        >
           {a.approve &&
             (canApprove ? (
               <Button
@@ -352,10 +408,17 @@ function Loaded({
               </Button>
             </>
           )}
-          {a.cancel && !a.reject && (
-            <Button variant="destructive" onClick={() => setCancelOpen(true)}>
-              Cancel change
-            </Button>
+          {showCancel && !a.reject && (
+            <>
+              {seq && (
+                <span className="hidden text-xs text-mute @lg:inline">
+                  Stops the whole sequence
+                </span>
+              )}
+              <Button variant="destructive" onClick={() => setCancelOpen(true)}>
+                Cancel change
+              </Button>
+            </>
           )}
         </div>
       )}
@@ -376,6 +439,7 @@ function Loaded({
       )}
 
       <Section
+        as={sectionLevel}
         label={
           change.statements.length === 1 ? 'Statement' : `Statements (${change.statements.length})`
         }
@@ -409,31 +473,35 @@ function Loaded({
       </Section>
 
       {change.statements.some((s) => s.preview) && (
-        <Section label="Preview">
+        <Section as={sectionLevel} label="Preview">
           <PreviewStats change={change} freshness={freshness} />
         </Section>
       )}
 
-      {change.reason && (
+      {/* A step's reason is its sequence's, shown above the stepper. */}
+      {change.reason && !embedded && (
         <Section label="Reason">
           <p className="text-base whitespace-pre-wrap text-text">{change.reason}</p>
         </Section>
       )}
 
-      <Section
-        label="Approvals"
-        aside={`${change.required_approvals} required · ${change.auto_execute ? 'runs when approved' : 'runs on Execute now'}`}
-      >
-        <Reviews change={change} />
-      </Section>
+      {!waiting && (
+        <Section
+          as={sectionLevel}
+          label="Approvals"
+          aside={`${change.required_approvals} required · ${change.auto_execute ? 'runs when approved' : 'runs on Execute now'}`}
+        >
+          <Reviews change={change} />
+        </Section>
+      )}
 
       {change.executions.length > 0 && (
-        <Section label="Execution">
+        <Section as={sectionLevel} label="Execution">
           <Executions change={change} />
         </Section>
       )}
 
-      <Section label="Activity" className="pb-6">
+      <Section as={sectionLevel} label="Activity" className="pb-6">
         <Timeline id={change.id} />
       </Section>
 
@@ -444,15 +512,17 @@ function Loaded({
           pending={reject.isPending}
           error={reject.error ? errorMessage(reject.error) : undefined}
           onReject={(comment) => reject.mutate(comment)}
+          step={seq?.step}
         />
       )}
-      {a.cancel && (
+      {showCancel && (
         <CancelDialog
           open={cancelOpen}
           onOpenChange={setCancelOpen}
           number={change.number}
           pending={cancel.isPending}
           onCancel={(reason) => cancel.mutate(reason)}
+          sequence={seq?.number}
         />
       )}
     </div>
@@ -463,23 +533,30 @@ function Section({
   label,
   aside,
   className,
+  as: Heading = 'h2',
   children,
 }: {
   label: string
   aside?: string
   className?: string
+  as?: 'h2' | 'h4'
   children: ReactNode
 }) {
   return (
-    <section className={cn('px-4 pt-4 sm:px-6', className)} aria-label={label}>
-      <h2 className="mb-2 flex items-baseline justify-between gap-3 text-base small-caps text-dim">
+    // Inside a sequence several steps can be open at once, so their sections
+    // are not landmarks (each would repeat the same name).
+    <section
+      className={cn('pt-4', Heading === 'h2' ? 'px-4 sm:px-6' : 'px-3 sm:px-4', className)}
+      aria-label={Heading === 'h2' ? label : undefined}
+    >
+      <Heading className="mb-2 flex items-baseline justify-between gap-3 text-base small-caps text-dim">
         <span>{label}</span>
         {aside && (
           <span className="truncate font-mono text-xs text-mute normal-case [font-variant:normal]">
             {aside}
           </span>
         )}
-      </h2>
+      </Heading>
       {children}
     </section>
   )
@@ -493,11 +570,29 @@ function StatusNotice({ change, onCopy }: { change: Change; onCopy: () => void }
   let body: ReactNode = c.status_message ?? null
   let action: ReactNode = null
 
+  const seq = c.sequence
   switch (c.status) {
     case 'draft':
+      if (seq) {
+        title =
+          seq.status === 'running'
+            ? `Waiting for step ${seq.step - 1}. Not previewed yet.`
+            : 'Not run: the sequence ended before this step.'
+        body =
+          seq.status === 'running'
+            ? `This step is previewed and goes to review only after step ${seq.step - 1} has run, because its rows may depend on it. Its SQL was checked when the sequence was submitted.`
+            : null
+        break
+      }
       title = 'Draft: not submitted for review yet.'
       body = c.preview_error ? `The last dry run found problems: ${c.preview_error}` : null
       tone = c.preview_error ? 'amber' : 'neutral'
+      break
+    case 'cancelled':
+      if (c.status_code === 'sequence_stopped') {
+        title = 'Not run: the sequence stopped before this step.'
+        body = c.status_message ?? null
+      }
       break
     case 'pending_review':
       if (c.status_code !== 'approvals_lost') return null

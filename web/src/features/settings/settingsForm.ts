@@ -268,6 +268,11 @@ export const notifyEvents: readonly ChoiceOption[] = [
   { value: 'change.rejected', label: 'Change rejected' },
   { value: 'change.executed', label: 'Change executed' },
   { value: 'change.failed', label: 'Change failed' },
+  { value: 'sequence.completed', label: 'Sequence completed: every step executed' },
+  {
+    value: 'sequence.stopped',
+    label: 'Sequence stopped: a step failed, was rejected, expired or was cancelled',
+  },
 ]
 
 const domainPattern = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,61}[a-z0-9]$/

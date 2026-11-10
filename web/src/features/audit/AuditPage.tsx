@@ -44,7 +44,15 @@ const viaOptions = [
   { value: 'system', label: 'System' },
 ] as const
 
-const subjectTypes = ['change', 'connection', 'user', 'api_token', 'notification', 'secret']
+const subjectTypes = [
+  'change',
+  'sequence',
+  'connection',
+  'user',
+  'api_token',
+  'notification',
+  'secret',
+]
 
 /** The URL keys that hold filters. Keeping them in the URL makes a view shareable. */
 const FILTER_KEYS = ['actor', 'action', 'subject_type', 'subject_id', 'via', 'from', 'to'] as const

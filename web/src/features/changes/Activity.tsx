@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { type Change, type ChangeEvent, changeEventsQuery } from '@/api'
+import { type Change, type ChangeEvent, changeEventsQuery, sequenceEventsQuery } from '@/api'
 import { Badge, Button, cn, Skeleton } from '@/ui'
 import { PersonTag } from './AuthorTag'
 import { dateTime, rows } from './format'
@@ -98,8 +98,15 @@ function describe(e: ChangeEvent): string {
   const p = e.payload
   switch (e.action) {
     case 'change.created':
-      return 'created the change'
+      return p.sequence
+        ? `created it as step ${str(p.step)} of sequence #${str(p.sequence)}`
+        : 'created the change'
     case 'change.submitted':
+      if (p.automatic) {
+        return p.preview_error
+          ? `Previewed after step ${Number(p.step) - 1} ran, and submitted for review. The preview failed: ${str(p.preview_error)}`
+          : `Previewed after step ${Number(p.step) - 1} ran, and submitted for review`
+      }
       return 'submitted it for review'
     case 'change.edited':
       return `edited it (revision ${str(p.revision)})`
@@ -120,7 +127,9 @@ function describe(e: ChangeEvent): string {
         ? 'Cancelled: the author was removed'
         : p.code === 'connection_archived'
           ? 'Cancelled: the connection was archived'
-          : `cancelled it${str(p.reason) ? `: ${str(p.reason)}` : ''}`
+          : p.code === 'sequence_stopped'
+            ? `Not run: ${str(p.reason)}`
+            : `cancelled it${str(p.reason) ? `: ${str(p.reason)}` : ''}`
     case 'change.expired':
       return 'Expired: the approval lifetime ended'
     case 'change.returned_to_review':
@@ -141,14 +150,36 @@ function describe(e: ChangeEvent): string {
       return `Could not reach the database (attempt ${str(p.attempt)}); nothing ran`
     case 'execution.interrupted':
       return 'Interrupted by a restart: outcome unknown, verify manually'
+    case 'sequence.created':
+      return `created the sequence with ${list(p.steps).length} steps`
+    case 'sequence.submitted':
+      return `submitted it: step 1 (#${str(p.change)}) is in review`
+    case 'sequence.advanced':
+      return `Step ${str(p.executed_step)} (#${str(p.executed_change)}) executed; step ${str(p.next_step)} is next`
+    case 'sequence.completed':
+      return `Completed: all ${str(p.steps)} steps executed`
+    case 'sequence.stopped': {
+      const applied = list(p.applied_steps)
+      return `${str(p.message)} ${
+        applied.length > 0
+          ? `Applied and not rolled back: step ${applied.map(str).join(', ')}.`
+          : 'No step was applied.'
+      }${str(p.reason) ? ` Reason: ${str(p.reason)}` : ''}`
+    }
     default:
       return e.action
   }
 }
 
-/** The change's timeline: a filtered view of the audit log. */
-export function Timeline({ id }: { id: string }) {
-  const events = useQuery(changeEventsQuery(id))
+function list(v: unknown): unknown[] {
+  return Array.isArray(v) ? v : []
+}
+
+/** The timeline of a change, or of a sequence: a filtered view of the audit log. */
+export function Timeline({ id, sequence = false }: { id: string; sequence?: boolean }) {
+  const ofChange = useQuery({ ...changeEventsQuery(id), enabled: !sequence })
+  const ofSequence = useQuery({ ...sequenceEventsQuery(id), enabled: sequence })
+  const events = sequence ? ofSequence : ofChange
   if (events.isPending) return <Skeleton className="h-16 w-full" />
   if (events.isError) {
     return (

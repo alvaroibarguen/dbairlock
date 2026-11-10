@@ -5,6 +5,7 @@ import { ConsentPage } from '@/features/auth/ConsentPage'
 import { SignInPage } from '@/features/auth/SignInPage'
 import { ChangeDetailPage } from '@/features/changes/ChangeDetailPage'
 import { ChangesPage } from '@/features/changes/ChangesPage'
+import { SequenceDetailPage } from '@/features/changes/SequenceDetailPage'
 import { RecoverPage } from '@/features/setup/RecoverPage'
 import { SetupPage } from '@/features/setup/SetupPage'
 import { NotFoundPage, RouteError } from './RouteError'
@@ -37,6 +38,7 @@ export const routes: RouteObject[] = [
       { path: 'changes/new', lazy: newChange },
       { path: 'changes/:id', Component: ChangeDetailPage },
       { path: 'changes/:id/edit', lazy: newChange },
+      { path: 'sequences/:id', Component: SequenceDetailPage },
       { path: 'audit', Component: AuditPage },
       { path: 'connections', lazy: connections },
       { path: 'connections/new', lazy: connections },

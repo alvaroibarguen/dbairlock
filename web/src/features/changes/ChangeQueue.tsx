@@ -5,6 +5,7 @@ import { type ChangeSummary, type ChangeView, changesQuery, isApiError } from '@
 import { Button, type ChangeStatus, cn, EmptyState, ErrorState, Skeleton, StatusDot } from '@/ui'
 import { changeRef, isWaiting, shortAge, statementSummary } from './format'
 import { useQueueView } from './hooks'
+import { stepLabel } from './sequence'
 
 const views: { value: ChangeView; label: string }[] = [
   { value: 'needs_my_review', label: 'Needs my review' },
@@ -64,8 +65,18 @@ export function QueueCount() {
   )
 }
 
-/** The review queue: tabs, then one row per change, newest first. */
-export function ChangeQueue({ selected }: { selected?: string }) {
+/**
+ * The review queue: tabs, then one row per change, newest first. A sequence
+ * is one row, shown as its current step. `selected` is the open change's
+ * number or id, `selectedSequence` the open sequence's.
+ */
+export function ChangeQueue({
+  selected,
+  selectedSequence,
+}: {
+  selected?: string
+  selectedSequence?: string
+}) {
   const view = useQueueView()
   const [, setParams] = useSearchParams()
   const list = useQuery(changesQuery(view))
@@ -130,15 +141,19 @@ export function ChangeQueue({ selected }: { selected?: string }) {
       ) : (
         <ul aria-label="Changes" className="flex flex-col" onKeyDown={onListKey}>
           {list.data.changes.map((c) => {
-            const isSel = selected === String(c.number) || selected === c.id
+            const seq = c.sequence
+            const isSel = seq
+              ? selectedSequence === String(seq.number) || selectedSequence === seq.id
+              : selected === String(c.number) || selected === c.id
             const agent = c.via === 'mcp'
+            const search = view === 'needs_my_review' ? '' : `?view=${view}`
             return (
               <li key={c.id}>
                 <Link
                   data-row
                   to={{
-                    pathname: `/changes/${c.number}`,
-                    search: view === 'needs_my_review' ? '' : `?view=${view}`,
+                    pathname: seq ? `/sequences/${seq.number}` : `/changes/${c.number}`,
+                    search,
                   }}
                   aria-current={isSel ? 'page' : undefined}
                   className={cn(
@@ -148,9 +163,16 @@ export function ChangeQueue({ selected }: { selected?: string }) {
                   )}
                 >
                   <StatusDot status={c.status} className="mt-1.5" />
-                  <span className="truncate text-text">{c.title}</span>
-                  <span className="font-mono text-xs text-mute tabular">{changeRef(c.number)}</span>
+                  <span className="truncate text-text">{seq ? seq.title : c.title}</span>
+                  <span className="font-mono text-xs text-mute tabular">
+                    {changeRef(seq ? seq.number : c.number)}
+                  </span>
                   <span className="col-start-2 col-end-4 flex min-w-0 items-center gap-2.5 font-mono text-[11.5px] text-mute tabular">
+                    {seq && (
+                      <span className="shrink-0 rounded-sm border border-seam px-1 text-dim">
+                        {stepLabel(seq)}
+                      </span>
+                    )}
                     <span className="truncate">{c.connection.name}</span>
                     <span
                       className={cn(
@@ -171,7 +193,7 @@ export function ChangeQueue({ selected }: { selected?: string }) {
                     </span>
                   </span>
                   <span className="sr-only">
-                    {`, ${c.status.replace('_', ' ')}${agent ? `, submitted by an agent of ${c.author.email}` : `, by ${c.author.email}`}`}
+                    {`${seq ? `, sequence, step ${seq.step} of ${seq.steps}` : ''}, ${c.status.replace('_', ' ')}${agent ? `, submitted by an agent of ${c.author.email}` : `, by ${c.author.email}`}`}
                   </span>
                 </Link>
               </li>
