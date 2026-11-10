@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"math"
+	"strings"
 
 	"github.com/alvaroibarguen/dbairlock/internal/audit/auditdb"
 	"github.com/alvaroibarguen/dbairlock/internal/store"
@@ -22,7 +24,8 @@ type Repository interface {
 	Insert(ctx context.Context, row auditdb.InsertEventParams) error
 	// After returns up to limit rows with seq > after, in seq order.
 	After(ctx context.Context, after, limit int64) ([]auditdb.AuditEvent, error)
-	List(ctx context.Context, p auditdb.ListEventsParams) ([]auditdb.AuditEvent, error)
+	// List returns up to p.Limit rows matching p, newest first.
+	List(ctx context.Context, p ListParams) ([]auditdb.AuditEvent, error)
 	// Between returns rows after a seq within a time range, in seq order.
 	Between(ctx context.Context, p auditdb.EventsBetweenParams) ([]auditdb.AuditEvent, error)
 }
@@ -67,8 +70,104 @@ func (r sqlRepo) After(ctx context.Context, after, limit int64) ([]auditdb.Audit
 	return r.q.EventsAfter(ctx, auditdb.EventsAfterParams{Seq: after, Limit: limit})
 }
 
-func (r sqlRepo) List(ctx context.Context, p auditdb.ListEventsParams) ([]auditdb.AuditEvent, error) {
-	return r.q.ListEvents(ctx, p)
+// ListParams filter one page of List. Empty strings and zero times mean
+// no filter.
+type ListParams struct {
+	BeforeSeq    int64 // only seq < BeforeSeq; <= 0 means no bound
+	Actor        string
+	Via          string
+	ActionPrefix string
+	SubjectType  string
+	SubjectID    string
+	FromMs       int64 // occurred_at >= FromMs; <= 0 means no bound
+	ToMs         int64 // occurred_at < ToMs; math.MaxInt64 means no bound
+	Limit        int64
+}
+
+const listColumns = `seq, id, occurred_at, actor_user_id, actor_email, via, api_token_id, ip,
+	action, subject_type, subject_id, payload, prev_hash, hash`
+
+// List is hand-written rather than an sqlc query: a static query with
+// "(param is empty OR col = param)" for every optional filter hides them from
+// SQLite's planner, which then scanned the whole log (or sorted it by
+// occurred_at) for a selective filter such as one change's timeline. Only
+// the filters in use are added here, so each can use its index. Every
+// value is a bound parameter.
+func (r sqlRepo) List(ctx context.Context, p ListParams) ([]auditdb.AuditEvent, error) {
+	var (
+		where []string
+		args  []any
+	)
+	add := func(cond string, a ...any) {
+		where = append(where, cond)
+		args = append(args, a...)
+	}
+	if p.BeforeSeq > 0 {
+		add("seq < ?", p.BeforeSeq)
+	}
+	if p.Actor != "" {
+		add("(actor_user_id = ? OR actor_email = ?)", p.Actor, p.Actor)
+	}
+	if p.Via != "" {
+		add("via = ?", p.Via)
+	}
+	if p.ActionPrefix != "" {
+		// A prefix as a range, so the action index applies. Text compares
+		// byte-wise (BINARY collation), exactly like the prefix test.
+		if hi, ok := prefixUpperBound(p.ActionPrefix); ok {
+			add("action >= ? AND action < ?", p.ActionPrefix, hi)
+		} else {
+			add("action >= ?", p.ActionPrefix)
+		}
+	}
+	if p.SubjectType != "" {
+		add("subject_type = ?", p.SubjectType)
+	}
+	if p.SubjectID != "" {
+		add("subject_id = ?", p.SubjectID)
+	}
+	if p.FromMs > 0 {
+		add("occurred_at >= ?", p.FromMs)
+	}
+	if p.ToMs < math.MaxInt64 {
+		add("occurred_at < ?", p.ToMs)
+	}
+	q := "SELECT " + listColumns + " FROM audit_events"
+	if len(where) > 0 {
+		q += " WHERE " + strings.Join(where, " AND ")
+	}
+	q += " ORDER BY seq DESC LIMIT ?"
+	args = append(args, p.Limit)
+
+	rows, err := r.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	out := []auditdb.AuditEvent{}
+	for rows.Next() {
+		var e auditdb.AuditEvent
+		if err := rows.Scan(&e.Seq, &e.ID, &e.OccurredAt, &e.ActorUserID, &e.ActorEmail, &e.Via, &e.ApiTokenID,
+			&e.Ip, &e.Action, &e.SubjectType, &e.SubjectID, &e.Payload, &e.PrevHash, &e.Hash); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+// prefixUpperBound returns the smallest string greater than every string
+// that starts with prefix, byte-wise; ok is false when there is none (the
+// prefix is all 0xff bytes).
+func prefixUpperBound(prefix string) (string, bool) {
+	b := []byte(prefix)
+	for i := len(b) - 1; i >= 0; i-- {
+		if b[i] < 0xff {
+			b[i]++
+			return string(b[:i+1]), true
+		}
+	}
+	return "", false
 }
 
 func (r sqlRepo) Between(ctx context.Context, p auditdb.EventsBetweenParams) ([]auditdb.AuditEvent, error) {

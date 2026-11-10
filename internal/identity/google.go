@@ -30,7 +30,8 @@ import (
 const CallbackPath = "/api/auth/google/callback"
 
 // FlowLifetime bounds the time between starting a sign-in and Google's
-// redirect back.
+// redirect back. Fixed: a person completes the redirect in seconds, and a
+// longer window only widens the time a stolen state cookie is useful.
 const FlowLifetime = 10 * time.Minute
 
 // Purpose is why a sign-in was started.

@@ -68,6 +68,16 @@ type Target interface {
 	Kill(ctx context.Context, label string) error
 }
 
+// TransactionTarget is implemented by a Target whose run label is visible
+// before the run's transaction begins (MySQL sets it as a connection
+// attribute at connect time; Postgres sets it inside the transaction).
+// Tests that must act after BEGIN also wait for InTransaction.
+type TransactionTarget interface {
+	// InTransaction reports whether a session labelled label has an open
+	// transaction on the server.
+	InTransaction(ctx context.Context, label string) (bool, error)
+}
+
 // NamespaceTarget is implemented by a Target whose default namespace is
 // not Harness.DefaultNamespace: for example a MySQL target, whose namespace
 // is its own database, created fresh for each target.

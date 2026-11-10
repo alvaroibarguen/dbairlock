@@ -11,7 +11,10 @@ import (
 )
 
 // MaxPayloadString is the longest string value kept in an audit payload, in
-// bytes. Longer strings are cut and marked by truncate.
+// bytes. Longer strings are cut and marked by truncate. Not a setting: it
+// bounds the size of one event (statements are at most 64 KB, and the
+// full SQL stays in the change itself), and changing it would not alter
+// past events, which keep their hashes.
 const MaxPayloadString = 8 << 10
 
 // hashSize is the length of prev_hash and hash. The first event's prev_hash

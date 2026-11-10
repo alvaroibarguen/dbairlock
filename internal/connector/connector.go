@@ -203,7 +203,12 @@ type Limits struct {
 	MaxCellBytes     int           // display truncation of a single cell value
 }
 
-// DefaultLimits returns conservative defaults.
+// DefaultLimits returns conservative defaults. The row limit and the
+// timeouts are settings (per connection and per instance; targets.Limits
+// fills them in). MaxCellBytes stays fixed: it only truncates what a
+// preview displays and stores, while fingerprints always cover complete
+// values, so it cannot weaken a check, and 4 KB keeps stored previews and
+// review pages small.
 func DefaultLimits() Limits {
 	return Limits{
 		MaxRows:          1000,

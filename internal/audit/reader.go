@@ -12,7 +12,8 @@ import (
 	"github.com/alvaroibarguen/dbairlock/internal/store"
 )
 
-// Page sizes for Reader.List.
+// Page sizes for Reader.List. Fixed: they bound the work and the response
+// size of one request; the export streams everything for bulk use.
 const (
 	DefaultPageSize = 50
 	MaxPageSize     = 500
@@ -76,17 +77,14 @@ func (r *Reader) List(ctx context.Context, f Filter) (Page, error) {
 		limit = DefaultPageSize
 	}
 	limit = min(limit, MaxPageSize)
-	p := auditdb.ListEventsParams{
+	p := ListParams{
 		BeforeSeq:    f.BeforeSeq,
 		Actor:        f.Actor,
 		Via:          string(f.Via),
 		ActionPrefix: f.ActionPrefix,
 		SubjectType:  f.SubjectType,
 		SubjectID:    f.SubjectID,
-		PageLimit:    int64(limit) + 1,
-	}
-	if p.BeforeSeq <= 0 {
-		p.BeforeSeq = math.MaxInt64
+		Limit:        int64(limit) + 1,
 	}
 	p.FromMs, p.ToMs = rangeMs(f.From, f.To)
 	rows, err := r.repo.List(ctx, p)

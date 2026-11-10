@@ -55,11 +55,21 @@ const (
 	tlsVerifyFull = "verify-full"
 )
 
+// Pool and connect limits. Constants, not settings (docs/configuration.md):
+// every target tolerates them, and dbairlock runs at most one change per
+// target at a time plus occasional previews, so two connections suffice. A
+// target that cannot accept a connection within 10 seconds counts as
+// unreachable, and an execution is then deferred, never failed. Idle
+// connections are closed after 5 minutes and every connection is renewed
+// after 30, so a failover or a password change is picked up without
+// holding sessions on the target.
 const (
 	defaultPort   = 5432
 	defaultSchema = "public"
 	poolMaxConns  = 2
 	connectTimout = 10 * time.Second
+	poolMaxIdle   = 5 * time.Minute
+	poolMaxLife   = 30 * time.Minute
 )
 
 // Connector is the Postgres connector. The zero value is ready to use and
@@ -285,8 +295,8 @@ func poolConfig(cfg connector.Config, password []byte) (*pgxpool.Config, error) 
 	cc.TLSConfig = tlsCfg
 	pc.MaxConns = poolMaxConns
 	pc.MinConns = 0
-	pc.MaxConnIdleTime = 5 * time.Minute
-	pc.MaxConnLifetime = 30 * time.Minute
+	pc.MaxConnIdleTime = poolMaxIdle
+	pc.MaxConnLifetime = poolMaxLife
 	return pc, nil
 }
 

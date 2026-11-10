@@ -137,6 +137,8 @@ func New(opts Options) (*Service, error) {
 	return &Service{
 		opts: opts, flowKey: key,
 		// Sign-in starts and callbacks: 20 per minute per client address.
+		// Not a setting: brute-force protection must not be switchable
+		// off, and no real person signs in 20 times a minute.
 		authLimit: ratelimit.New(opts.Clock, 3*time.Second, 20),
 	}, nil
 }

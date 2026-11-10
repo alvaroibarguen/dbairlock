@@ -57,7 +57,10 @@ type Options struct {
 	Targets Targets
 	Clock   clock.Clock
 	Logger  *slog.Logger
-	// Interval is how often the loop wakes on its own. Default 5 seconds.
+	// Interval is how often the loop wakes on its own. Default 5 seconds,
+	// and app never changes it: an approval wakes the loop at once, so the
+	// interval only bounds how late a due retry or an expiry is noticed,
+	// and the retry schedule itself is PLAN.md 5.6 (changes.Backoff).
 	Interval time.Duration
 }
 

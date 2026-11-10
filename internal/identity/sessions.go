@@ -18,7 +18,10 @@ import (
 )
 
 const (
-	// SessionAbsoluteMax caps a session however active it is.
+	// SessionAbsoluteMax caps a session however active it is. Not a
+	// setting: the idle length (auth.session_hours) is the knob, and this
+	// cap guarantees every sign-in is re-checked against Google (removed
+	// accounts, changed domains) at least monthly whatever it is set to.
 	SessionAbsoluteMax = 30 * 24 * time.Hour
 	// touchEvery limits how often activity extends a session (one write per
 	// session per minute at most).
