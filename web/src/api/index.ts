@@ -8,7 +8,13 @@ export {
 export { ApiError, isApiError, signInErrorMessage } from './errors'
 export type { FieldError } from './errors'
 export {
+  archiveConnection,
   can,
+  connectionQuery,
+  connectionSchemaQuery,
+  connectionsQuery,
+  connectorsQuery,
+  createConnection,
   createToken,
   devLogin,
   googleSignInUrl,
@@ -26,7 +32,10 @@ export {
   SETUP_GOOGLE_URL,
   signOut,
   signOutEverywhere,
+  testConnection,
+  testConnectionSettings,
   tokensQuery,
+  updateConnection,
   updateSettings,
   usersQuery,
   verifyRecoveryCode,
@@ -34,6 +43,15 @@ export {
 } from './queries'
 export type {
   ApiToken,
+  Connection,
+  ConnectionCreate,
+  ConnectionPolicy,
+  ConnectionTestRequest,
+  ConnectionTestResult,
+  ConnectionUpdate,
+  Connector,
+  ConnectorField,
+  DatabaseSchema,
   Me,
   Permission,
   Role,

@@ -454,6 +454,172 @@ export interface paths {
         patch: operations["updateSettings"];
         trace?: never;
     };
+    "/api/connectors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Available connectors
+         * @description Every database product dbairlock can connect to, with the fields of
+         *     its connection form. The dashboard renders the form from `fields`
+         *     without connector-specific code. Any signed-in user.
+         */
+        get: operations["listConnectors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Connections
+         * @description Every connection that is not archived, ordered by connector and name. Any signed-in user.
+         */
+        get: operations["listConnections"];
+        put?: never;
+        /**
+         * Add a connection
+         * @description The policy starts from the `policy.default_*` settings; fields in
+         *     `policy` override them. The password goes to the secret store and is
+         *     never returned. Names are unique across all connectors (409
+         *     name_taken). Admin only.
+         */
+        post: operations["createConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/connections/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test unsaved connection settings
+         * @description Connects with the given settings, reads the server version and checks
+         *     the user's privileges, without saving anything. With `connection_id`
+         *     and no `password`, the saved password of that connection is used.
+         *     A failure to connect is a result with `ok` false, not an error.
+         *     Admin only.
+         */
+        post: operations["testConnectionSettings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/connections/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One connection
+         * @description Archived connections are returned too. Any signed-in user.
+         */
+        get: operations["getConnection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a connection
+         * @description Omitted fields are unchanged; `config`, when present, replaces the
+         *     whole config. Changing the config or the password closes this
+         *     connection's pool only. Archived connections cannot change (409
+         *     archived). Admin only.
+         */
+        patch: operations["updateConnection"];
+        trace?: never;
+    };
+    "/api/connections/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a connection
+         * @description Hides the connection. Its history remains, its name becomes free and
+         *     its password is removed from the secret store. Admin only.
+         */
+        post: operations["archiveConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/connections/{id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test a saved connection
+         * @description Tests the saved connection with its saved password and records the
+         *     outcome as its last test. A failure to connect is a result with `ok`
+         *     false, not an error. Admin only.
+         */
+        post: operations["testConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/connections/{id}/schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The schema of a connection
+         * @description Namespaces, tables, columns and primary keys, for the schema browser
+         *     and editor autocomplete. Cached for 60 seconds. System schemas are
+         *     never included. Any signed-in user. A target that cannot be reached
+         *     answers 502 target_unavailable.
+         */
+        get: operations["getConnectionSchema"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -664,6 +830,175 @@ export interface components {
             "limits.statement_timeout_ms"?: number;
             "limits.lock_timeout_ms"?: number;
             "notify.enabled"?: boolean;
+        };
+        /** @description One input of a connection form, declared by the connector. */
+        ConnectorField: {
+            key: string;
+            label: string;
+            /**
+             * @description `text` is a multi-line string. A `secret` field is the
+             *     connection's password: it is sent as `password`, never in
+             *     `config`, and never returned.
+             * @enum {string}
+             */
+            type: "string" | "text" | "int" | "enum" | "bool" | "secret";
+            required: boolean;
+            /** @description The default value (a string, number or boolean). */
+            default?: unknown;
+            /** @description The choices of an `enum` field. */
+            options?: string[];
+            help?: string;
+        };
+        Connector: {
+            /** @example postgres */
+            id: string;
+            /** @example PostgreSQL */
+            display_name: string;
+            /** @description The SQL editor dialect, for example `postgresql` or `mysql`. */
+            dialect: string;
+            default_port: number;
+            fields: components["schemas"]["ConnectorField"][];
+        };
+        ConnectorList: {
+            connectors: components["schemas"]["Connector"][];
+            /** @description The function allowlist a new connection starts with. */
+            default_allowed_functions: string[];
+        };
+        /** @description The connector's non-secret fields, keyed by field key. Values are strings, integers or booleans. */
+        ConnectionConfig: {
+            [key: string]: unknown;
+        };
+        /** @description The review policy of one connection. Bounds mirror the `policy.default_*` settings. */
+        ConnectionPolicy: {
+            /** @description Approvals needed before a change runs. The author never counts. */
+            required_approvals: number;
+            /** @description A statement may affect at most this many rows. */
+            max_rows: number;
+            /** @description How long a change may wait for review before it expires. */
+            approval_ttl_hours: number;
+            /** @description Keep the before and after rows of each change. When off, only column names and counts are kept. */
+            store_row_images: boolean;
+            /** @description Run a change as soon as its last required approval lands. */
+            auto_execute: boolean;
+            /** @description Lower-case names of the functions statements may call. */
+            allowed_functions: string[];
+        };
+        /** @description Policy fields to change; omitted fields are unchanged (on create, taken from the defaults). */
+        ConnectionPolicyPatch: {
+            /** @description Approvals needed before a change runs. The author never counts. */
+            required_approvals?: number;
+            /** @description A statement may affect at most this many rows. */
+            max_rows?: number;
+            /** @description How long a change may wait for review before it expires. */
+            approval_ttl_hours?: number;
+            /** @description Keep the before and after rows of each change. When off, only column names and counts are kept. */
+            store_row_images?: boolean;
+            /** @description Run a change as soon as its last required approval lands. */
+            auto_execute?: boolean;
+            /** @description Lower-case names of the functions statements may call. */
+            allowed_functions?: string[];
+        };
+        /** @description Unique across all connectors; agents refer to a connection by name alone. */
+        ConnectionName: string;
+        ServerInfo: {
+            product: string;
+            version: string;
+            major: number;
+            /** @description The version is one the vendor still maintains. */
+            supported: boolean;
+        };
+        ExcessPrivilege: {
+            /** @example SUPERUSER */
+            privilege: string;
+            detail: string;
+            /** @description A statement an admin can run on the target to remove the privilege. */
+            fix?: string;
+        };
+        PrivilegeReport: {
+            user: string;
+            can_select: boolean;
+            can_insert: boolean;
+            can_update: boolean;
+            can_delete: boolean;
+            /** @description Privileges beyond SELECT, INSERT, UPDATE and DELETE. */
+            excess: components["schemas"]["ExcessPrivilege"][];
+        };
+        ConnectionTestResult: {
+            /** @description The target could be reached and authenticated to. */
+            ok: boolean;
+            /** Format: date-time */
+            tested_at: string;
+            /** @description Why the test failed. Present when `ok` is false. */
+            message?: string;
+            server?: components["schemas"]["ServerInfo"];
+            privileges?: components["schemas"]["PrivilegeReport"];
+            /** @description Problems that do not stop the connection from working. */
+            warnings: string[];
+        };
+        ConnectionTestRequest: {
+            connector: string;
+            config: components["schemas"]["ConnectionConfig"];
+            /** @description Omit, with `connection_id`, to use the saved password. */
+            password?: string;
+            /** @description A saved connection whose password to use when `password` is omitted. */
+            connection_id?: string;
+        };
+        Connection: {
+            id: string;
+            name: string;
+            description: string;
+            connector: string;
+            config: components["schemas"]["ConnectionConfig"];
+            policy: components["schemas"]["ConnectionPolicy"];
+            password: components["schemas"]["SecretStatus"];
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            archived_at?: string;
+            archived_by?: string;
+            last_test?: components["schemas"]["ConnectionTestResult"];
+        };
+        ConnectionList: {
+            connections: components["schemas"]["Connection"][];
+        };
+        ConnectionCreate: {
+            name: components["schemas"]["ConnectionName"];
+            /** @description What this database holds and when to use it. Agents read it to decide where a change belongs. */
+            description?: string;
+            connector: string;
+            config: components["schemas"]["ConnectionConfig"];
+            password: string;
+            policy?: components["schemas"]["ConnectionPolicyPatch"];
+        };
+        ConnectionUpdate: {
+            name?: components["schemas"]["ConnectionName"];
+            description?: string;
+            config?: components["schemas"]["ConnectionConfig"];
+            /** @description Omit to keep the saved password. A connection always has one, so it cannot be cleared. */
+            password?: string;
+            policy?: components["schemas"]["ConnectionPolicyPatch"];
+        };
+        SchemaColumn: {
+            name: string;
+            type: string;
+            nullable: boolean;
+        };
+        SchemaTable: {
+            name: string;
+            columns: components["schemas"]["SchemaColumn"][];
+            /** @description Column names of the primary key, in key order; empty when the table has none. */
+            primary_key: string[];
+        };
+        SchemaNamespace: {
+            /** @description A Postgres schema, or the MySQL database. */
+            name: string;
+            tables: components["schemas"]["SchemaTable"][];
+        };
+        Schema: {
+            namespaces: components["schemas"]["SchemaNamespace"][];
         };
         Health: {
             /** @enum {string} */
@@ -1234,6 +1569,224 @@ export interface operations {
                 };
             };
             422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listConnectors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Connectors, ordered by id. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectorList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listConnections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Connections. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectionCreate"];
+            };
+        };
+        responses: {
+            /** @description The new connection. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    testConnectionSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectionTestRequest"];
+            };
+        };
+        responses: {
+            /** @description The outcome of the test. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionTestResult"];
+                };
+            };
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The connection. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectionUpdate"];
+            };
+        };
+        responses: {
+            /** @description The connection after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    archiveConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The connection after archiving. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    testConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The outcome of the test. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionTestResult"];
+                };
+            };
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getConnectionSchema: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The schema. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schema"];
+                };
+            };
+            502: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

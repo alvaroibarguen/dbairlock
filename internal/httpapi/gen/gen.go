@@ -18,6 +18,36 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for ConnectorFieldType.
+const (
+	Bool   ConnectorFieldType = "bool"
+	Enum   ConnectorFieldType = "enum"
+	Int    ConnectorFieldType = "int"
+	Secret ConnectorFieldType = "secret"
+	String ConnectorFieldType = "string"
+	Text   ConnectorFieldType = "text"
+)
+
+// Valid indicates whether the value is a known member of the ConnectorFieldType enum.
+func (e ConnectorFieldType) Valid() bool {
+	switch e {
+	case Bool:
+		return true
+	case Enum:
+		return true
+	case Int:
+		return true
+	case Secret:
+		return true
+	case String:
+		return true
+	case Text:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HealthStatus.
 const (
 	Ok HealthStatus = "ok"
@@ -154,6 +184,191 @@ type ApiToken struct {
 	Prefix string `json:"prefix"`
 }
 
+// Connection defines model for Connection.
+type Connection struct {
+	ArchivedAt *time.Time `json:"archived_at,omitempty"`
+	ArchivedBy *string    `json:"archived_by,omitempty"`
+
+	// Config The connector's non-secret fields, keyed by field key. Values are strings, integers or booleans.
+	Config      ConnectionConfig      `json:"config"`
+	Connector   string                `json:"connector"`
+	CreatedAt   time.Time             `json:"created_at"`
+	CreatedBy   string                `json:"created_by"`
+	Description string                `json:"description"`
+	Id          string                `json:"id"`
+	LastTest    *ConnectionTestResult `json:"last_test,omitempty"`
+	Name        string                `json:"name"`
+
+	// Password Whether a secret is set, and by whom and when. Responses carry this
+	// instead of a secret; nothing derived from the value (no length, hash
+	// or preview) is ever included.
+	Password SecretStatus `json:"password"`
+
+	// Policy The review policy of one connection. Bounds mirror the `policy.default_*` settings.
+	Policy    ConnectionPolicy `json:"policy"`
+	UpdatedAt time.Time        `json:"updated_at"`
+}
+
+// ConnectionConfig The connector's non-secret fields, keyed by field key. Values are strings, integers or booleans.
+type ConnectionConfig map[string]interface{}
+
+// ConnectionCreate defines model for ConnectionCreate.
+type ConnectionCreate struct {
+	// Config The connector's non-secret fields, keyed by field key. Values are strings, integers or booleans.
+	Config    ConnectionConfig `json:"config"`
+	Connector string           `json:"connector"`
+
+	// Description What this database holds and when to use it. Agents read it to decide where a change belongs.
+	Description *string `json:"description,omitempty"`
+
+	// Name Unique across all connectors; agents refer to a connection by name alone.
+	Name     ConnectionName `json:"name"`
+	Password *string        `json:"password,omitempty"`
+
+	// Policy Policy fields to change; omitted fields are unchanged (on create, taken from the defaults).
+	Policy *ConnectionPolicyPatch `json:"policy,omitempty"`
+}
+
+// ConnectionList defines model for ConnectionList.
+type ConnectionList struct {
+	Connections []Connection `json:"connections"`
+}
+
+// ConnectionName Unique across all connectors; agents refer to a connection by name alone.
+type ConnectionName = string
+
+// ConnectionPolicy The review policy of one connection. Bounds mirror the `policy.default_*` settings.
+type ConnectionPolicy struct {
+	// AllowedFunctions Lower-case names of the functions statements may call.
+	AllowedFunctions []string `json:"allowed_functions"`
+
+	// ApprovalTtlHours How long a change may wait for review before it expires.
+	ApprovalTtlHours int `json:"approval_ttl_hours"`
+
+	// AutoExecute Run a change as soon as its last required approval lands.
+	AutoExecute bool `json:"auto_execute"`
+
+	// MaxRows A statement may affect at most this many rows.
+	MaxRows int `json:"max_rows"`
+
+	// RequiredApprovals Approvals needed before a change runs. The author never counts.
+	RequiredApprovals int `json:"required_approvals"`
+
+	// StoreRowImages Keep the before and after rows of each change. When off, only column names and counts are kept.
+	StoreRowImages bool `json:"store_row_images"`
+}
+
+// ConnectionPolicyPatch Policy fields to change; omitted fields are unchanged (on create, taken from the defaults).
+type ConnectionPolicyPatch struct {
+	// AllowedFunctions Lower-case names of the functions statements may call.
+	AllowedFunctions *[]string `json:"allowed_functions,omitempty"`
+
+	// ApprovalTtlHours How long a change may wait for review before it expires.
+	ApprovalTtlHours *int `json:"approval_ttl_hours,omitempty"`
+
+	// AutoExecute Run a change as soon as its last required approval lands.
+	AutoExecute *bool `json:"auto_execute,omitempty"`
+
+	// MaxRows A statement may affect at most this many rows.
+	MaxRows *int `json:"max_rows,omitempty"`
+
+	// RequiredApprovals Approvals needed before a change runs. The author never counts.
+	RequiredApprovals *int `json:"required_approvals,omitempty"`
+
+	// StoreRowImages Keep the before and after rows of each change. When off, only column names and counts are kept.
+	StoreRowImages *bool `json:"store_row_images,omitempty"`
+}
+
+// ConnectionTestRequest defines model for ConnectionTestRequest.
+type ConnectionTestRequest struct {
+	// Config The connector's non-secret fields, keyed by field key. Values are strings, integers or booleans.
+	Config ConnectionConfig `json:"config"`
+
+	// ConnectionId A saved connection whose password to use when `password` is omitted.
+	ConnectionId *string `json:"connection_id,omitempty"`
+	Connector    string  `json:"connector"`
+
+	// Password Omit, with `connection_id`, to use the saved password.
+	Password *string `json:"password,omitempty"`
+}
+
+// ConnectionTestResult defines model for ConnectionTestResult.
+type ConnectionTestResult struct {
+	// Message Why the test failed. Present when `ok` is false.
+	Message *string `json:"message,omitempty"`
+
+	// Ok The target could be reached and authenticated to.
+	Ok         bool             `json:"ok"`
+	Privileges *PrivilegeReport `json:"privileges,omitempty"`
+	Server     *ServerInfo      `json:"server,omitempty"`
+	TestedAt   time.Time        `json:"tested_at"`
+
+	// Warnings Problems that do not stop the connection from working.
+	Warnings []string `json:"warnings"`
+}
+
+// ConnectionUpdate defines model for ConnectionUpdate.
+type ConnectionUpdate struct {
+	// Config The connector's non-secret fields, keyed by field key. Values are strings, integers or booleans.
+	Config      *ConnectionConfig `json:"config,omitempty"`
+	Description *string           `json:"description,omitempty"`
+
+	// Name Unique across all connectors; agents refer to a connection by name alone.
+	Name *ConnectionName `json:"name,omitempty"`
+
+	// Password Omit to keep the saved password. A connection always has one, so it cannot be cleared.
+	Password *string `json:"password,omitempty"`
+
+	// Policy Policy fields to change; omitted fields are unchanged (on create, taken from the defaults).
+	Policy *ConnectionPolicyPatch `json:"policy,omitempty"`
+}
+
+// Connector defines model for Connector.
+type Connector struct {
+	DefaultPort int `json:"default_port"`
+
+	// Dialect The SQL editor dialect, for example `postgresql` or `mysql`.
+	Dialect string `json:"dialect"`
+
+	// DisplayName Examples: PostgreSQL
+	DisplayName string           `json:"display_name"`
+	Fields      []ConnectorField `json:"fields"`
+
+	// Id Examples: postgres
+	Id string `json:"id"`
+}
+
+// ConnectorField One input of a connection form, declared by the connector.
+type ConnectorField struct {
+	// Default The default value (a string, number or boolean).
+	Default interface{} `json:"default,omitempty"`
+	Help    *string     `json:"help,omitempty"`
+	Key     string      `json:"key"`
+	Label   string      `json:"label"`
+
+	// Options The choices of an `enum` field.
+	Options  *[]string `json:"options,omitempty"`
+	Required bool      `json:"required"`
+
+	// Type `text` is a multi-line string. A `secret` field is the
+	// connection's password: it is sent as `password`, never in
+	// `config`, and never returned.
+	Type ConnectorFieldType `json:"type"`
+}
+
+// ConnectorFieldType `text` is a multi-line string. A `secret` field is the
+// connection's password: it is sent as `password`, never in
+// `config`, and never returned.
+type ConnectorFieldType string
+
+// ConnectorList defines model for ConnectorList.
+type ConnectorList struct {
+	Connectors []Connector `json:"connectors"`
+
+	// DefaultAllowedFunctions The function allowlist a new connection starts with.
+	DefaultAllowedFunctions []string `json:"default_allowed_functions"`
+}
+
 // DevLogin defines model for DevLogin.
 type DevLogin struct {
 	Email string `json:"email"`
@@ -177,6 +392,17 @@ type ErrorBody struct {
 
 	// Message Human-readable message, safe to show to the user.
 	Message string `json:"message"`
+}
+
+// ExcessPrivilege defines model for ExcessPrivilege.
+type ExcessPrivilege struct {
+	Detail string `json:"detail"`
+
+	// Fix A statement an admin can run on the target to remove the privilege.
+	Fix *string `json:"fix,omitempty"`
+
+	// Privilege Examples: SUPERUSER
+	Privilege string `json:"privilege"`
 }
 
 // FieldError defines model for FieldError.
@@ -223,8 +449,48 @@ type Meta struct {
 // Permission An action the user may take (see identity.Can).
 type Permission string
 
+// PrivilegeReport defines model for PrivilegeReport.
+type PrivilegeReport struct {
+	CanDelete bool `json:"can_delete"`
+	CanInsert bool `json:"can_insert"`
+	CanSelect bool `json:"can_select"`
+	CanUpdate bool `json:"can_update"`
+
+	// Excess Privileges beyond SELECT, INSERT, UPDATE and DELETE.
+	Excess []ExcessPrivilege `json:"excess"`
+	User   string            `json:"user"`
+}
+
 // Role defines model for Role.
 type Role string
+
+// Schema defines model for Schema.
+type Schema struct {
+	Namespaces []SchemaNamespace `json:"namespaces"`
+}
+
+// SchemaColumn defines model for SchemaColumn.
+type SchemaColumn struct {
+	Name     string `json:"name"`
+	Nullable bool   `json:"nullable"`
+	Type     string `json:"type"`
+}
+
+// SchemaNamespace defines model for SchemaNamespace.
+type SchemaNamespace struct {
+	// Name A Postgres schema, or the MySQL database.
+	Name   string        `json:"name"`
+	Tables []SchemaTable `json:"tables"`
+}
+
+// SchemaTable defines model for SchemaTable.
+type SchemaTable struct {
+	Columns []SchemaColumn `json:"columns"`
+	Name    string         `json:"name"`
+
+	// PrimaryKey Column names of the primary key, in key order; empty when the table has none.
+	PrimaryKey []string `json:"primary_key"`
+}
 
 // SecretStatus Whether a secret is set, and by whom and when. Responses carry this
 // instead of a secret; nothing derived from the value (no length, hash
@@ -237,6 +503,16 @@ type SecretStatus struct {
 
 	// SetBy Who last set the secret. Present when `is_set` is true.
 	SetBy *string `json:"set_by,omitempty"`
+}
+
+// ServerInfo defines model for ServerInfo.
+type ServerInfo struct {
+	Major   int    `json:"major"`
+	Product string `json:"product"`
+
+	// Supported The version is one the vendor still maintains.
+	Supported bool   `json:"supported"`
+	Version   string `json:"version"`
 }
 
 // SettingValues Every registered setting. Bounds mirror the registry in internal/settings (a contract test keeps them equal).
@@ -459,6 +735,15 @@ type ListTokensParams struct {
 	All *bool `form:"all,omitempty" json:"all,omitempty"`
 }
 
+// CreateConnectionJSONRequestBody defines body for CreateConnection for application/json ContentType.
+type CreateConnectionJSONRequestBody = ConnectionCreate
+
+// TestConnectionSettingsJSONRequestBody defines body for TestConnectionSettings for application/json ContentType.
+type TestConnectionSettingsJSONRequestBody = ConnectionTestRequest
+
+// UpdateConnectionJSONRequestBody defines body for UpdateConnection for application/json ContentType.
+type UpdateConnectionJSONRequestBody = ConnectionUpdate
+
 // DevLoginJSONRequestBody defines body for DevLogin for application/json ContentType.
 type DevLoginJSONRequestBody = DevLogin
 
@@ -494,6 +779,33 @@ type ServerInterface interface {
 	// SignOutEverywhere Sign out of every browser
 	// (POST /api/auth/signout-everywhere)
 	SignOutEverywhere(w http.ResponseWriter, r *http.Request)
+	// ListConnections Connections
+	// (GET /api/connections)
+	ListConnections(w http.ResponseWriter, r *http.Request)
+	// CreateConnection Add a connection
+	// (POST /api/connections)
+	CreateConnection(w http.ResponseWriter, r *http.Request)
+	// TestConnectionSettings Test unsaved connection settings
+	// (POST /api/connections/test)
+	TestConnectionSettings(w http.ResponseWriter, r *http.Request)
+	// GetConnection One connection
+	// (GET /api/connections/{id})
+	GetConnection(w http.ResponseWriter, r *http.Request, id ID)
+	// UpdateConnection Change a connection
+	// (PATCH /api/connections/{id})
+	UpdateConnection(w http.ResponseWriter, r *http.Request, id ID)
+	// ArchiveConnection Archive a connection
+	// (POST /api/connections/{id}/archive)
+	ArchiveConnection(w http.ResponseWriter, r *http.Request, id ID)
+	// GetConnectionSchema The schema of a connection
+	// (GET /api/connections/{id}/schema)
+	GetConnectionSchema(w http.ResponseWriter, r *http.Request, id ID)
+	// TestConnection Test a saved connection
+	// (POST /api/connections/{id}/test)
+	TestConnection(w http.ResponseWriter, r *http.Request, id ID)
+	// ListConnectors Available connectors
+	// (GET /api/connectors)
+	ListConnectors(w http.ResponseWriter, r *http.Request)
 	// DevLogin Development sign-in
 	// (POST /api/dev/login)
 	DevLogin(w http.ResponseWriter, r *http.Request)
@@ -676,6 +988,192 @@ func (siw *ServerInterfaceWrapper) SignOutEverywhere(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SignOutEverywhere(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListConnections operation middleware
+func (siw *ServerInterfaceWrapper) ListConnections(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListConnections(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateConnection operation middleware
+func (siw *ServerInterfaceWrapper) CreateConnection(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateConnection(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestConnectionSettings operation middleware
+func (siw *ServerInterfaceWrapper) TestConnectionSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestConnectionSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetConnection operation middleware
+func (siw *ServerInterfaceWrapper) GetConnection(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetConnection(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateConnection operation middleware
+func (siw *ServerInterfaceWrapper) UpdateConnection(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateConnection(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ArchiveConnection operation middleware
+func (siw *ServerInterfaceWrapper) ArchiveConnection(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ArchiveConnection(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetConnectionSchema operation middleware
+func (siw *ServerInterfaceWrapper) GetConnectionSchema(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetConnectionSchema(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestConnection operation middleware
+func (siw *ServerInterfaceWrapper) TestConnection(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestConnection(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListConnectors operation middleware
+func (siw *ServerInterfaceWrapper) ListConnectors(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListConnectors(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1176,6 +1674,15 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/tokens/{id}", wrapper.RevokeToken)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/settings", wrapper.GetSettings)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/api/settings", wrapper.UpdateSettings)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/connectors", wrapper.ListConnectors)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/connections", wrapper.ListConnections)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/connections", wrapper.CreateConnection)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/connections/test", wrapper.TestConnectionSettings)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/connections/{id}", wrapper.GetConnection)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/api/connections/{id}", wrapper.UpdateConnection)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/connections/{id}/archive", wrapper.ArchiveConnection)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/connections/{id}/test", wrapper.TestConnection)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/connections/{id}/schema", wrapper.GetConnectionSchema)
 
 	return m
 }
@@ -1308,6 +1815,454 @@ type SignOutEverywheredefaultJSONResponse struct {
 }
 
 func (response SignOutEverywheredefaultJSONResponse) VisitSignOutEverywhereResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListConnectionsRequestObject struct {
+}
+
+type ListConnectionsResponseObject interface {
+	VisitListConnectionsResponse(w http.ResponseWriter) error
+}
+
+type ListConnections200JSONResponse ConnectionList
+
+func (response ListConnections200JSONResponse) VisitListConnectionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListConnectionsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListConnectionsdefaultJSONResponse) VisitListConnectionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateConnectionRequestObject struct {
+	Body *CreateConnectionJSONRequestBody
+}
+
+type CreateConnectionResponseObject interface {
+	VisitCreateConnectionResponse(w http.ResponseWriter) error
+}
+
+type CreateConnection201JSONResponse Connection
+
+func (response CreateConnection201JSONResponse) VisitCreateConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateConnection409JSONResponse struct{ ErrorJSONResponse }
+
+func (response CreateConnection409JSONResponse) VisitCreateConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateConnection422JSONResponse Error
+
+func (response CreateConnection422JSONResponse) VisitCreateConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateConnectiondefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response CreateConnectiondefaultJSONResponse) VisitCreateConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestConnectionSettingsRequestObject struct {
+	Body *TestConnectionSettingsJSONRequestBody
+}
+
+type TestConnectionSettingsResponseObject interface {
+	VisitTestConnectionSettingsResponse(w http.ResponseWriter) error
+}
+
+type TestConnectionSettings200JSONResponse ConnectionTestResult
+
+func (response TestConnectionSettings200JSONResponse) VisitTestConnectionSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestConnectionSettings422JSONResponse struct{ ErrorJSONResponse }
+
+func (response TestConnectionSettings422JSONResponse) VisitTestConnectionSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestConnectionSettingsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response TestConnectionSettingsdefaultJSONResponse) VisitTestConnectionSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetConnectionRequestObject struct {
+	Id ID `json:"id"`
+}
+
+type GetConnectionResponseObject interface {
+	VisitGetConnectionResponse(w http.ResponseWriter) error
+}
+
+type GetConnection200JSONResponse Connection
+
+func (response GetConnection200JSONResponse) VisitGetConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetConnectiondefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetConnectiondefaultJSONResponse) VisitGetConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateConnectionRequestObject struct {
+	Id   ID `json:"id"`
+	Body *UpdateConnectionJSONRequestBody
+}
+
+type UpdateConnectionResponseObject interface {
+	VisitUpdateConnectionResponse(w http.ResponseWriter) error
+}
+
+type UpdateConnection200JSONResponse Connection
+
+func (response UpdateConnection200JSONResponse) VisitUpdateConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateConnection409JSONResponse struct{ ErrorJSONResponse }
+
+func (response UpdateConnection409JSONResponse) VisitUpdateConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateConnection422JSONResponse Error
+
+func (response UpdateConnection422JSONResponse) VisitUpdateConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateConnectiondefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response UpdateConnectiondefaultJSONResponse) VisitUpdateConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ArchiveConnectionRequestObject struct {
+	Id ID `json:"id"`
+}
+
+type ArchiveConnectionResponseObject interface {
+	VisitArchiveConnectionResponse(w http.ResponseWriter) error
+}
+
+type ArchiveConnection200JSONResponse Connection
+
+func (response ArchiveConnection200JSONResponse) VisitArchiveConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ArchiveConnectiondefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ArchiveConnectiondefaultJSONResponse) VisitArchiveConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetConnectionSchemaRequestObject struct {
+	Id ID `json:"id"`
+}
+
+type GetConnectionSchemaResponseObject interface {
+	VisitGetConnectionSchemaResponse(w http.ResponseWriter) error
+}
+
+type GetConnectionSchema200JSONResponse Schema
+
+func (response GetConnectionSchema200JSONResponse) VisitGetConnectionSchemaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetConnectionSchema502JSONResponse struct{ ErrorJSONResponse }
+
+func (response GetConnectionSchema502JSONResponse) VisitGetConnectionSchemaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetConnectionSchemadefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetConnectionSchemadefaultJSONResponse) VisitGetConnectionSchemaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestConnectionRequestObject struct {
+	Id ID `json:"id"`
+}
+
+type TestConnectionResponseObject interface {
+	VisitTestConnectionResponse(w http.ResponseWriter) error
+}
+
+type TestConnection200JSONResponse ConnectionTestResult
+
+func (response TestConnection200JSONResponse) VisitTestConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestConnection409JSONResponse struct{ ErrorJSONResponse }
+
+func (response TestConnection409JSONResponse) VisitTestConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestConnectiondefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response TestConnectiondefaultJSONResponse) VisitTestConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListConnectorsRequestObject struct {
+}
+
+type ListConnectorsResponseObject interface {
+	VisitListConnectorsResponse(w http.ResponseWriter) error
+}
+
+type ListConnectors200JSONResponse ConnectorList
+
+func (response ListConnectors200JSONResponse) VisitListConnectorsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListConnectorsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListConnectorsdefaultJSONResponse) VisitListConnectorsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -2195,6 +3150,33 @@ type StrictServerInterface interface {
 	// SignOutEverywhere Sign out of every browser
 	// (POST /api/auth/signout-everywhere)
 	SignOutEverywhere(ctx context.Context, request SignOutEverywhereRequestObject) (SignOutEverywhereResponseObject, error)
+	// ListConnections Connections
+	// (GET /api/connections)
+	ListConnections(ctx context.Context, request ListConnectionsRequestObject) (ListConnectionsResponseObject, error)
+	// CreateConnection Add a connection
+	// (POST /api/connections)
+	CreateConnection(ctx context.Context, request CreateConnectionRequestObject) (CreateConnectionResponseObject, error)
+	// TestConnectionSettings Test unsaved connection settings
+	// (POST /api/connections/test)
+	TestConnectionSettings(ctx context.Context, request TestConnectionSettingsRequestObject) (TestConnectionSettingsResponseObject, error)
+	// GetConnection One connection
+	// (GET /api/connections/{id})
+	GetConnection(ctx context.Context, request GetConnectionRequestObject) (GetConnectionResponseObject, error)
+	// UpdateConnection Change a connection
+	// (PATCH /api/connections/{id})
+	UpdateConnection(ctx context.Context, request UpdateConnectionRequestObject) (UpdateConnectionResponseObject, error)
+	// ArchiveConnection Archive a connection
+	// (POST /api/connections/{id}/archive)
+	ArchiveConnection(ctx context.Context, request ArchiveConnectionRequestObject) (ArchiveConnectionResponseObject, error)
+	// GetConnectionSchema The schema of a connection
+	// (GET /api/connections/{id}/schema)
+	GetConnectionSchema(ctx context.Context, request GetConnectionSchemaRequestObject) (GetConnectionSchemaResponseObject, error)
+	// TestConnection Test a saved connection
+	// (POST /api/connections/{id}/test)
+	TestConnection(ctx context.Context, request TestConnectionRequestObject) (TestConnectionResponseObject, error)
+	// ListConnectors Available connectors
+	// (GET /api/connectors)
+	ListConnectors(ctx context.Context, request ListConnectorsRequestObject) (ListConnectorsResponseObject, error)
 	// DevLogin Development sign-in
 	// (POST /api/dev/login)
 	DevLogin(ctx context.Context, request DevLoginRequestObject) (DevLoginResponseObject, error)
@@ -2389,6 +3371,253 @@ func (sh *strictHandler) SignOutEverywhere(w http.ResponseWriter, r *http.Reques
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SignOutEverywhereResponseObject); ok {
 		if err := validResponse.VisitSignOutEverywhereResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListConnections operation middleware
+func (sh *strictHandler) ListConnections(w http.ResponseWriter, r *http.Request) {
+	var request ListConnectionsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListConnections(ctx, request.(ListConnectionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListConnections")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListConnectionsResponseObject); ok {
+		if err := validResponse.VisitListConnectionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateConnection operation middleware
+func (sh *strictHandler) CreateConnection(w http.ResponseWriter, r *http.Request) {
+	var request CreateConnectionRequestObject
+
+	var body CreateConnectionJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateConnection(ctx, request.(CreateConnectionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateConnection")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateConnectionResponseObject); ok {
+		if err := validResponse.VisitCreateConnectionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// TestConnectionSettings operation middleware
+func (sh *strictHandler) TestConnectionSettings(w http.ResponseWriter, r *http.Request) {
+	var request TestConnectionSettingsRequestObject
+
+	var body TestConnectionSettingsJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.TestConnectionSettings(ctx, request.(TestConnectionSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "TestConnectionSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(TestConnectionSettingsResponseObject); ok {
+		if err := validResponse.VisitTestConnectionSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetConnection operation middleware
+func (sh *strictHandler) GetConnection(w http.ResponseWriter, r *http.Request, id ID) {
+	var request GetConnectionRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetConnection(ctx, request.(GetConnectionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetConnection")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetConnectionResponseObject); ok {
+		if err := validResponse.VisitGetConnectionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateConnection operation middleware
+func (sh *strictHandler) UpdateConnection(w http.ResponseWriter, r *http.Request, id ID) {
+	var request UpdateConnectionRequestObject
+
+	request.Id = id
+
+	var body UpdateConnectionJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateConnection(ctx, request.(UpdateConnectionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateConnection")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateConnectionResponseObject); ok {
+		if err := validResponse.VisitUpdateConnectionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ArchiveConnection operation middleware
+func (sh *strictHandler) ArchiveConnection(w http.ResponseWriter, r *http.Request, id ID) {
+	var request ArchiveConnectionRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ArchiveConnection(ctx, request.(ArchiveConnectionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ArchiveConnection")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ArchiveConnectionResponseObject); ok {
+		if err := validResponse.VisitArchiveConnectionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetConnectionSchema operation middleware
+func (sh *strictHandler) GetConnectionSchema(w http.ResponseWriter, r *http.Request, id ID) {
+	var request GetConnectionSchemaRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetConnectionSchema(ctx, request.(GetConnectionSchemaRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetConnectionSchema")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetConnectionSchemaResponseObject); ok {
+		if err := validResponse.VisitGetConnectionSchemaResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// TestConnection operation middleware
+func (sh *strictHandler) TestConnection(w http.ResponseWriter, r *http.Request, id ID) {
+	var request TestConnectionRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.TestConnection(ctx, request.(TestConnectionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "TestConnection")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(TestConnectionResponseObject); ok {
+		if err := validResponse.VisitTestConnectionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListConnectors operation middleware
+func (sh *strictHandler) ListConnectors(w http.ResponseWriter, r *http.Request) {
+	var request ListConnectorsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListConnectors(ctx, request.(ListConnectorsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListConnectors")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListConnectorsResponseObject); ok {
+		if err := validResponse.VisitListConnectorsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

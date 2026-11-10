@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -12,6 +12,7 @@ export const PORT = 18080
  * the binary prints to its log.
  */
 export default async function globalSetup() {
+  startDevTargets()
   const idp = await startFakeOidc()
   const dataDir = mkdtempSync(join(tmpdir(), 'dbairlock-e2e-'))
   const server = spawn(
@@ -48,5 +49,21 @@ export default async function globalSetup() {
   return async () => {
     server.kill('SIGTERM')
     await idp.close()
+  }
+}
+
+/**
+ * Starts the sample Postgres and MySQL targets from deploy/dev/compose.yml
+ * (left running afterwards, like `docker compose up -d`). Without Docker the
+ * connection tests skip themselves (see e2e/targets.ts).
+ */
+function startDevTargets() {
+  const res = spawnSync(
+    'docker',
+    ['compose', '-f', '../deploy/dev/compose.yml', 'up', '-d', '--wait', '--wait-timeout', '180'],
+    { stdio: ['ignore', 'ignore', 'pipe'], encoding: 'utf8', timeout: 240_000 },
+  )
+  if (res.status !== 0) {
+    console.warn(`Sample targets not started; connection tests will skip.\n${res.stderr}`)
   }
 }

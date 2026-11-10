@@ -471,6 +471,206 @@ paths:
           $ref: "#/components/responses/Error"
         default:
           $ref: "#/components/responses/Error"
+  /api/connectors:
+    get:
+      operationId: listConnectors
+      summary: Available connectors
+      description: |
+        Every database product dbairlock can connect to, with the fields of
+        its connection form. The dashboard renders the form from `fields`
+        without connector-specific code. Any signed-in user.
+      tags: [connections]
+      responses:
+        "200":
+          description: Connectors, ordered by id.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectorList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/connections:
+    get:
+      operationId: listConnections
+      summary: Connections
+      description: Every connection that is not archived, ordered by connector and name. Any signed-in user.
+      tags: [connections]
+      responses:
+        "200":
+          description: Connections.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createConnection
+      summary: Add a connection
+      description: |
+        The policy starts from the `policy.default_*` settings; fields in
+        `policy` override them. The password goes to the secret store and is
+        never returned. Names are unique across all connectors (409
+        name_taken). Admin only.
+      tags: [connections]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConnectionCreate"
+      responses:
+        "201":
+          description: The new connection.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Connection"
+        "409":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/connections/test:
+    post:
+      operationId: testConnectionSettings
+      summary: Test unsaved connection settings
+      description: |
+        Connects with the given settings, reads the server version and checks
+        the user's privileges, without saving anything. With `connection_id`
+        and no `password`, the saved password of that connection is used.
+        A failure to connect is a result with `ok` false, not an error.
+        Admin only.
+      tags: [connections]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConnectionTestRequest"
+      responses:
+        "200":
+          description: The outcome of the test.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionTestResult"
+        "422":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/connections/{id}:
+    get:
+      operationId: getConnection
+      summary: One connection
+      description: Archived connections are returned too. Any signed-in user.
+      tags: [connections]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The connection.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Connection"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateConnection
+      summary: Change a connection
+      description: |
+        Omitted fields are unchanged; `config`, when present, replaces the
+        whole config. Changing the config or the password closes this
+        connection's pool only. Archived connections cannot change (409
+        archived). Admin only.
+      tags: [connections]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConnectionUpdate"
+      responses:
+        "200":
+          description: The connection after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Connection"
+        "409":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/connections/{id}/archive:
+    post:
+      operationId: archiveConnection
+      summary: Archive a connection
+      description: |
+        Hides the connection. Its history remains, its name becomes free and
+        its password is removed from the secret store. Admin only.
+      tags: [connections]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The connection after archiving.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Connection"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/connections/{id}/test:
+    post:
+      operationId: testConnection
+      summary: Test a saved connection
+      description: |
+        Tests the saved connection with its saved password and records the
+        outcome as its last test. A failure to connect is a result with `ok`
+        false, not an error. Admin only.
+      tags: [connections]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The outcome of the test.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionTestResult"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/connections/{id}/schema:
+    get:
+      operationId: getConnectionSchema
+      summary: The schema of a connection
+      description: |
+        Namespaces, tables, columns and primary keys, for the schema browser
+        and editor autocomplete. Cached for 60 seconds. System schemas are
+        never included. Any signed-in user. A target that cannot be reached
+        answers 502 target_unavailable.
+      tags: [connections]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The schema.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schema"
+        "502":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
 components:
   parameters:
     ID:
@@ -894,6 +1094,344 @@ components:
       description: The settings to change; omitted settings are unchanged.
       additionalProperties: false
       properties: *settingValueProperties
+    ConnectorField:
+      type: object
+      description: One input of a connection form, declared by the connector.
+      required: [key, label, type, required]
+      additionalProperties: false
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        type:
+          type: string
+          description: |
+            `text` is a multi-line string. A `secret` field is the
+            connection's password: it is sent as `password`, never in
+            `config`, and never returned.
+          enum: [string, text, int, enum, bool, secret]
+        required:
+          type: boolean
+        default:
+          description: The default value (a string, number or boolean).
+        options:
+          type: array
+          description: The choices of an `enum` field.
+          items:
+            type: string
+        help:
+          type: string
+    Connector:
+      type: object
+      required: [id, display_name, dialect, default_port, fields]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          examples: [postgres]
+        display_name:
+          type: string
+          examples: [PostgreSQL]
+        dialect:
+          type: string
+          description: The SQL editor dialect, for example `postgresql` or `mysql`.
+        default_port:
+          type: integer
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConnectorField"
+    ConnectorList:
+      type: object
+      required: [connectors, default_allowed_functions]
+      additionalProperties: false
+      properties:
+        connectors:
+          type: array
+          items:
+            $ref: "#/components/schemas/Connector"
+        default_allowed_functions:
+          type: array
+          description: The function allowlist a new connection starts with.
+          items:
+            type: string
+    ConnectionConfig:
+      type: object
+      description: The connector's non-secret fields, keyed by field key. Values are strings, integers or booleans.
+      maxProperties: 50
+      additionalProperties: true
+    ConnectionPolicy:
+      type: object
+      description: The review policy of one connection. Bounds mirror the `policy.default_*` settings.
+      required: [required_approvals, max_rows, approval_ttl_hours, store_row_images, auto_execute, allowed_functions]
+      additionalProperties: false
+      properties: &connectionPolicyProperties
+        required_approvals:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: Approvals needed before a change runs. The author never counts.
+        max_rows:
+          type: integer
+          minimum: 1
+          maximum: 10000
+          description: A statement may affect at most this many rows.
+        approval_ttl_hours:
+          type: integer
+          minimum: 1
+          maximum: 720
+          description: How long a change may wait for review before it expires.
+        store_row_images:
+          type: boolean
+          description: Keep the before and after rows of each change. When off, only column names and counts are kept.
+        auto_execute:
+          type: boolean
+          description: Run a change as soon as its last required approval lands.
+        allowed_functions:
+          type: array
+          maxItems: 100
+          description: Lower-case names of the functions statements may call.
+          items:
+            type: string
+            maxLength: 63
+    ConnectionPolicyPatch:
+      type: object
+      description: Policy fields to change; omitted fields are unchanged (on create, taken from the defaults).
+      additionalProperties: false
+      properties: *connectionPolicyProperties
+    ConnectionName:
+      type: string
+      minLength: 1
+      maxLength: 63
+      pattern: "^[a-z0-9]([a-z0-9_-]{0,61}[a-z0-9])?$"
+      description: Unique across all connectors; agents refer to a connection by name alone.
+    ServerInfo:
+      type: object
+      required: [product, version, major, supported]
+      additionalProperties: false
+      properties:
+        product:
+          type: string
+        version:
+          type: string
+        major:
+          type: integer
+        supported:
+          type: boolean
+          description: The version is one the vendor still maintains.
+    ExcessPrivilege:
+      type: object
+      required: [privilege, detail]
+      additionalProperties: false
+      properties:
+        privilege:
+          type: string
+          examples: [SUPERUSER]
+        detail:
+          type: string
+        fix:
+          type: string
+          description: A statement an admin can run on the target to remove the privilege.
+    PrivilegeReport:
+      type: object
+      required: [user, can_select, can_insert, can_update, can_delete, excess]
+      additionalProperties: false
+      properties:
+        user:
+          type: string
+        can_select:
+          type: boolean
+        can_insert:
+          type: boolean
+        can_update:
+          type: boolean
+        can_delete:
+          type: boolean
+        excess:
+          type: array
+          description: Privileges beyond SELECT, INSERT, UPDATE and DELETE.
+          items:
+            $ref: "#/components/schemas/ExcessPrivilege"
+    ConnectionTestResult:
+      type: object
+      required: [ok, tested_at, warnings]
+      additionalProperties: false
+      properties:
+        ok:
+          type: boolean
+          description: The target could be reached and authenticated to.
+        tested_at:
+          type: string
+          format: date-time
+        message:
+          type: string
+          description: Why the test failed. Present when `ok` is false.
+        server:
+          $ref: "#/components/schemas/ServerInfo"
+        privileges:
+          $ref: "#/components/schemas/PrivilegeReport"
+        warnings:
+          type: array
+          description: Problems that do not stop the connection from working.
+          items:
+            type: string
+    ConnectionTestRequest:
+      type: object
+      required: [connector, config]
+      additionalProperties: false
+      properties:
+        connector:
+          type: string
+          maxLength: 64
+        config:
+          $ref: "#/components/schemas/ConnectionConfig"
+        password:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          writeOnly: true
+          x-dbairlock-secret: true
+          description: Omit, with `connection_id`, to use the saved password.
+        connection_id:
+          type: string
+          maxLength: 64
+          description: A saved connection whose password to use when `password` is omitted.
+    Connection:
+      type: object
+      required: [id, name, description, connector, config, policy, password, created_by, created_at, updated_at]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        connector:
+          type: string
+        config:
+          $ref: "#/components/schemas/ConnectionConfig"
+        policy:
+          $ref: "#/components/schemas/ConnectionPolicy"
+        password:
+          $ref: "#/components/schemas/SecretStatus"
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        archived_at:
+          type: string
+          format: date-time
+        archived_by:
+          type: string
+        last_test:
+          $ref: "#/components/schemas/ConnectionTestResult"
+    ConnectionList:
+      type: object
+      required: [connections]
+      additionalProperties: false
+      properties:
+        connections:
+          type: array
+          items:
+            $ref: "#/components/schemas/Connection"
+    ConnectionCreate:
+      type: object
+      required: [name, connector, config, password]
+      additionalProperties: false
+      properties:
+        name:
+          $ref: "#/components/schemas/ConnectionName"
+        description:
+          type: string
+          maxLength: 500
+          description: What this database holds and when to use it. Agents read it to decide where a change belongs.
+        connector:
+          type: string
+          maxLength: 64
+        config:
+          $ref: "#/components/schemas/ConnectionConfig"
+        password:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          writeOnly: true
+          x-dbairlock-secret: true
+        policy:
+          $ref: "#/components/schemas/ConnectionPolicyPatch"
+    ConnectionUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          $ref: "#/components/schemas/ConnectionName"
+        description:
+          type: string
+          maxLength: 500
+        config:
+          $ref: "#/components/schemas/ConnectionConfig"
+        password:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          writeOnly: true
+          x-dbairlock-secret: true
+          description: Omit to keep the saved password. A connection always has one, so it cannot be cleared.
+        policy:
+          $ref: "#/components/schemas/ConnectionPolicyPatch"
+    SchemaColumn:
+      type: object
+      required: [name, type, nullable]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        nullable:
+          type: boolean
+    SchemaTable:
+      type: object
+      required: [name, columns, primary_key]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaColumn"
+        primary_key:
+          type: array
+          description: Column names of the primary key, in key order; empty when the table has none.
+          items:
+            type: string
+    SchemaNamespace:
+      type: object
+      required: [name, tables]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          description: A Postgres schema, or the MySQL database.
+        tables:
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaTable"
+    Schema:
+      type: object
+      required: [namespaces]
+      additionalProperties: false
+      properties:
+        namespaces:
+          type: array
+          items:
+            $ref: "#/components/schemas/SchemaNamespace"
     Health:
       type: object
       required: [status]

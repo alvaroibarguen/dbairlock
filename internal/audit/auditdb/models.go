@@ -37,6 +37,26 @@ type AuditEvent struct {
 	Hash        []byte
 }
 
+type Connection struct {
+	ID                string
+	Name              string
+	Description       string
+	Connector         string
+	Config            string
+	RequiredApprovals int64
+	MaxRows           int64
+	StoreRowImages    int64
+	AutoExecute       int64
+	ApprovalTtlHours  int64
+	AllowedFunctions  string
+	CreatedBy         string
+	CreatedAt         int64
+	UpdatedAt         int64
+	ArchivedAt        sql.NullInt64
+	ArchivedBy        string
+	LastTest          sql.NullString
+}
+
 type Secret struct {
 	ID         string
 	Kind       string

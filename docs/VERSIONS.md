@@ -28,7 +28,7 @@ Re-verified on 2026-11-09 with `go list -m -f '{{.Version}}' <module>@latest`, `
 |---|---|
 | `github.com/modelcontextprotocol/go-sdk` | v1.8.0 |
 | `github.com/pganalyze/pg_query_go/v6` | v6.2.5 |
-| `github.com/pingcap/tidb/pkg/parser` | v0.0.0-20261109175506-c9f7aed139f6 |
+| `github.com/pingcap/tidb/pkg/parser` (with its `test_driver` literal driver; does not pull in the rest of TiDB) | v0.0.0-20261110033632-5cf03a50bc23 |
 | `github.com/jackc/pgx/v5` | v5.12.0 |
 | `github.com/go-sql-driver/mysql` | v1.10.1 |
 | `modernc.org/sqlite` | v1.62.0 |
@@ -39,6 +39,8 @@ Re-verified on 2026-11-09 with `go list -m -f '{{.Version}}' <module>@latest`, `
 | `github.com/go-jose/go-jose/v4` (signs ID tokens in the fake OpenID provider for tests; go-oidc already depends on it) | v4.1.9 |
 | `github.com/google/uuid` | v1.6.0 |
 | `github.com/testcontainers/testcontainers-go` | v0.45.0 |
+| `github.com/testcontainers/testcontainers-go/modules/postgres` | v0.45.0 |
+| `github.com/testcontainers/testcontainers-go/modules/mysql` | v0.45.0 |
 | `github.com/oapi-codegen/runtime` (used by the generated server) | v1.8.0 |
 | `github.com/oapi-codegen/nullable` (omitted vs `null` in PATCH bodies) | v1.2.0 |
 | `github.com/getkin/kin-openapi` (contract tests read `api/openapi.yaml`) | v0.153.0 |
@@ -66,6 +68,7 @@ Installed in `web/` with `pnpm add <pkg>@latest` on 2026-11-09. pnpm 12 refuses 
 | openapi-fetch | 0.17.0 |
 | sonner | 2.0.8 |
 | tailwind-merge | 3.7.0 |
+| `@codemirror/lang-sql` (editor dialect mapping, `web/src/ui/sqlDialect.ts`) | 6.10.0 |
 | geist (self-hosted Geist and Geist Mono) | 1.9.2 |
 | vitest | 5.1.0 |
 | jsdom | 31.0.0 |
@@ -85,7 +88,7 @@ Installed in `web/` with `pnpm add <pkg>@latest` on 2026-11-09. pnpm 12 refuses 
 | `@types/node` | 26.6.6 |
 | `@types/react`, `@types/react-dom` | 19.3.0 |
 
-Added later (not yet installed): codemirror, `@codemirror/lang-sql`, `@uiw/react-codemirror` (phase 7).
+Added later (not yet installed): codemirror, `@uiw/react-codemirror` (phase 7).
 
 ## Supported target databases
 

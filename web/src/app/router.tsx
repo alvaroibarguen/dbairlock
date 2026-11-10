@@ -27,6 +27,8 @@ export const routes: RouteObject[] = [
       { path: 'changes/:id', Component: ChangeDetailPage },
       { path: 'audit', Component: AuditPage },
       { path: 'connections', Component: ConnectionsPage },
+      { path: 'connections/new', Component: ConnectionsPage },
+      { path: 'connections/:id', Component: ConnectionsPage },
       { path: 'settings', Component: SettingsPage },
       { path: 'settings/:section', Component: SettingsPage },
       { path: '*', Component: NotFoundPage },

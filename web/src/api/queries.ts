@@ -19,6 +19,15 @@ export type TokenExpiryDays = NonNullable<components['schemas']['TokenCreate']['
 export type SetupSignIn = components['schemas']['SetupSignIn']
 export type SetupSignInUpdate = components['schemas']['SetupSignInUpdate']
 export type SetupSessionKind = components['schemas']['SetupSession']['kind']
+export type Connector = components['schemas']['Connector']
+export type ConnectorField = components['schemas']['ConnectorField']
+export type Connection = components['schemas']['Connection']
+export type ConnectionCreate = components['schemas']['ConnectionCreate']
+export type ConnectionUpdate = components['schemas']['ConnectionUpdate']
+export type ConnectionPolicy = components['schemas']['ConnectionPolicy']
+export type ConnectionTestRequest = components['schemas']['ConnectionTestRequest']
+export type ConnectionTestResult = components['schemas']['ConnectionTestResult']
+export type DatabaseSchema = components['schemas']['Schema']
 
 /**
  * Query keys, one factory per resource. Keys are hierarchical so a whole
@@ -41,9 +50,12 @@ export const queryKeys = {
     list: (filters: Record<string, unknown> = {}) => ['changes', 'list', filters] as const,
     detail: (id: string) => ['changes', 'detail', id] as const,
   },
+  connectors: () => ['connectors'] as const,
   connections: {
     all: ['connections'] as const,
+    list: () => ['connections', 'list'] as const,
     detail: (id: string) => ['connections', 'detail', id] as const,
+    schema: (id: string) => ['connections', 'schema', id] as const,
   },
   audit: {
     all: ['audit'] as const,
@@ -197,6 +209,83 @@ export async function verifyRecoveryCode(code: string): Promise<void> {
 
 export async function saveSetupSignIn(body: SetupSignInUpdate): Promise<SetupSignIn> {
   const { data } = await api.PUT('/api/setup/signin', { body })
+  return requireData(data)
+}
+
+/** Every connector with the fields of its connection form, and the default function allowlist. */
+export const connectorsQuery = () =>
+  queryOptions({
+    queryKey: queryKeys.connectors(),
+    queryFn: async ({ signal }) => {
+      const { data } = await api.GET('/api/connectors', { signal })
+      return requireData(data)
+    },
+    staleTime: Infinity,
+  })
+
+/** Connections that are not archived, ordered by connector and name. */
+export const connectionsQuery = () =>
+  queryOptions({
+    queryKey: queryKeys.connections.list(),
+    queryFn: async ({ signal }) => {
+      const { data } = await api.GET('/api/connections', { signal })
+      return requireData(data).connections
+    },
+  })
+
+export const connectionQuery = (id: string) =>
+  queryOptions({
+    queryKey: queryKeys.connections.detail(id),
+    queryFn: async ({ signal }) => {
+      const { data } = await api.GET('/api/connections/{id}', {
+        signal,
+        params: { path: { id } },
+      })
+      return requireData(data)
+    },
+  })
+
+/** Tables, columns and keys of a connection, for the schema browser and editor completion. */
+export const connectionSchemaQuery = (id: string) =>
+  queryOptions({
+    queryKey: queryKeys.connections.schema(id),
+    queryFn: async ({ signal }) => {
+      const { data } = await api.GET('/api/connections/{id}/schema', {
+        signal,
+        params: { path: { id } },
+      })
+      return requireData(data)
+    },
+    staleTime: 60_000,
+    retry: false,
+  })
+
+export async function createConnection(body: ConnectionCreate): Promise<Connection> {
+  const { data } = await api.POST('/api/connections', { body })
+  return requireData(data)
+}
+
+export async function updateConnection(id: string, body: ConnectionUpdate): Promise<Connection> {
+  const { data } = await api.PATCH('/api/connections/{id}', { params: { path: { id } }, body })
+  return requireData(data)
+}
+
+export async function archiveConnection(id: string): Promise<Connection> {
+  const { data } = await api.POST('/api/connections/{id}/archive', { params: { path: { id } } })
+  return requireData(data)
+}
+
+/** Tests settings before they are saved. A failure to connect is a result with `ok: false`. */
+export async function testConnectionSettings(
+  body: ConnectionTestRequest,
+): Promise<ConnectionTestResult> {
+  const { data } = await api.POST('/api/connections/test', { body })
+  return requireData(data)
+}
+
+/** Tests a saved connection and records the outcome as its last test. */
+export async function testConnection(id: string): Promise<ConnectionTestResult> {
+  const { data } = await api.POST('/api/connections/{id}/test', { params: { path: { id } } })
   return requireData(data)
 }
 

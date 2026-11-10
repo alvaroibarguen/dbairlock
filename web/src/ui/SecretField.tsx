@@ -29,6 +29,8 @@ export interface SecretFieldProps {
   /** Name of the password input, for forms and password managers. */
   name?: string
   disabled?: boolean
+  /** Offer Clear for a set secret. Off for secrets that must always be set, such as a database password. */
+  clearable?: boolean
   className?: string
 }
 
@@ -55,6 +57,7 @@ export function SecretField({
   error,
   name,
   disabled,
+  clearable = true,
   className,
 }: SecretFieldProps) {
   const id = useId()
@@ -173,7 +176,7 @@ export function SecretField({
               >
                 {status.isSet ? 'Replace' : 'Set'}
               </Button>
-              {status.isSet && (
+              {status.isSet && clearable && (
                 <Button
                   variant="destructive"
                   disabled={disabled}

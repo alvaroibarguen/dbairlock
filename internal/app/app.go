@@ -16,6 +16,9 @@ import (
 	"time"
 
 	"github.com/alvaroibarguen/dbairlock/internal/audit"
+	"github.com/alvaroibarguen/dbairlock/internal/connector"
+	"github.com/alvaroibarguen/dbairlock/internal/connector/mysql"
+	"github.com/alvaroibarguen/dbairlock/internal/connector/postgres"
 	"github.com/alvaroibarguen/dbairlock/internal/httpapi"
 	"github.com/alvaroibarguen/dbairlock/internal/identity"
 	"github.com/alvaroibarguen/dbairlock/internal/platform/clock"
@@ -25,6 +28,7 @@ import (
 	"github.com/alvaroibarguen/dbairlock/internal/settings"
 	"github.com/alvaroibarguen/dbairlock/internal/setup"
 	"github.com/alvaroibarguen/dbairlock/internal/store"
+	"github.com/alvaroibarguen/dbairlock/internal/targets"
 	"github.com/alvaroibarguen/dbairlock/internal/webui"
 )
 
@@ -60,6 +64,7 @@ type App struct {
 	settings *settings.Service
 	identity *identity.Service
 	setup    *setup.Service
+	targets  *targets.Service
 	handler  http.Handler
 }
 
@@ -133,6 +138,7 @@ func build(ctx context.Context, opts Options, st *store.Store) (*App, error) {
 		Readiness: st,
 		Identity:  mods.identity,
 		Settings:  mods.settings,
+		Targets:   mods.targets,
 	})
 
 	mux := http.NewServeMux()
@@ -165,7 +171,7 @@ func build(ctx context.Context, opts Options, st *store.Store) (*App, error) {
 
 	return &App{
 		opts: opts, log: opts.Logger, store: st, secrets: sec, settings: set,
-		identity: mods.identity, setup: mods.setup, handler: handler,
+		identity: mods.identity, setup: mods.setup, targets: mods.targets, handler: handler,
 	}, nil
 }
 
@@ -173,11 +179,26 @@ type modules struct {
 	settings *settings.Service
 	identity *identity.Service
 	setup    *setup.Service
+	targets  *targets.Service
 }
 
-// buildModules wires settings, identity and setup. Settings get the
-// write-only side of the secret store; identity is one of the three modules
-// allowed a secrets.Opener (for the Google client secret).
+// Connectors returns the registry of every database connector this binary
+// supports. This is the only place concrete connectors are named: adding a
+// connector is one line here (PLAN 4.3).
+func Connectors() (*connector.Registry, error) {
+	reg := connector.NewRegistry()
+	for _, c := range []connector.Connector{postgres.New(), mysql.New()} {
+		if err := reg.Register(c); err != nil {
+			return nil, err
+		}
+	}
+	return reg, nil
+}
+
+// buildModules wires settings, identity, setup and targets. Settings get the
+// write-only side of the secret store; identity (for the Google client
+// secret) and targets (for connection passwords) are two of the three
+// modules allowed a secrets.Opener.
 func buildModules(ctx context.Context, opts Options, st *store.Store, recorder *audit.Recorder, sec *secrets.Service) (modules, error) {
 	var secretWriter secrets.Writer = sec
 	var secretOpener secrets.Opener = sec
@@ -207,7 +228,18 @@ func buildModules(ctx context.Context, opts Options, st *store.Store, recorder *
 	if err != nil {
 		return modules{}, err
 	}
-	return modules{settings: set, identity: idn, setup: su}, nil
+	reg, err := Connectors()
+	if err != nil {
+		return modules{}, err
+	}
+	tg, err := targets.New(targets.Options{
+		Store: st, Audit: recorder, Secrets: sec, Settings: set, Connectors: reg,
+		Clock: opts.Clock, IDs: opts.IDs, Logger: opts.Logger,
+	})
+	if err != nil {
+		return modules{}, err
+	}
+	return modules{settings: set, identity: idn, setup: su, targets: tg}, nil
 }
 
 // urlHint is the address to open while no public URL is set.
@@ -222,8 +254,12 @@ func urlHint(listen string) string {
 	return "http://" + net.JoinHostPort(host, port)
 }
 
-// Close releases the store. Call it once the server has stopped.
-func (a *App) Close() error { return a.store.Close() }
+// Close closes the connection pools to target databases and releases the
+// store. Call it once the server has stopped.
+func (a *App) Close() error {
+	a.targets.Close()
+	return a.store.Close()
+}
 
 // AuditResult is the outcome of VerifyAudit.
 type AuditResult = audit.Result

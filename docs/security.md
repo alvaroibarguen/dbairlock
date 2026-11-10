@@ -77,6 +77,38 @@ nothing returns the value.
   and the database can decrypt them, so keep their backups apart. See
   [operations.md](operations.md#master-key) for start-up checks and rotation.
 
+## Target databases
+
+A connection is one configured target database: its connector (Postgres or
+MySQL), host, database user, review policy and password. The password lives
+in the secret store, owned by the connection, and is opened only when a
+connection pool is created. Archiving a connection removes its password.
+
+- **The grant is the boundary, not the parser.** Give dbairlock a dedicated
+  database user with only `SELECT`, `INSERT`, `UPDATE` and `DELETE` on the
+  application tables. The statement validator rejects DDL and much else, but
+  it is the database grant that makes schema changes impossible. "Test
+  connection" checks the user's privileges and warns, with the exact
+  statements to remove them, when it finds superuser, ownership, `CREATE`,
+  `GRANT OPTION` or similar rights.
+- **Row previews are visible to everyone who can sign in (accepted for
+  v1).** Any signed-in person can submit a statement against any table of a
+  configured database and see up to `max_rows` matching rows in its preview,
+  and can see the previews of other people's changes. In effect dbairlock
+  grants its users read access to every table its database user can read.
+  Grant the dbairlock user access only to tables your whole team may see.
+  The add-connection form says the same. Table and column restrictions will
+  come later; previews already pass through one function so they can be
+  filtered and masked there.
+- **Network.** dbairlock runs inside the private network of its targets, so
+  private addresses are accepted. Link-local addresses (`169.254.0.0/16`,
+  `fe80::/10`), where cloud metadata services live, are refused both when a
+  connection is saved and at dial time, after name resolution.
+- **Isolation between connections.** Every piece of per-target state (the
+  password, the connection pool, the schema cache, the run lock and the
+  policy) is keyed by the connection, never by the connector. Changing one
+  connection's settings or password closes only its own pool.
+
 ## Cross-site requests
 
 Mutating API requests from another origin are rejected with

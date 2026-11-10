@@ -42,3 +42,11 @@ sql:
         package: identitydb
         out: internal/identity/identitydb
         emit_empty_slices: true
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/targets/queries.sql
+    gen:
+      go:
+        package: targetsdb
+        out: internal/targets/targetsdb
+        emit_empty_slices: true

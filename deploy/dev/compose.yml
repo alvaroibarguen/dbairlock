@@ -1,0 +1,48 @@
+# Sample target databases for local development and manual testing.
+#
+#   docker compose -f deploy/dev/compose.yml up -d
+#
+# Then add them in the dashboard (Settings, Connections). Passwords here are
+# for local development only.
+#
+# Postgres: host localhost, port 55432, database app, default schema public, TLS disable
+#   dbairlock_app   / app-secret    least privilege (SELECT, INSERT, UPDATE, DELETE)
+#   dbairlock_super / super-secret  superuser (shows the excess-privilege warning)
+#
+# MySQL: host localhost, port 53306, database app, TLS disabled
+#   dbairlock_app   / app-secret    least privilege (SELECT, INSERT, UPDATE, DELETE on app.*)
+#   dbairlock_super / super-secret  ALL PRIVILEGES WITH GRANT OPTION
+#   app.legacy_notes is a MyISAM table, for the non-transactional check.
+name: dbairlock-dev
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres-secret
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  mysql:
+    image: mysql:9.7
+    environment:
+      MYSQL_ROOT_PASSWORD: root-secret
+      MYSQL_DATABASE: app
+    ports:
+      - "127.0.0.1:53306:3306"
+    volumes:
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -proot-secret --silent"]
+      interval: 2s
+      timeout: 5s
+      retries: 60

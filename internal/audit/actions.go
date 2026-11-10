@@ -42,4 +42,11 @@ const (
 	UserRestored        Action = "user.restored"
 	APITokenCreated     Action = "api_token.created"
 	APITokenRevoked     Action = "api_token.revoked"
+
+	// Connections (target databases). Payloads never carry the password;
+	// setting it records secret.set or secret.replaced alongside.
+	ConnectionCreated  Action = "connection.created"
+	ConnectionUpdated  Action = "connection.updated"
+	ConnectionArchived Action = "connection.archived"
+	ConnectionTested   Action = "connection.tested"
 )

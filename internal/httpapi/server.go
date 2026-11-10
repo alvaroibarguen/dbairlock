@@ -18,6 +18,7 @@ import (
 	"github.com/alvaroibarguen/dbairlock/internal/platform/httpx"
 	"github.com/alvaroibarguen/dbairlock/internal/settings"
 	"github.com/alvaroibarguen/dbairlock/internal/setup"
+	"github.com/alvaroibarguen/dbairlock/internal/targets"
 )
 
 // Readiness reports whether the instance can serve traffic. A nil error means ready.
@@ -33,6 +34,7 @@ type Deps struct {
 	Readiness Readiness
 	Identity  Identity
 	Settings  Settings
+	Targets   Targets
 }
 
 // Server implements gen.StrictServerInterface.
@@ -121,6 +123,13 @@ var errorTable = []struct {
 		"Setup is already complete. Sign in instead.")},
 	{setup.ErrNoGrant, httpx.NewError(http.StatusUnauthorized, "setup_session_required",
 		"Your setup session has ended. Enter the code again.")},
+	{targets.ErrNotFound, httpx.ErrNotFound},
+	{targets.ErrNameTaken, httpx.NewError(http.StatusConflict, "name_taken",
+		"Another connection already has this name. Names are unique across all databases.")},
+	{targets.ErrArchived, httpx.NewError(http.StatusConflict, "archived",
+		"This connection is archived and cannot be changed or used.")},
+	{targets.ErrNoPassword, httpx.NewError(http.StatusConflict, "no_password",
+		"This connection has no password. Set one first.")},
 }
 
 // mapError converts an error returned by a module into an *httpx.Error, or
@@ -141,6 +150,14 @@ func mapError(err error) error {
 			fields[i] = httpx.FieldError{Field: f.Field, Message: f.Message}
 		}
 		return httpx.NewValidationError("Some settings are invalid. Nothing was changed.", fields)
+	}
+	var te *targets.ValidationError
+	if errors.As(err, &te) {
+		fields := make([]httpx.FieldError, len(te.Fields))
+		for i, f := range te.Fields {
+			fields[i] = httpx.FieldError{Field: f.Field, Message: f.Message}
+		}
+		return httpx.NewValidationError("Some fields are invalid. Nothing was changed.", fields)
 	}
 	if _, ok := retryAfter(err); ok {
 		return errRateLimited
