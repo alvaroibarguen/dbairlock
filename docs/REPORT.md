@@ -66,9 +66,23 @@ Everything else was installed at its latest release; see [VERSIONS.md](VERSIONS.
 - **Images built by Compose** report version `dev (commit unknown)`; `make image` sets version, commit and date.
 - At 375 px the Users table scrolls sideways inside its box.
 
+## Manual check: Claude Code over MCP
+
+The Phase 8 manual check was done on 2026-11-10 against a `--dev` instance with the sample Postgres from `deploy/dev`, using Claude Code 2.1.322:
+
+1. `claude mcp add --transport http dbairlock http://127.0.0.1:18080/mcp --header "Authorization: Bearer dbal_pat_..."`, the command in [agents.md](agents.md), and `claude mcp list` reported it connected.
+2. A headless Claude Code session was asked to change the display name of `bob@example.com` to "Robert". It found the connection and table, previewed `UPDATE users SET name = 'Robert' WHERE email = 'bob@example.com'` (1 row) and submitted change #1, returning the row count and the review link and no row data.
+3. The review link opened change #1 in the dashboard for a second user, with the AGENT badge ("claude-code-check via ada@example.com token") and the before/after row. That user approved it; it executed (1 row) and the target row changed. Asked afterwards, the agent reported the change as executed and confirmed it has no tool that approves or runs changes. `/mcp` without a token answered 401, and `dbairlock audit verify` passed.
+
+Found and fixed along the way:
+
+- The MCP field `attempts` was described to agents as "times dbairlock has tried to run the change", but it counts only attempts that could not reach the database, so the agent read `attempts: 0` on an executed change as a bug. The description now says what it counts.
+- A JSON request body with an unknown field (for example `PATCH /api/settings` without the `values` wrapper) was accepted with 200 and silently ignored, although the schema forbids extra fields. Request bodies are now checked against the schema and rejected with 400.
+
+Noted, not changed: in `--dev` mode setup is skipped, so `instance.public_url` is empty and agents get a relative review link (`/changes/1`) until it is set. Normal setup requires the public URL.
+
 ## Not verified
 
-- **Connecting a real Claude Code client** to a dev instance over MCP (the Phase 8 manual check). The MCP flow is tested end to end with the go-sdk client against the real handler.
 - **The CI workflow** has never run on GitHub; nothing is pushed.
 - **Browsers other than Chromium**, and screen readers by hand.
 - **HSTS on a real HTTPS deployment**, a real full filesystem and a real read-only mount (simulated in tests), and concurrent load (requests were timed one at a time).

@@ -96,7 +96,7 @@ type ReviewInfo struct {
 
 // ExecutionInfo is how running a change went.
 type ExecutionInfo struct {
-	Attempts           int        `json:"attempts" jsonschema:"Times dbairlock has tried to run the change"`
+	Attempts           int        `json:"attempts" jsonschema:"Attempts that could not reach the database and will be retried; 0 when the change ran (or failed) on its first try"`
 	WaitingForDatabase bool       `json:"waiting_for_database" jsonschema:"True when the database could not be reached and dbairlock will try again"`
 	NextAttemptAt      *time.Time `json:"next_attempt_at,omitempty"`
 	Outcome            string     `json:"outcome,omitempty" jsonschema:"Outcome of the latest attempt: running, executed, failed, not_started or interrupted"`
