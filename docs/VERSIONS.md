@@ -40,6 +40,8 @@ Major tags, latest releases on 2026-11-10: `actions/checkout@v7`, `actions/setup
 
 ## Go modules
 
+Checked against `go.mod` on 2026-11-10 (phase 11): `go mod tidy` changes nothing, every direct module below is imported by non-generated code or tests, and `go list -m -u` reports no newer release of any of them except a newer daily pseudo-version of the TiDB parser, which has no releases of its own; bump it with `go get github.com/pingcap/tidb/pkg/parser@latest` when there is a reason to.
+
 | Module | Version |
 |---|---|
 | `github.com/modelcontextprotocol/go-sdk` | v1.8.0 |
@@ -63,13 +65,15 @@ Major tags, latest releases on 2026-11-10: `actions/checkout@v7`, `actions/setup
 
 ## npm packages
 
-Installed in `web/` with `pnpm add <pkg>@latest` on 2026-11-09. pnpm 12 refuses releases younger than its supply-chain minimum age, so three packages published the same day resolved to the previous release: vite 8.3.7 (published 2026-11-09), `@vitejs/plugin-react` 6.3.0 (2026-11-09) and typescript-eslint 8.72.2 (2026-11-09). Re-run `pnpm add <pkg>@latest` after they age in.
+Installed in `web/` with `pnpm add <pkg>@latest` on 2026-11-09. pnpm 12 refuses releases younger than its supply-chain minimum age, so three packages published the same day resolved to the previous release. Re-tried on 2026-11-10 (phase 11): vite 8.3.7 and `@vitejs/plugin-react` 6.3.0 have aged in and are installed; typescript-eslint 8.72.2 (published 2026-11-09 17:08 UTC) still resolves to 8.72.1. Re-run `pnpm add -D typescript-eslint@latest` once it ages in.
+
+Checked against `web/pnpm-lock.yaml` (`pnpm list --depth 0`) on 2026-11-10: every version below is the one installed.
 
 | Package | Version |
 |---|---|
 | react, react-dom | 19.3.1 |
-| vite | 8.3.6 |
-| `@vitejs/plugin-react` | 6.2.1 |
+| vite | 8.3.7 |
+| `@vitejs/plugin-react` | 6.3.0 |
 | typescript | 7.0.2 (6.0.3 for lint and codegen tools, see Pins) |
 | tailwindcss, `@tailwindcss/vite` | 4.3.5 |
 | react-router | 8.5.1 |
@@ -102,7 +106,7 @@ Installed in `web/` with `pnpm add <pkg>@latest` on 2026-11-09. pnpm 12 refuses 
 | `@playwright/test` | 1.65.0 |
 | eslint | 10.14.0 |
 | `@eslint/js` | 10.0.1 |
-| typescript-eslint | 8.72.1 |
+| typescript-eslint | 8.72.1 (8.72.2 held back by pnpm's minimum release age, see above) |
 | eslint-plugin-react-hooks | 7.1.1 |
 | eslint-plugin-react-refresh | 0.5.7 |
 | globals | 17.14.0 |
@@ -135,3 +139,12 @@ MySQL 26.10 is the newest Innovation release, not an LTS, so it is not a support
 |---|---|---|
 | TypeScript used by typescript-eslint and openapi-typescript | 6.0.3 (newest 6.x) | TypeScript 7 is the native compiler and ships no JavaScript compiler API (`require('typescript')` exposes only the version). typescript-eslint 8.72 (peer range `>=4.8.4 <6.1.0`) and openapi-typescript 7.13 (peer `^5.x`, builds its output with `ts.factory`) both need that API. `web/.pnpmfile.cjs` replaces their `typescript` peer with a private `npm:typescript@6.0.3` dependency. The app itself is type-checked by TypeScript 7.0.2 (`tsc -b` in `pnpm build`). Remove the hook once both tools support TypeScript 7. |
 | geist peer dependency on `next` | removed | geist declares `next` as a peer for its `next/font` helpers. dbairlock uses only the font files, so `web/.pnpmfile.cjs` drops the peer instead of installing Next.js. |
+
+## Vulnerability scans
+
+Run on 2026-11-10 (phase 11). Re-run both before each release.
+
+| Scan | Result | Decision |
+|---|---|---|
+| `go tool govulncheck ./...` | No vulnerabilities found. | |
+| `pnpm audit` (in `web/`) | 1 moderate: [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249), minimatch denial of service through brace/globstar amplification, minimatch 10.2.6, fixed in 11.0.1. | **Accepted, documented.** The only path is the lint toolchain (eslint 10.14.0 and `@eslint/config-array` require `minimatch ^10`, and no 10.x fix exists). It runs on developer machines and in CI over glob patterns written in this repository, never on attacker input, and it is not in the shipped binary or image. Forcing minimatch 11 under eslint with an override would be an untested major-version swap inside a dev tool. Remove this entry when eslint moves to minimatch 11. |

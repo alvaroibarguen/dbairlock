@@ -2,6 +2,11 @@ import { z } from 'zod'
 import type { SecretSlot, SettingKey, Settings, SettingsUpdate } from '@/api'
 import type { SecretChange, SecretStatusView } from '@/ui'
 
+// No compiled validators: zod would otherwise probe for `new Function`,
+// which the server's Content-Security-Policy forbids (no 'unsafe-eval') and
+// reports as a violation even though zod catches the error.
+z.config({ jitless: true })
+
 /*
  * A generic settings form: a group declares its fields, and this module
  * derives the form's zod schema, its initial values and the PATCH body.

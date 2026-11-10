@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './csp.ts'
 
 // These run signed in as the admin created by setup.spec.ts.
 
