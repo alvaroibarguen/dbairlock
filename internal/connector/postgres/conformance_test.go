@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/alvaroibarguen/dbairlock/internal/connector"
 	"github.com/alvaroibarguen/dbairlock/internal/connector/connectortest"
@@ -139,7 +140,14 @@ func runContainer(t *testing.T, image string) (*tcpostgres.PostgresContainer, st
 			tcpostgres.WithDatabase("postgres"),
 			tcpostgres.WithUsername("postgres"),
 			tcpostgres.WithPassword(superPassword),
-			tcpostgres.BasicWaitStrategies(),
+			// The module's BasicWaitStrategies, with a longer deadline than
+			// its 60 s default: when the whole suite starts many containers
+			// at once, Docker Desktop's port forwarder can take longer than
+			// that to serve the mapped port.
+			testcontainers.WithAdditionalWaitStrategyAndDeadline(2*time.Minute,
+				wait.ForLog("database system is ready to accept connections").WithOccurrence(2),
+				wait.ForListeningPort("5432/tcp"),
+			),
 		)
 	}()
 	if c != nil {
