@@ -338,7 +338,7 @@ export function ConnectionForm({
         <Section
           title="Review policy"
           description={
-            editing ? undefined : 'Starts from the instance defaults in Settings, Review policy.'
+            editing ? undefined : 'Starts from the instance defaults in Settings, Policy defaults.'
           }
         >
           <div className="grid gap-5 sm:grid-cols-3">

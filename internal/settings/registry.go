@@ -64,7 +64,19 @@ var (
 	MCPSubmissionsPerHour = Key[int]{"limits.mcp_submissions_per_hour"}
 
 	NotifyEnabled = Key[bool]{"notify.enabled"}
+	// NotifyFormat is the shape of the webhook body: NotifyFormats.
+	NotifyFormat = Key[string]{"notify.format"}
+	// NotifyEvents lists the events that are sent: NotifyEventNames.
+	NotifyEvents = Key[[]string]{"notify.events"}
 )
+
+// NotifyFormats are the accepted values of notify.format.
+var NotifyFormats = []string{"generic", "slack"}
+
+// NotifyEventNames are the accepted entries of notify.events.
+var NotifyEventNames = []string{
+	"change.submitted", "change.approved", "change.rejected", "change.executed", "change.failed",
+}
 
 // Definition declares one setting. Min and Max bound an int (Min 1 on a
 // string means it is required); MaxLen bounds a string and each list item;
@@ -121,6 +133,39 @@ var definitions = []Definition{
 	{Key: MCPSubmissionsPerHour.name, Type: TypeInt, Default: 20, Min: 1, Max: 1000},
 
 	{Key: NotifyEnabled.name, Type: TypeBool, Default: false},
+	{Key: NotifyFormat.name, Type: TypeString, Default: "generic", Min: 1, MaxLen: 16, check: oneOf(NotifyFormats)},
+	{Key: NotifyEvents.name, Type: TypeStringList, Default: slices.Clone(NotifyEventNames), MaxLen: 32, MaxItems: 5, check: someOf(NotifyEventNames)},
+}
+
+// oneOf accepts exactly one of allowed.
+func oneOf(allowed []string) func(any) (any, error) {
+	return func(v any) (any, error) {
+		s := strings.TrimSpace(v.(string))
+		if !slices.Contains(allowed, s) {
+			return nil, invalidf("Must be one of: %s.", strings.Join(allowed, ", "))
+		}
+		return s, nil
+	}
+}
+
+// someOf accepts a list whose entries are all in allowed, de-duplicated and
+// in the order of allowed.
+func someOf(allowed []string) func(any) (any, error) {
+	return func(v any) (any, error) {
+		in := v.([]string)
+		for _, s := range in {
+			if !slices.Contains(allowed, s) {
+				return nil, invalidf("%q is not one of: %s.", s, strings.Join(allowed, ", "))
+			}
+		}
+		out := []string{}
+		for _, s := range allowed {
+			if slices.Contains(in, s) {
+				out = append(out, s)
+			}
+		}
+		return out, nil
+	}
 }
 
 // Definitions returns every registered setting in registry order.

@@ -862,6 +862,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The audit log
+         * @description Audit events, newest first, one page at a time. Every filter is
+         *     optional; pass `next_before` from the previous page as `before` to
+         *     continue. Any signed-in user.
+         */
+        get: operations["listAuditEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/audit/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The latest chain verification
+         * @description The verification running now, or the most recent one since the
+         *     server started, and the last one that found the chain intact. Admin
+         *     only.
+         */
+        get: operations["getAuditVerification"];
+        put?: never;
+        /**
+         * Verify the audit hash chain
+         * @description Walks the whole chain and reports the first broken link. Answers
+         *     when the check finishes, or after a second with `state: running` and
+         *     the progress so far; poll GET /api/audit/verify until it is done.
+         *     Joins a check that is already running. Records `audit.verified`.
+         *     Admin only.
+         */
+        post: operations["verifyAudit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/audit/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the audit log
+         * @description Streams every event in the time range as newline-delimited JSON,
+         *     oldest first, with the hashes in hex so the chain can be checked
+         *     elsewhere. Admin only.
+         */
+        get: operations["exportAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/system": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * System status
+         * @description Version, storage and counts of this instance. No secrets. Admin only.
+         */
+        get: operations["getSystem"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recent notifications
+         * @description The newest queued notifications and their delivery outcome. Admin only.
+         */
+        get: operations["listNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a test notification
+         * @description Posts a test event now to the saved webhook URL in the saved format,
+         *     whether or not notifications are enabled. A receiver that fails is a
+         *     result with `ok: false`. 409 when no webhook URL is set. Admin only.
+         */
+        post: operations["sendTestNotification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1076,6 +1212,13 @@ export interface components {
             /** @description MCP submit_change calls each API token may make per hour. */
             "limits.mcp_submissions_per_hour": number;
             "notify.enabled": boolean;
+            /**
+             * @description The webhook body. `generic` posts one flat JSON object; `slack` posts what Slack incoming webhooks accept.
+             * @enum {string}
+             */
+            "notify.format": "generic" | "slack";
+            /** @description The events that are sent. */
+            "notify.events": ("change.submitted" | "change.approved" | "change.rejected" | "change.executed" | "change.failed")[];
         };
         /** @description The settings to change; omitted settings are unchanged. */
         SettingValuesPatch: {
@@ -1106,6 +1249,13 @@ export interface components {
             /** @description MCP submit_change calls each API token may make per hour. */
             "limits.mcp_submissions_per_hour"?: number;
             "notify.enabled"?: boolean;
+            /**
+             * @description The webhook body. `generic` posts one flat JSON object; `slack` posts what Slack incoming webhooks accept.
+             * @enum {string}
+             */
+            "notify.format"?: "generic" | "slack";
+            /** @description The events that are sent. */
+            "notify.events"?: ("change.submitted" | "change.approved" | "change.rejected" | "change.executed" | "change.failed")[];
         };
         /** @description One input of a connection form, declared by the connector. */
         ConnectorField: {
@@ -1580,6 +1730,148 @@ export interface components {
         };
         ChangeEventList: {
             events: components["schemas"]["ChangeEvent"][];
+        };
+        /** @enum {string} */
+        AuditVia: "web" | "mcp" | "cli" | "system";
+        AuditActor: {
+            user_id?: string;
+            email?: string;
+            via: components["schemas"]["AuditVia"];
+            api_token_id?: string;
+            ip?: string;
+        };
+        /**
+         * @description One stored event. The payload is data written by dbairlock and may
+         *     quote text people or agents wrote; show it as plain text only.
+         */
+        AuditEvent: {
+            /** Format: int64 */
+            seq: number;
+            id: string;
+            /** Format: date-time */
+            occurred_at: string;
+            actor: components["schemas"]["AuditActor"];
+            action: string;
+            subject_type: string;
+            subject_id: string;
+            payload: {
+                [key: string]: unknown;
+            };
+            /** @description SHA-256 of the previous event, hex. */
+            prev_hash: string;
+            /** @description SHA-256 of the previous hash and this event, hex. */
+            hash: string;
+        };
+        AuditEventList: {
+            events: components["schemas"]["AuditEvent"][];
+            /**
+             * Format: int64
+             * @description Pass as `before` for the next page; absent on the last page.
+             */
+            next_before?: number;
+        };
+        AuditProblem: {
+            /**
+             * Format: int64
+             * @description Sequence number of the first broken link.
+             */
+            seq: number;
+            reason: string;
+        };
+        AuditLastSuccess: {
+            /** Format: date-time */
+            at: string;
+            by: string;
+            /** Format: int64 */
+            checked: number;
+        };
+        /**
+         * @description `none`: no check has run since the server started. `running`: a
+         *     check is under way; `checked` grows. `done`: finished; `ok` says
+         *     whether the chain is intact and `problem` names the first broken
+         *     link. `error`: the check could not run.
+         */
+        AuditVerification: {
+            /** @enum {string} */
+            state: "none" | "running" | "done" | "error";
+            /** Format: date-time */
+            started_at?: string;
+            /** Format: date-time */
+            finished_at?: string;
+            /**
+             * Format: int64
+             * @description Events checked so far.
+             */
+            checked: number;
+            /** Format: int64 */
+            last_seq?: number;
+            ok?: boolean;
+            problem?: components["schemas"]["AuditProblem"];
+            message?: string;
+            last_success?: components["schemas"]["AuditLastSuccess"];
+        };
+        SystemCounts: {
+            /**
+             * Format: int64
+             * @description Active users (removed users are not counted).
+             */
+            users: number;
+            /**
+             * Format: int64
+             * @description Connections that are not archived.
+             */
+            connections: number;
+            /** Format: int64 */
+            changes: number;
+        };
+        SystemInfo: {
+            version: string;
+            /** @description The source revision the binary was built from, or `unknown`. */
+            commit: string;
+            data_dir: string;
+            /**
+             * Format: int64
+             * @description Size of the database file and its write-ahead log.
+             */
+            store_bytes: number;
+            dev: boolean;
+            counts: components["schemas"]["SystemCounts"];
+            migration: {
+                /** Format: int64 */
+                current: number;
+                /** Format: int64 */
+                latest: number;
+                pending: boolean;
+            };
+            last_verification?: components["schemas"]["AuditLastSuccess"];
+        };
+        Notification: {
+            id: string;
+            event: string;
+            /** @enum {string} */
+            status: "pending" | "delivered" | "gave_up";
+            /** Format: int64 */
+            attempts: number;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description Present while pending.
+             */
+            next_attempt_at?: string;
+            /** Format: date-time */
+            finished_at?: string;
+            /** @description The receiver's last HTTP status, if it answered. */
+            last_status?: number;
+            last_error?: string;
+        };
+        NotificationList: {
+            notifications: components["schemas"]["Notification"][];
+        };
+        NotificationTestResult: {
+            ok: boolean;
+            status_code?: number;
+            message: string;
         };
         Health: {
             /** @enum {string} */
@@ -2695,6 +2987,173 @@ export interface operations {
                     "application/json": components["schemas"]["ChangeEventList"];
                 };
             };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAuditEvents: {
+        parameters: {
+            query?: {
+                /** @description The actor's email or user id, matched exactly. */
+                actor?: string;
+                /** @description Action prefix, for example `change.` or `change.approved`. */
+                action?: string;
+                subject_type?: string;
+                subject_id?: string;
+                /** @description The channel the actor used. */
+                via?: components["schemas"]["AuditVia"];
+                /** @description Events at or after this time. */
+                from?: string;
+                /** @description Events before this time. */
+                to?: string;
+                /** @description Only events with a sequence number below this one. */
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of events. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditEventList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAuditVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Verification status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditVerification"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    verifyAudit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Verification status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditVerification"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    exportAudit: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One JSON event per line. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/x-ndjson": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getSystem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description System status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemInfo"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listNotifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Notifications, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    sendTestNotification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The outcome. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationTestResult"];
+                };
+            };
+            409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

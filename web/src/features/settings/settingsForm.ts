@@ -38,7 +38,15 @@ export type SettingField =
       item: { pattern: RegExp; message: (value: string) => string }
       placeholder?: string
     })
+  | (FieldBase & { kind: 'choice'; key: SettingKey; options: readonly ChoiceOption[] })
+  | (FieldBase & { kind: 'multi'; key: SettingKey; options: readonly ChoiceOption[] })
   | (FieldBase & { kind: 'secret'; key: SecretSlot })
+
+export interface ChoiceOption {
+  value: string
+  label: string
+  help?: string
+}
 
 export interface SettingsGroup {
   id: string
@@ -50,7 +58,7 @@ export interface SettingsGroup {
   fields: SettingField[]
 }
 
-export type FormValues = Record<string, string | boolean | SecretChange>
+export type FormValues = Record<string, string | boolean | string[] | SecretChange>
 
 /** Form field name for a setting. Dots would make react-hook-form nest values. */
 export function formName(field: Pick<SettingField, 'kind' | 'key'>): string {
@@ -121,6 +129,18 @@ function fieldSchema(field: SettingField): z.ZodType {
         })
     case 'bool':
       return z.boolean()
+    case 'choice': {
+      const allowed = field.options.map((o) => o.value)
+      return z.string().refine((v) => allowed.includes(v), {
+        message: `Must be one of: ${allowed.join(', ')}.`,
+      })
+    }
+    case 'multi': {
+      const allowed = field.options.map((o) => o.value)
+      return z.array(z.string()).refine((v) => v.every((s) => allowed.includes(s)), {
+        message: `Each entry must be one of: ${allowed.join(', ')}.`,
+      })
+    }
     case 'list':
       return z.string().superRefine((value, ctx) => {
         const items = splitList(value).map((s) => s.toLowerCase())
@@ -164,6 +184,8 @@ export function toFormValues(group: SettingsGroup, settings: Settings): FormValu
     }
     const value: unknown = settings.values[field.key]
     if (field.kind === 'bool') out[name] = value === true
+    else if (field.kind === 'multi')
+      out[name] = Array.isArray(value) ? value.filter((v) => typeof v === 'string') : []
     else if (field.kind === 'list') out[name] = Array.isArray(value) ? value.join('\n') : ''
     else if (typeof value === 'string' || typeof value === 'number') out[name] = String(value)
     else out[name] = ''
@@ -200,6 +222,14 @@ export function toUpdate(
       case 'bool':
         settingValues[field.key] = value === true
         break
+      case 'multi': {
+        // In the order the options are listed, as the server stores them.
+        const picked = Array.isArray(value) ? value : []
+        settingValues[field.key] = field.options
+          .map((o) => o.value)
+          .filter((v) => picked.includes(v))
+        break
+      }
       default:
         settingValues[field.key] = typeof value === 'string' ? value : ''
     }
@@ -221,6 +251,19 @@ export function secretStatus(settings: Settings, slot: SecretSlot): SecretStatus
  * point sign-in at a fake provider on a loopback address.
  */
 export const hiddenSettings: SettingKey[] = ['auth.oidc_issuer']
+
+export const notifyFormats: readonly ChoiceOption[] = [
+  { value: 'generic', label: 'Generic JSON', help: 'One flat JSON object per event.' },
+  { value: 'slack', label: 'Slack', help: 'The body Slack incoming webhooks accept.' },
+]
+
+export const notifyEvents: readonly ChoiceOption[] = [
+  { value: 'change.submitted', label: 'Change submitted for review' },
+  { value: 'change.approved', label: 'Change approved' },
+  { value: 'change.rejected', label: 'Change rejected' },
+  { value: 'change.executed', label: 'Change executed' },
+  { value: 'change.failed', label: 'Change failed' },
+]
 
 const domainPattern = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,61}[a-z0-9]$/
 
@@ -246,19 +289,6 @@ export const settingsGroups: SettingsGroup[] = [
         help: 'The address people use to open dbairlock. Sign-in redirects and links in notifications use it.',
         maxLength: 2048,
         placeholder: 'https://dbairlock.example.com',
-      },
-      {
-        kind: 'list',
-        key: 'instance.trusted_proxies',
-        label: 'Trusted proxies',
-        help: 'IP ranges of the load balancers in front of dbairlock. Their X-Forwarded-For header gives the client address in the audit log. Leave empty if nothing sits in front.',
-        maxItems: 50,
-        itemMaxLength: 49,
-        item: {
-          pattern: /^[0-9a-f:.]+(\/\d{1,3})?$/,
-          message: (v) => `"${v}" is not an IP range, for example 10.0.0.0/8.`,
-        },
-        placeholder: '10.0.0.0/8',
       },
     ],
   },
@@ -310,7 +340,7 @@ export const settingsGroups: SettingsGroup[] = [
   },
   {
     id: 'review-policy',
-    title: 'Review policy',
+    title: 'Policy defaults',
     description:
       'Defaults for connections created from now on. Preview age applies to every connection immediately.',
     fields: [
@@ -412,12 +442,26 @@ export const settingsGroups: SettingsGroup[] = [
         max: 1000,
         unit: 'per hour',
       },
+      {
+        kind: 'list',
+        key: 'instance.trusted_proxies',
+        label: 'Trusted proxies',
+        help: 'IP ranges of the load balancers in front of dbairlock. Their X-Forwarded-For header gives the client address in the audit log. Leave empty if nothing sits in front.',
+        maxItems: 50,
+        itemMaxLength: 49,
+        item: {
+          pattern: /^[0-9a-f:.]+(\/\d{1,3})?$/,
+          message: (v) => `"${v}" is not an IP range, for example 10.0.0.0/8.`,
+        },
+        placeholder: '10.0.0.0/8',
+      },
     ],
   },
   {
     id: 'notifications',
     title: 'Notifications',
-    description: 'Posts to a webhook when changes are submitted, reviewed and run.',
+    description:
+      'Posts to a webhook when changes are submitted, reviewed and run. Notifications may arrive late or not at all; the audit log is the record.',
     fields: [
       { kind: 'bool', key: 'notify.enabled', label: 'Send notifications' },
       {
@@ -425,6 +469,19 @@ export const settingsGroups: SettingsGroup[] = [
         key: 'notify.webhook_url',
         label: 'Webhook URL',
         help: 'Stored as a secret because chat webhook URLs carry a credential. Write-only.',
+      },
+      {
+        kind: 'choice',
+        key: 'notify.format',
+        label: 'Format',
+        options: notifyFormats,
+      },
+      {
+        kind: 'multi',
+        key: 'notify.events',
+        label: 'Events',
+        help: 'Messages carry the change number, title, database, people, status and a link. Never SQL, rows or reasons.',
+        options: notifyEvents,
       },
     ],
   },

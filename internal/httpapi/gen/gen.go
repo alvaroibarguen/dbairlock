@@ -11,12 +11,61 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
 	"github.com/oapi-codegen/nullable"
 	"github.com/oapi-codegen/runtime"
 )
+
+// Defines values for AuditVerificationState.
+const (
+	AuditVerificationStateDone    AuditVerificationState = "done"
+	AuditVerificationStateError   AuditVerificationState = "error"
+	AuditVerificationStateNone    AuditVerificationState = "none"
+	AuditVerificationStateRunning AuditVerificationState = "running"
+)
+
+// Valid indicates whether the value is a known member of the AuditVerificationState enum.
+func (e AuditVerificationState) Valid() bool {
+	switch e {
+	case AuditVerificationStateDone:
+		return true
+	case AuditVerificationStateError:
+		return true
+	case AuditVerificationStateNone:
+		return true
+	case AuditVerificationStateRunning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuditVia.
+const (
+	AuditViaCli    AuditVia = "cli"
+	AuditViaMcp    AuditVia = "mcp"
+	AuditViaSystem AuditVia = "system"
+	AuditViaWeb    AuditVia = "web"
+)
+
+// Valid indicates whether the value is a known member of the AuditVia enum.
+func (e AuditVia) Valid() bool {
+	switch e {
+	case AuditViaCli:
+		return true
+	case AuditViaMcp:
+		return true
+	case AuditViaSystem:
+		return true
+	case AuditViaWeb:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for ChangeVia.
 const (
@@ -246,6 +295,27 @@ func (e HealthStatus) Valid() bool {
 	}
 }
 
+// Defines values for NotificationStatus.
+const (
+	Delivered NotificationStatus = "delivered"
+	GaveUp    NotificationStatus = "gave_up"
+	Pending   NotificationStatus = "pending"
+)
+
+// Valid indicates whether the value is a known member of the NotificationStatus enum.
+func (e NotificationStatus) Valid() bool {
+	switch e {
+	case Delivered:
+		return true
+	case GaveUp:
+		return true
+	case Pending:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Permission.
 const (
 	PermissionAuditRead        Permission = "audit.read"
@@ -309,6 +379,96 @@ func (e Role) Valid() bool {
 	case Admin:
 		return true
 	case Member:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SettingValuesNotifyEvents.
+const (
+	SettingValuesNotifyEventsChangeApproved  SettingValuesNotifyEvents = "change.approved"
+	SettingValuesNotifyEventsChangeExecuted  SettingValuesNotifyEvents = "change.executed"
+	SettingValuesNotifyEventsChangeFailed    SettingValuesNotifyEvents = "change.failed"
+	SettingValuesNotifyEventsChangeRejected  SettingValuesNotifyEvents = "change.rejected"
+	SettingValuesNotifyEventsChangeSubmitted SettingValuesNotifyEvents = "change.submitted"
+)
+
+// Valid indicates whether the value is a known member of the SettingValuesNotifyEvents enum.
+func (e SettingValuesNotifyEvents) Valid() bool {
+	switch e {
+	case SettingValuesNotifyEventsChangeApproved:
+		return true
+	case SettingValuesNotifyEventsChangeExecuted:
+		return true
+	case SettingValuesNotifyEventsChangeFailed:
+		return true
+	case SettingValuesNotifyEventsChangeRejected:
+		return true
+	case SettingValuesNotifyEventsChangeSubmitted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SettingValuesNotifyFormat.
+const (
+	SettingValuesNotifyFormatGeneric SettingValuesNotifyFormat = "generic"
+	SettingValuesNotifyFormatSlack   SettingValuesNotifyFormat = "slack"
+)
+
+// Valid indicates whether the value is a known member of the SettingValuesNotifyFormat enum.
+func (e SettingValuesNotifyFormat) Valid() bool {
+	switch e {
+	case SettingValuesNotifyFormatGeneric:
+		return true
+	case SettingValuesNotifyFormatSlack:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SettingValuesPatchNotifyEvents.
+const (
+	SettingValuesPatchNotifyEventsChangeApproved  SettingValuesPatchNotifyEvents = "change.approved"
+	SettingValuesPatchNotifyEventsChangeExecuted  SettingValuesPatchNotifyEvents = "change.executed"
+	SettingValuesPatchNotifyEventsChangeFailed    SettingValuesPatchNotifyEvents = "change.failed"
+	SettingValuesPatchNotifyEventsChangeRejected  SettingValuesPatchNotifyEvents = "change.rejected"
+	SettingValuesPatchNotifyEventsChangeSubmitted SettingValuesPatchNotifyEvents = "change.submitted"
+)
+
+// Valid indicates whether the value is a known member of the SettingValuesPatchNotifyEvents enum.
+func (e SettingValuesPatchNotifyEvents) Valid() bool {
+	switch e {
+	case SettingValuesPatchNotifyEventsChangeApproved:
+		return true
+	case SettingValuesPatchNotifyEventsChangeExecuted:
+		return true
+	case SettingValuesPatchNotifyEventsChangeFailed:
+		return true
+	case SettingValuesPatchNotifyEventsChangeRejected:
+		return true
+	case SettingValuesPatchNotifyEventsChangeSubmitted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SettingValuesPatchNotifyFormat.
+const (
+	SettingValuesPatchNotifyFormatGeneric SettingValuesPatchNotifyFormat = "generic"
+	SettingValuesPatchNotifyFormatSlack   SettingValuesPatchNotifyFormat = "slack"
+)
+
+// Valid indicates whether the value is a known member of the SettingValuesPatchNotifyFormat enum.
+func (e SettingValuesPatchNotifyFormat) Valid() bool {
+	switch e {
+	case SettingValuesPatchNotifyFormatGeneric:
+		return true
+	case SettingValuesPatchNotifyFormatSlack:
 		return true
 	default:
 		return false
@@ -429,6 +589,80 @@ type ApiToken struct {
 	// Prefix The first characters of the token, for recognising it. Never used for lookup.
 	Prefix string `json:"prefix"`
 }
+
+// AuditActor defines model for AuditActor.
+type AuditActor struct {
+	ApiTokenId *string  `json:"api_token_id,omitempty"`
+	Email      *string  `json:"email,omitempty"`
+	Ip         *string  `json:"ip,omitempty"`
+	UserId     *string  `json:"user_id,omitempty"`
+	Via        AuditVia `json:"via"`
+}
+
+// AuditEvent One stored event. The payload is data written by dbairlock and may
+// quote text people or agents wrote; show it as plain text only.
+type AuditEvent struct {
+	Action string     `json:"action"`
+	Actor  AuditActor `json:"actor"`
+
+	// Hash SHA-256 of the previous hash and this event, hex.
+	Hash       string                 `json:"hash"`
+	Id         string                 `json:"id"`
+	OccurredAt time.Time              `json:"occurred_at"`
+	Payload    map[string]interface{} `json:"payload"`
+
+	// PrevHash SHA-256 of the previous event, hex.
+	PrevHash    string `json:"prev_hash"`
+	Seq         int64  `json:"seq"`
+	SubjectId   string `json:"subject_id"`
+	SubjectType string `json:"subject_type"`
+}
+
+// AuditEventList defines model for AuditEventList.
+type AuditEventList struct {
+	Events []AuditEvent `json:"events"`
+
+	// NextBefore Pass as `before` for the next page; absent on the last page.
+	NextBefore *int64 `json:"next_before,omitempty"`
+}
+
+// AuditLastSuccess defines model for AuditLastSuccess.
+type AuditLastSuccess struct {
+	At      time.Time `json:"at"`
+	By      string    `json:"by"`
+	Checked int64     `json:"checked"`
+}
+
+// AuditProblem defines model for AuditProblem.
+type AuditProblem struct {
+	Reason string `json:"reason"`
+
+	// Seq Sequence number of the first broken link.
+	Seq int64 `json:"seq"`
+}
+
+// AuditVerification `none`: no check has run since the server started. `running`: a
+// check is under way; `checked` grows. `done`: finished; `ok` says
+// whether the chain is intact and `problem` names the first broken
+// link. `error`: the check could not run.
+type AuditVerification struct {
+	// Checked Events checked so far.
+	Checked     int64                  `json:"checked"`
+	FinishedAt  *time.Time             `json:"finished_at,omitempty"`
+	LastSeq     *int64                 `json:"last_seq,omitempty"`
+	LastSuccess *AuditLastSuccess      `json:"last_success,omitempty"`
+	Message     *string                `json:"message,omitempty"`
+	Ok          *bool                  `json:"ok,omitempty"`
+	Problem     *AuditProblem          `json:"problem,omitempty"`
+	StartedAt   *time.Time             `json:"started_at,omitempty"`
+	State       AuditVerificationState `json:"state"`
+}
+
+// AuditVerificationState defines model for AuditVerification.State.
+type AuditVerificationState string
+
+// AuditVia defines model for AuditVia.
+type AuditVia string
 
 // Cell A cell value: null, a boolean, a number, a string, a JSON array or
 // object, or `{type, value, size, truncated}` for binary data and
@@ -1021,6 +1255,38 @@ type Meta struct {
 	Version string `json:"version"`
 }
 
+// Notification defines model for Notification.
+type Notification struct {
+	Attempts   int64      `json:"attempts"`
+	CreatedAt  time.Time  `json:"created_at"`
+	Event      string     `json:"event"`
+	FinishedAt *time.Time `json:"finished_at,omitempty"`
+	Id         string     `json:"id"`
+	LastError  *string    `json:"last_error,omitempty"`
+
+	// LastStatus The receiver's last HTTP status, if it answered.
+	LastStatus *int `json:"last_status,omitempty"`
+
+	// NextAttemptAt Present while pending.
+	NextAttemptAt *time.Time         `json:"next_attempt_at,omitempty"`
+	Status        NotificationStatus `json:"status"`
+}
+
+// NotificationStatus defines model for Notification.Status.
+type NotificationStatus string
+
+// NotificationList defines model for NotificationList.
+type NotificationList struct {
+	Notifications []Notification `json:"notifications"`
+}
+
+// NotificationTestResult defines model for NotificationTestResult.
+type NotificationTestResult struct {
+	Message    string `json:"message"`
+	Ok         bool   `json:"ok"`
+	StatusCode *int   `json:"status_code,omitempty"`
+}
+
 // Permission An action the user may take (see identity.Can).
 type Permission string
 
@@ -1177,16 +1443,28 @@ type SettingValues struct {
 	LimitsMcpPreviewsPerHour int `json:"limits.mcp_previews_per_hour"`
 
 	// LimitsMcpSubmissionsPerHour MCP submit_change calls each API token may make per hour.
-	LimitsMcpSubmissionsPerHour    int  `json:"limits.mcp_submissions_per_hour"`
-	LimitsStatementTimeoutMs       int  `json:"limits.statement_timeout_ms"`
-	NotifyEnabled                  bool `json:"notify.enabled"`
-	PolicyDefaultApprovalTtlHours  int  `json:"policy.default_approval_ttl_hours"`
-	PolicyDefaultAutoExecute       bool `json:"policy.default_auto_execute"`
-	PolicyDefaultMaxRows           int  `json:"policy.default_max_rows"`
-	PolicyDefaultRequiredApprovals int  `json:"policy.default_required_approvals"`
-	PolicyDefaultStoreRowImages    bool `json:"policy.default_store_row_images"`
-	PolicyPreviewMaxAgeMinutes     int  `json:"policy.preview_max_age_minutes"`
+	LimitsMcpSubmissionsPerHour int  `json:"limits.mcp_submissions_per_hour"`
+	LimitsStatementTimeoutMs    int  `json:"limits.statement_timeout_ms"`
+	NotifyEnabled               bool `json:"notify.enabled"`
+
+	// NotifyEvents The events that are sent.
+	NotifyEvents []SettingValuesNotifyEvents `json:"notify.events"`
+
+	// NotifyFormat The webhook body. `generic` posts one flat JSON object; `slack` posts what Slack incoming webhooks accept.
+	NotifyFormat                   SettingValuesNotifyFormat `json:"notify.format"`
+	PolicyDefaultApprovalTtlHours  int                       `json:"policy.default_approval_ttl_hours"`
+	PolicyDefaultAutoExecute       bool                      `json:"policy.default_auto_execute"`
+	PolicyDefaultMaxRows           int                       `json:"policy.default_max_rows"`
+	PolicyDefaultRequiredApprovals int                       `json:"policy.default_required_approvals"`
+	PolicyDefaultStoreRowImages    bool                      `json:"policy.default_store_row_images"`
+	PolicyPreviewMaxAgeMinutes     int                       `json:"policy.preview_max_age_minutes"`
 }
+
+// SettingValuesNotifyEvents defines model for SettingValues.NotifyEvents.
+type SettingValuesNotifyEvents string
+
+// SettingValuesNotifyFormat The webhook body. `generic` posts one flat JSON object; `slack` posts what Slack incoming webhooks accept.
+type SettingValuesNotifyFormat string
 
 // SettingValuesPatch The settings to change; omitted settings are unchanged.
 type SettingValuesPatch struct {
@@ -1215,16 +1493,28 @@ type SettingValuesPatch struct {
 	LimitsMcpPreviewsPerHour *int `json:"limits.mcp_previews_per_hour,omitempty"`
 
 	// LimitsMcpSubmissionsPerHour MCP submit_change calls each API token may make per hour.
-	LimitsMcpSubmissionsPerHour    *int  `json:"limits.mcp_submissions_per_hour,omitempty"`
-	LimitsStatementTimeoutMs       *int  `json:"limits.statement_timeout_ms,omitempty"`
-	NotifyEnabled                  *bool `json:"notify.enabled,omitempty"`
-	PolicyDefaultApprovalTtlHours  *int  `json:"policy.default_approval_ttl_hours,omitempty"`
-	PolicyDefaultAutoExecute       *bool `json:"policy.default_auto_execute,omitempty"`
-	PolicyDefaultMaxRows           *int  `json:"policy.default_max_rows,omitempty"`
-	PolicyDefaultRequiredApprovals *int  `json:"policy.default_required_approvals,omitempty"`
-	PolicyDefaultStoreRowImages    *bool `json:"policy.default_store_row_images,omitempty"`
-	PolicyPreviewMaxAgeMinutes     *int  `json:"policy.preview_max_age_minutes,omitempty"`
+	LimitsMcpSubmissionsPerHour *int  `json:"limits.mcp_submissions_per_hour,omitempty"`
+	LimitsStatementTimeoutMs    *int  `json:"limits.statement_timeout_ms,omitempty"`
+	NotifyEnabled               *bool `json:"notify.enabled,omitempty"`
+
+	// NotifyEvents The events that are sent.
+	NotifyEvents *[]SettingValuesPatchNotifyEvents `json:"notify.events,omitempty"`
+
+	// NotifyFormat The webhook body. `generic` posts one flat JSON object; `slack` posts what Slack incoming webhooks accept.
+	NotifyFormat                   *SettingValuesPatchNotifyFormat `json:"notify.format,omitempty"`
+	PolicyDefaultApprovalTtlHours  *int                            `json:"policy.default_approval_ttl_hours,omitempty"`
+	PolicyDefaultAutoExecute       *bool                           `json:"policy.default_auto_execute,omitempty"`
+	PolicyDefaultMaxRows           *int                            `json:"policy.default_max_rows,omitempty"`
+	PolicyDefaultRequiredApprovals *int                            `json:"policy.default_required_approvals,omitempty"`
+	PolicyDefaultStoreRowImages    *bool                           `json:"policy.default_store_row_images,omitempty"`
+	PolicyPreviewMaxAgeMinutes     *int                            `json:"policy.preview_max_age_minutes,omitempty"`
 }
+
+// SettingValuesPatchNotifyEvents defines model for SettingValuesPatch.NotifyEvents.
+type SettingValuesPatchNotifyEvents string
+
+// SettingValuesPatchNotifyFormat The webhook body. `generic` posts one flat JSON object; `slack` posts what Slack incoming webhooks accept.
+type SettingValuesPatchNotifyFormat string
 
 // Settings defines model for Settings.
 type Settings struct {
@@ -1336,6 +1626,36 @@ type StatementKind string
 // Statements defines model for Statements.
 type Statements = []string
 
+// SystemCounts defines model for SystemCounts.
+type SystemCounts struct {
+	Changes int64 `json:"changes"`
+
+	// Connections Connections that are not archived.
+	Connections int64 `json:"connections"`
+
+	// Users Active users (removed users are not counted).
+	Users int64 `json:"users"`
+}
+
+// SystemInfo defines model for SystemInfo.
+type SystemInfo struct {
+	// Commit The source revision the binary was built from, or `unknown`.
+	Commit           string            `json:"commit"`
+	Counts           SystemCounts      `json:"counts"`
+	DataDir          string            `json:"data_dir"`
+	Dev              bool              `json:"dev"`
+	LastVerification *AuditLastSuccess `json:"last_verification,omitempty"`
+	Migration        struct {
+		Current int64 `json:"current"`
+		Latest  int64 `json:"latest"`
+		Pending bool  `json:"pending"`
+	} `json:"migration"`
+
+	// StoreBytes Size of the database file and its write-ahead log.
+	StoreBytes int64  `json:"store_bytes"`
+	Version    string `json:"version"`
+}
+
 // TokenCreate defines model for TokenCreate.
 type TokenCreate struct {
 	// ExpiresInDays 30, 90 or 365; omit for a token that does not expire.
@@ -1388,6 +1708,36 @@ type UserUpdate struct {
 
 // ID defines model for ID.
 type ID = string
+
+// ListAuditEventsParams defines parameters for ListAuditEvents.
+type ListAuditEventsParams struct {
+	// Actor The actor's email or user id, matched exactly.
+	Actor *string `form:"actor,omitempty" json:"actor,omitempty"`
+
+	// Action Action prefix, for example `change.` or `change.approved`.
+	Action      *string `form:"action,omitempty" json:"action,omitempty"`
+	SubjectType *string `form:"subject_type,omitempty" json:"subject_type,omitempty"`
+	SubjectId   *string `form:"subject_id,omitempty" json:"subject_id,omitempty"`
+
+	// Via The channel the actor used.
+	Via *AuditVia `form:"via,omitempty" json:"via,omitempty"`
+
+	// From Events at or after this time.
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+
+	// To Events before this time.
+	To *time.Time `form:"to,omitempty" json:"to,omitempty"`
+
+	// Before Only events with a sequence number below this one.
+	Before *int64 `form:"before,omitempty" json:"before,omitempty"`
+	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ExportAuditParams defines parameters for ExportAudit.
+type ExportAuditParams struct {
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+	To   *time.Time `form:"to,omitempty" json:"to,omitempty"`
+}
 
 // GoogleCallbackParams defines parameters for GoogleCallback.
 type GoogleCallbackParams struct {
@@ -1472,6 +1822,18 @@ type UpdateUserJSONRequestBody = UserUpdate
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// ListAuditEvents The audit log
+	// (GET /api/audit)
+	ListAuditEvents(w http.ResponseWriter, r *http.Request, params ListAuditEventsParams)
+	// ExportAudit Export the audit log
+	// (GET /api/audit/export)
+	ExportAudit(w http.ResponseWriter, r *http.Request, params ExportAuditParams)
+	// GetAuditVerification The latest chain verification
+	// (GET /api/audit/verify)
+	GetAuditVerification(w http.ResponseWriter, r *http.Request)
+	// VerifyAudit Verify the audit hash chain
+	// (POST /api/audit/verify)
+	VerifyAudit(w http.ResponseWriter, r *http.Request)
 	// GoogleCallback Google redirects here after sign-in
 	// (GET /api/auth/google/callback)
 	GoogleCallback(w http.ResponseWriter, r *http.Request, params GoogleCallbackParams)
@@ -1556,6 +1918,12 @@ type ServerInterface interface {
 	// GetMeta Instance metadata
 	// (GET /api/meta)
 	GetMeta(w http.ResponseWriter, r *http.Request)
+	// ListNotifications Recent notifications
+	// (GET /api/notifications)
+	ListNotifications(w http.ResponseWriter, r *http.Request)
+	// SendTestNotification Send a test notification
+	// (POST /api/notifications/test)
+	SendTestNotification(w http.ResponseWriter, r *http.Request)
 	// GetSettings Instance settings
 	// (GET /api/settings)
 	GetSettings(w http.ResponseWriter, r *http.Request)
@@ -1580,6 +1948,9 @@ type ServerInterface interface {
 	// VerifySetupCode Enter the setup code
 	// (POST /api/setup/verify)
 	VerifySetupCode(w http.ResponseWriter, r *http.Request)
+	// GetSystem System status
+	// (GET /api/system)
+	GetSystem(w http.ResponseWriter, r *http.Request)
 	// ListTokens API tokens
 	// (GET /api/tokens)
 	ListTokens(w http.ResponseWriter, r *http.Request, params ListTokensParams)
@@ -1617,6 +1988,217 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// ListAuditEvents operation middleware
+func (siw *ServerInterfaceWrapper) ListAuditEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAuditEventsParams
+
+	// ------------- Optional query parameter "actor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "actor", r.URL.Query(), &params.Actor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "actor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "actor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "action" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "action", r.URL.Query(), &params.Action, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "action"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "action", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "subject_type" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "subject_type", r.URL.Query(), &params.SubjectType, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "subject_type"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subject_type", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "subject_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "subject_id", r.URL.Query(), &params.SubjectId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "subject_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subject_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "via" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "via", r.URL.Query(), &params.Via, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "via"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "via", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", r.URL.Query(), &params.Before, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAuditEvents(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ExportAudit operation middleware
+func (siw *ServerInterfaceWrapper) ExportAudit(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ExportAuditParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExportAudit(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAuditVerification operation middleware
+func (siw *ServerInterfaceWrapper) GetAuditVerification(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAuditVerification(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// VerifyAudit operation middleware
+func (siw *ServerInterfaceWrapper) VerifyAudit(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.VerifyAudit(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // GoogleCallback operation middleware
 func (siw *ServerInterfaceWrapper) GoogleCallback(w http.ResponseWriter, r *http.Request) {
@@ -2339,6 +2921,34 @@ func (siw *ServerInterfaceWrapper) GetMeta(w http.ResponseWriter, r *http.Reques
 	handler.ServeHTTP(w, r)
 }
 
+// ListNotifications operation middleware
+func (siw *ServerInterfaceWrapper) ListNotifications(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListNotifications(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SendTestNotification operation middleware
+func (siw *ServerInterfaceWrapper) SendTestNotification(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SendTestNotification(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetSettings operation middleware
 func (siw *ServerInterfaceWrapper) GetSettings(w http.ResponseWriter, r *http.Request) {
 
@@ -2442,6 +3052,20 @@ func (siw *ServerInterfaceWrapper) VerifySetupCode(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.VerifySetupCode(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSystem operation middleware
+func (siw *ServerInterfaceWrapper) GetSystem(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSystem(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2809,6 +3433,13 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/changes/{id}/execute", wrapper.ExecuteChange)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/changes/{id}/retry", wrapper.RetryChange)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/changes/{id}/events", wrapper.ListChangeEvents)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/audit", wrapper.ListAuditEvents)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/audit/verify", wrapper.GetAuditVerification)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/audit/verify", wrapper.VerifyAudit)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/audit/export", wrapper.ExportAudit)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/system", wrapper.GetSystem)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/notifications", wrapper.ListNotifications)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/notifications/test", wrapper.SendTestNotification)
 
 	return m
 }
@@ -2820,6 +3451,189 @@ type RedirectResponseHeaders struct {
 }
 type RedirectResponse struct {
 	Headers RedirectResponseHeaders
+}
+
+type ListAuditEventsRequestObject struct {
+	Params ListAuditEventsParams
+}
+
+type ListAuditEventsResponseObject interface {
+	VisitListAuditEventsResponse(w http.ResponseWriter) error
+}
+
+type ListAuditEvents200JSONResponse AuditEventList
+
+func (response ListAuditEvents200JSONResponse) VisitListAuditEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditEventsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListAuditEventsdefaultJSONResponse) VisitListAuditEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExportAuditRequestObject struct {
+	Params ExportAuditParams
+}
+
+type ExportAuditResponseObject interface {
+	VisitExportAuditResponse(w http.ResponseWriter) error
+}
+
+type ExportAudit200ApplicationxNdjsonResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response ExportAudit200ApplicationxNdjsonResponse) VisitExportAuditResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		// If w doesn't support flushing, fall back to io.Copy.
+		_, err := io.Copy(w, response.Body)
+		return err
+	}
+	// text/event-stream messages are typically small; use a
+	// modest buffer and flush after each chunk so clients see
+	// events immediately instead of waiting on OS buffering.
+	buf := make([]byte, 4096)
+	for {
+		n, err := response.Body.Read(buf)
+		if n > 0 {
+			if _, writeErr := w.Write(buf[:n]); writeErr != nil {
+				return writeErr
+			}
+			flusher.Flush()
+		}
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+	}
+}
+
+type ExportAuditdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ExportAuditdefaultJSONResponse) VisitExportAuditResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAuditVerificationRequestObject struct {
+}
+
+type GetAuditVerificationResponseObject interface {
+	VisitGetAuditVerificationResponse(w http.ResponseWriter) error
+}
+
+type GetAuditVerification200JSONResponse AuditVerification
+
+func (response GetAuditVerification200JSONResponse) VisitGetAuditVerificationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAuditVerificationdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetAuditVerificationdefaultJSONResponse) VisitGetAuditVerificationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyAuditRequestObject struct {
+}
+
+type VerifyAuditResponseObject interface {
+	VisitVerifyAuditResponse(w http.ResponseWriter) error
+}
+
+type VerifyAudit200JSONResponse AuditVerification
+
+func (response VerifyAudit200JSONResponse) VisitVerifyAuditResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyAuditdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response VerifyAuditdefaultJSONResponse) VisitVerifyAuditResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
 }
 
 type GoogleCallbackRequestObject struct {
@@ -4205,6 +5019,96 @@ func (response GetMetadefaultJSONResponse) VisitGetMetaResponse(w http.ResponseW
 	return err
 }
 
+type ListNotificationsRequestObject struct {
+}
+
+type ListNotificationsResponseObject interface {
+	VisitListNotificationsResponse(w http.ResponseWriter) error
+}
+
+type ListNotifications200JSONResponse NotificationList
+
+func (response ListNotifications200JSONResponse) VisitListNotificationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListNotificationsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListNotificationsdefaultJSONResponse) VisitListNotificationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SendTestNotificationRequestObject struct {
+}
+
+type SendTestNotificationResponseObject interface {
+	VisitSendTestNotificationResponse(w http.ResponseWriter) error
+}
+
+type SendTestNotification200JSONResponse NotificationTestResult
+
+func (response SendTestNotification200JSONResponse) VisitSendTestNotificationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SendTestNotification409JSONResponse struct{ ErrorJSONResponse }
+
+func (response SendTestNotification409JSONResponse) VisitSendTestNotificationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SendTestNotificationdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response SendTestNotificationdefaultJSONResponse) VisitSendTestNotificationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetSettingsRequestObject struct {
 }
 
@@ -4593,6 +5497,44 @@ func (response VerifySetupCodedefaultJSONResponse) VisitVerifySetupCodeResponse(
 	return err
 }
 
+type GetSystemRequestObject struct {
+}
+
+type GetSystemResponseObject interface {
+	VisitGetSystemResponse(w http.ResponseWriter) error
+}
+
+type GetSystem200JSONResponse SystemInfo
+
+func (response GetSystem200JSONResponse) VisitGetSystemResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSystemdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetSystemdefaultJSONResponse) VisitGetSystemResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListTokensRequestObject struct {
 	Params ListTokensParams
 }
@@ -4960,6 +5902,18 @@ func (response GetReadyz503JSONResponse) VisitGetReadyzResponse(w http.ResponseW
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// ListAuditEvents The audit log
+	// (GET /api/audit)
+	ListAuditEvents(ctx context.Context, request ListAuditEventsRequestObject) (ListAuditEventsResponseObject, error)
+	// ExportAudit Export the audit log
+	// (GET /api/audit/export)
+	ExportAudit(ctx context.Context, request ExportAuditRequestObject) (ExportAuditResponseObject, error)
+	// GetAuditVerification The latest chain verification
+	// (GET /api/audit/verify)
+	GetAuditVerification(ctx context.Context, request GetAuditVerificationRequestObject) (GetAuditVerificationResponseObject, error)
+	// VerifyAudit Verify the audit hash chain
+	// (POST /api/audit/verify)
+	VerifyAudit(ctx context.Context, request VerifyAuditRequestObject) (VerifyAuditResponseObject, error)
 	// GoogleCallback Google redirects here after sign-in
 	// (GET /api/auth/google/callback)
 	GoogleCallback(ctx context.Context, request GoogleCallbackRequestObject) (GoogleCallbackResponseObject, error)
@@ -5044,6 +5998,12 @@ type StrictServerInterface interface {
 	// GetMeta Instance metadata
 	// (GET /api/meta)
 	GetMeta(ctx context.Context, request GetMetaRequestObject) (GetMetaResponseObject, error)
+	// ListNotifications Recent notifications
+	// (GET /api/notifications)
+	ListNotifications(ctx context.Context, request ListNotificationsRequestObject) (ListNotificationsResponseObject, error)
+	// SendTestNotification Send a test notification
+	// (POST /api/notifications/test)
+	SendTestNotification(ctx context.Context, request SendTestNotificationRequestObject) (SendTestNotificationResponseObject, error)
 	// GetSettings Instance settings
 	// (GET /api/settings)
 	GetSettings(ctx context.Context, request GetSettingsRequestObject) (GetSettingsResponseObject, error)
@@ -5068,6 +6028,9 @@ type StrictServerInterface interface {
 	// VerifySetupCode Enter the setup code
 	// (POST /api/setup/verify)
 	VerifySetupCode(ctx context.Context, request VerifySetupCodeRequestObject) (VerifySetupCodeResponseObject, error)
+	// GetSystem System status
+	// (GET /api/system)
+	GetSystem(ctx context.Context, request GetSystemRequestObject) (GetSystemResponseObject, error)
 	// ListTokens API tokens
 	// (GET /api/tokens)
 	ListTokens(ctx context.Context, request ListTokensRequestObject) (ListTokensResponseObject, error)
@@ -5134,6 +6097,106 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// ListAuditEvents operation middleware
+func (sh *strictHandler) ListAuditEvents(w http.ResponseWriter, r *http.Request, params ListAuditEventsParams) {
+	var request ListAuditEventsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAuditEvents(ctx, request.(ListAuditEventsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAuditEvents")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAuditEventsResponseObject); ok {
+		if err := validResponse.VisitListAuditEventsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ExportAudit operation middleware
+func (sh *strictHandler) ExportAudit(w http.ResponseWriter, r *http.Request, params ExportAuditParams) {
+	var request ExportAuditRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ExportAudit(ctx, request.(ExportAuditRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ExportAudit")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ExportAuditResponseObject); ok {
+		if err := validResponse.VisitExportAuditResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAuditVerification operation middleware
+func (sh *strictHandler) GetAuditVerification(w http.ResponseWriter, r *http.Request) {
+	var request GetAuditVerificationRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAuditVerification(ctx, request.(GetAuditVerificationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAuditVerification")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAuditVerificationResponseObject); ok {
+		if err := validResponse.VisitGetAuditVerificationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// VerifyAudit operation middleware
+func (sh *strictHandler) VerifyAudit(w http.ResponseWriter, r *http.Request) {
+	var request VerifyAuditRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.VerifyAudit(ctx, request.(VerifyAuditRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "VerifyAudit")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(VerifyAuditResponseObject); ok {
+		if err := validResponse.VisitVerifyAuditResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // GoogleCallback operation middleware
@@ -5912,6 +6975,54 @@ func (sh *strictHandler) GetMeta(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ListNotifications operation middleware
+func (sh *strictHandler) ListNotifications(w http.ResponseWriter, r *http.Request) {
+	var request ListNotificationsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListNotifications(ctx, request.(ListNotificationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListNotifications")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListNotificationsResponseObject); ok {
+		if err := validResponse.VisitListNotificationsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SendTestNotification operation middleware
+func (sh *strictHandler) SendTestNotification(w http.ResponseWriter, r *http.Request) {
+	var request SendTestNotificationRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SendTestNotification(ctx, request.(SendTestNotificationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SendTestNotification")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SendTestNotificationResponseObject); ok {
+		if err := validResponse.VisitSendTestNotificationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetSettings operation middleware
 func (sh *strictHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
 	var request GetSettingsRequestObject
@@ -6125,6 +7236,30 @@ func (sh *strictHandler) VerifySetupCode(w http.ResponseWriter, r *http.Request)
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(VerifySetupCodeResponseObject); ok {
 		if err := validResponse.VisitVerifySetupCodeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSystem operation middleware
+func (sh *strictHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
+	var request GetSystemRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSystem(ctx, request.(GetSystemRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSystem")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSystemResponseObject); ok {
+		if err := validResponse.VisitGetSystemResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

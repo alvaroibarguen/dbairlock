@@ -100,6 +100,8 @@ type Options struct {
 	Clock     clock.Clock
 	IDs       ids.Generator
 	Logger    *slog.Logger
+	// Notifier is optional; without it nothing is notified.
+	Notifier Notifier
 }
 
 // Service is the changes module.

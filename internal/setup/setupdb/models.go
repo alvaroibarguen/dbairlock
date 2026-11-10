@@ -124,6 +124,20 @@ type Execution struct {
 	StatementResults sql.NullString
 }
 
+type NotifyOutbox struct {
+	ID            string
+	Event         string
+	Payload       string
+	Status        string
+	Attempts      int64
+	CreatedAt     int64
+	NextAttemptAt int64
+	GiveUpAt      int64
+	FinishedAt    sql.NullInt64
+	LastStatus    int64
+	LastError     string
+}
+
 type Review struct {
 	ID          string
 	ChangeID    string

@@ -372,8 +372,13 @@ func (s *Service) existing(ctx context.Context, p identity.Principal, id string)
 	return c, nil
 }
 
+// record writes the audit event for a change and, for the events that
+// notify, queues the notification in the same transaction.
 func (s *Service) record(ctx context.Context, tx *store.Tx, action audit.Action, changeID string, payload map[string]any) error {
-	return s.opts.Audit.Record(ctx, tx, audit.Event{Action: action, SubjectType: "change", SubjectID: changeID, Payload: payload})
+	if err := s.opts.Audit.Record(ctx, tx, audit.Event{Action: action, SubjectType: "change", SubjectID: changeID, Payload: payload}); err != nil {
+		return err
+	}
+	return s.notify(ctx, tx, action, changeID)
 }
 
 // load reads change ref (its id, or its number) through db.

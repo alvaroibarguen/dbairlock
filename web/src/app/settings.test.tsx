@@ -29,6 +29,8 @@ const settings: Settings = {
     'limits.mcp_previews_per_hour': 30,
     'limits.mcp_submissions_per_hour': 20,
     'notify.enabled': false,
+    'notify.format': 'generic',
+    'notify.events': ['change.submitted', 'change.approved'],
   },
   secrets: {
     'auth.google.client_secret': {
@@ -105,9 +107,10 @@ describe('settings page', () => {
     for (const name of [
       'General',
       'Sign-in',
-      'Review policy',
+      'Policy defaults',
       'Limits',
       'Notifications',
+      'System',
       'Appearance',
     ]) {
       expect(within(nav).getByRole('link', { name })).toBeInTheDocument()

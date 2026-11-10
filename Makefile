@@ -27,7 +27,7 @@ DEV_DATA   ?= ./data
 # package per module (see sqlc.yaml). Add each new sqlc package here.
 GO_GEN     := internal/httpapi/gen internal/audit/auditdb internal/secrets/secretsdb internal/settings/settingsdb \
               internal/setup/setupdb internal/identity/identitydb internal/targets/targetsdb \
-              internal/changes/changesdb
+              internal/changes/changesdb internal/notify/notifydb
 
 .PHONY: dev build web-build web-sync go-build generate generate-check test lint e2e clean
 

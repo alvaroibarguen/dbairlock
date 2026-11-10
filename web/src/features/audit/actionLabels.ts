@@ -1,0 +1,80 @@
+/**
+ * Human-readable labels for audit actions, keyed by action name (the list in
+ * internal/audit/actions.go). An action missing here shows its raw name.
+ */
+export const actionLabels: Record<string, string> = {
+  'change.created': 'Change created',
+  'change.edited': 'Change edited',
+  'change.submitted': 'Change submitted',
+  'change.preview_refreshed': 'Preview updated',
+  'change.reviewed': 'Change reviewed',
+  'change.approved': 'Change approved',
+  'change.rejected': 'Change rejected',
+  'change.cancelled': 'Change cancelled',
+  'change.expired': 'Change expired',
+  'change.returned_to_review': 'Change back in review',
+  'change.approvals_voided': 'Approval voided',
+  'change.execute_requested': 'Execution requested',
+  'change.retry_requested': 'Retry requested',
+  'execution.started': 'Execution started',
+  'execution.succeeded': 'Execution succeeded',
+  'execution.failed': 'Execution failed',
+  'execution.deferred': 'Execution deferred',
+  'execution.interrupted': 'Execution interrupted',
+  'secret.set': 'Secret set',
+  'secret.replaced': 'Secret replaced',
+  'secret.cleared': 'Secret cleared',
+  'master_key.initialized': 'Master key created',
+  'master_key.rotated': 'Master key rotated',
+  'setting.changed': 'Setting changed',
+  'audit.verified': 'Audit log verified',
+  'notification.test_sent': 'Test notification sent',
+  'notification.gave_up': 'Notification dropped',
+  'setup.code_issued': 'Setup code issued',
+  'setup.code_accepted': 'Setup code accepted',
+  'setup.code_rejected': 'Setup code rejected',
+  'setup.completed': 'Setup completed',
+  'setup.recovery_issued': 'Recovery link issued',
+  'setup.recovery_code_accepted': 'Recovery code accepted',
+  'setup.recovery_code_rejected': 'Recovery code rejected',
+  'setup.recovery_completed': 'Recovery completed',
+  'login.succeeded': 'Signed in',
+  'login.denied': 'Sign-in denied',
+  'login.dev': 'Dev sign-in',
+  'session.signed_out': 'Signed out',
+  'session.signed_out_everywhere': 'Signed out everywhere',
+  'user.created': 'User created',
+  'user.role_changed': 'Role changed',
+  'user.removed': 'User removed',
+  'user.restored': 'User restored',
+  'api_token.created': 'API token created',
+  'api_token.revoked': 'API token revoked',
+  'connection.created': 'Connection created',
+  'connection.updated': 'Connection updated',
+  'connection.archived': 'Connection archived',
+  'connection.tested': 'Connection tested',
+  'mcp.tool_called': 'Agent tool call',
+}
+
+/** The label for an action, or its raw name when there is none. */
+export function actionLabel(action: string): string {
+  return actionLabels[action] ?? action
+}
+
+/** Action prefixes offered as filters, in the order of the subjects. */
+export const actionPrefixes = [
+  { value: 'change.', label: 'Changes' },
+  { value: 'execution.', label: 'Executions' },
+  { value: 'connection.', label: 'Connections' },
+  { value: 'setting.', label: 'Settings' },
+  { value: 'secret.', label: 'Secrets' },
+  { value: 'user.', label: 'Users' },
+  { value: 'login.', label: 'Sign-in' },
+  { value: 'session.', label: 'Sessions' },
+  { value: 'api_token.', label: 'API tokens' },
+  { value: 'mcp.', label: 'Agent tool calls' },
+  { value: 'notification.', label: 'Notifications' },
+  { value: 'audit.', label: 'Audit checks' },
+  { value: 'setup.', label: 'Setup and recovery' },
+  { value: 'master_key.', label: 'Master key' },
+] as const

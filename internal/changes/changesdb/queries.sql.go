@@ -143,6 +143,17 @@ func (q *Queries) ClearNextAttempt(ctx context.Context, arg ClearNextAttemptPara
 	return err
 }
 
+const countChanges = `-- name: CountChanges :one
+SELECT count(*) FROM change_requests
+`
+
+func (q *Queries) CountChanges(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countChanges)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countExecutions = `-- name: CountExecutions :one
 SELECT count(*) FROM executions WHERE change_id = ?
 `

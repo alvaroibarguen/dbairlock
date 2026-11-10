@@ -128,6 +128,9 @@ WHERE c.number < sqlc.arg(before_number)
 ORDER BY c.number DESC
 LIMIT sqlc.arg(page_limit);
 
+-- name: CountChanges :one
+SELECT count(*) FROM change_requests;
+
 -- name: CountNeedsReview :one
 SELECT count(*) FROM change_requests c
 WHERE c.status = 'pending_review' AND c.author_id <> sqlc.arg(reviewer_id)

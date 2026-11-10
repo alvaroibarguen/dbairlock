@@ -58,3 +58,11 @@ sql:
         package: changesdb
         out: internal/changes/changesdb
         emit_empty_slices: true
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/notify/queries.sql
+    gen:
+      go:
+        package: notifydb
+        out: internal/notify/notifydb
+        emit_empty_slices: true

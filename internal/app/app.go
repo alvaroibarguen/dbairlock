@@ -24,6 +24,7 @@ import (
 	"github.com/alvaroibarguen/dbairlock/internal/httpapi"
 	"github.com/alvaroibarguen/dbairlock/internal/identity"
 	"github.com/alvaroibarguen/dbairlock/internal/mcpserver"
+	"github.com/alvaroibarguen/dbairlock/internal/notify"
 	"github.com/alvaroibarguen/dbairlock/internal/platform/clock"
 	"github.com/alvaroibarguen/dbairlock/internal/platform/httpx"
 	"github.com/alvaroibarguen/dbairlock/internal/platform/ids"
@@ -70,6 +71,7 @@ type App struct {
 	targets  *targets.Service
 	changes  *changes.Service
 	executor *executor.Executor
+	notify   *notify.Service
 	handler  http.Handler
 }
 
@@ -137,14 +139,21 @@ func build(ctx context.Context, opts Options, st *store.Store) (*App, error) {
 	}
 
 	api := httpapi.New(httpapi.Deps{
-		Version:   opts.Version,
-		Dev:       opts.Dev,
-		Setup:     mods.setup,
-		Readiness: st,
-		Identity:  mods.identity,
-		Settings:  mods.settings,
-		Targets:   mods.targets,
-		Changes:   mods.changes,
+		Version:    opts.Version,
+		Dev:        opts.Dev,
+		Setup:      mods.setup,
+		Readiness:  st,
+		Identity:   mods.identity,
+		Settings:   mods.settings,
+		Targets:    mods.targets,
+		Changes:    mods.changes,
+		AuditLog:   audit.NewReader(st.Reader()),
+		AuditCheck: audit.NewChecker(st.Reader(), st, recorder, opts.Clock, opts.Logger),
+		System: systemInfo{
+			version: opts.Version, dataDir: opts.DataDir, dev: opts.Dev, store: st,
+			identity: mods.identity, targets: mods.targets, changes: mods.changes,
+		},
+		Notify: mods.notify,
 	})
 
 	mux := http.NewServeMux()
@@ -185,7 +194,7 @@ func build(ctx context.Context, opts Options, st *store.Store) (*App, error) {
 	return &App{
 		opts: opts, log: opts.Logger, store: st, secrets: sec, settings: set,
 		identity: mods.identity, setup: mods.setup, targets: mods.targets,
-		changes: mods.changes, executor: mods.executor, handler: handler,
+		changes: mods.changes, executor: mods.executor, notify: mods.notify, handler: handler,
 	}, nil
 }
 
@@ -196,6 +205,7 @@ type modules struct {
 	targets  *targets.Service
 	changes  *changes.Service
 	executor *executor.Executor
+	notify   *notify.Service
 }
 
 // Connectors returns the registry of every database connector this binary
@@ -255,9 +265,19 @@ func buildModules(ctx context.Context, opts Options, st *store.Store, recorder *
 	if err != nil {
 		return modules{}, err
 	}
+	// notify is the third module allowed a secrets.Opener (the webhook URL).
+	// Loopback receivers are allowed only in --dev.
+	nt, err := notify.New(notify.Options{
+		Store: st, Audit: recorder, Secrets: secretOpener, Settings: set,
+		Clock: opts.Clock, IDs: opts.IDs, Logger: opts.Logger, AllowLoopback: opts.Dev,
+	})
+	if err != nil {
+		return modules{}, err
+	}
 	chg, err := changes.New(changes.Options{
 		Store: st, Audit: recorder, AuditLog: audit.NewReader(st.Reader()), Targets: tg, Directory: idn,
 		Settings: set, Clock: opts.Clock, IDs: opts.IDs, Logger: opts.Logger,
+		Notifier: changeNotifier{n: nt},
 	})
 	if err != nil {
 		return modules{}, err
@@ -272,7 +292,7 @@ func buildModules(ctx context.Context, opts Options, st *store.Store, recorder *
 		return modules{}, err
 	}
 	chg.SetWaker(ex.Wake)
-	return modules{settings: set, identity: idn, setup: su, targets: tg, changes: chg, executor: ex}, nil
+	return modules{settings: set, identity: idn, setup: su, targets: tg, changes: chg, executor: ex, notify: nt}, nil
 }
 
 // urlHint is the address to open while no public URL is set.
@@ -316,9 +336,16 @@ func VerifyAudit(ctx context.Context, dataDir string) (AuditResult, error) {
 func (a *App) Handler() http.Handler { return a.handler }
 
 // Run runs background work until ctx is cancelled: the executor, which
-// first marks changes left executing by a previous process as failed.
+// first marks changes left executing by a previous process as failed, and
+// the notification worker.
 func (a *App) Run(ctx context.Context) error {
-	return a.executor.Run(ctx)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	notified := make(chan error, 1)
+	go func() { notified <- a.notify.Run(ctx) }()
+	err := a.executor.Run(ctx)
+	cancel()
+	return errors.Join(err, <-notified)
 }
 
 // Serve listens on opts.Listen, serves HTTP and runs background work until ctx

@@ -6,10 +6,12 @@ import { Controller, type Resolver, useForm } from 'react-hook-form'
 import { isApiError, queryKeys, type Settings, updateSettings } from '@/api'
 import {
   Button,
+  Checkbox,
   FormField,
   Input,
   SecretField,
   type SecretChange,
+  Select,
   Switch,
   TagInput,
   toast,
@@ -202,6 +204,50 @@ function FieldControl({
           {field.help && <p className="pl-10 text-xs text-mute">{field.help}</p>}
         </div>
       )
+    case 'choice': {
+      const current = field.options.find((o) => o.value === value)
+      return (
+        <FormField label={field.label} help={current?.help ?? field.help} error={error} name={name}>
+          <Select
+            className="w-60"
+            aria-label={field.label}
+            name={name}
+            options={field.options.map((o) => ({ value: o.value, label: o.label }))}
+            value={typeof value === 'string' && value !== '' ? value : null}
+            onValueChange={(v) => {
+              onChange(v)
+              onBlur()
+            }}
+            disabled={disabled}
+          />
+        </FormField>
+      )
+    }
+    case 'multi': {
+      const picked = Array.isArray(value) ? value : []
+      return (
+        <fieldset className="flex min-w-0 flex-col gap-2">
+          <legend className="mb-1.5 text-base font-medium text-text">{field.label}</legend>
+          {field.options.map((o) => (
+            <Checkbox
+              key={o.value}
+              label={o.label}
+              name={name}
+              value={o.value}
+              checked={picked.includes(o.value)}
+              disabled={disabled}
+              onCheckedChange={(checked) => {
+                const next = checked ? [...picked, o.value] : picked.filter((v) => v !== o.value)
+                onChange(field.options.map((x) => x.value).filter((v) => next.includes(v)))
+                onBlur()
+              }}
+            />
+          ))}
+          {field.help && <p className="text-xs text-mute">{field.help}</p>}
+          {error && <p className="text-xs text-red">{error}</p>}
+        </fieldset>
+      )
+    }
     case 'list':
       return (
         <FormField label={field.label} help={field.help} error={error} name={name}>

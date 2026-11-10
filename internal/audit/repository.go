@@ -23,6 +23,8 @@ type Repository interface {
 	// After returns up to limit rows with seq > after, in seq order.
 	After(ctx context.Context, after, limit int64) ([]auditdb.AuditEvent, error)
 	List(ctx context.Context, p auditdb.ListEventsParams) ([]auditdb.AuditEvent, error)
+	// Between returns rows after a seq within a time range, in seq order.
+	Between(ctx context.Context, p auditdb.EventsBetweenParams) ([]auditdb.AuditEvent, error)
 }
 
 // NewRepository returns the SQLite Repository over db (a *store.Tx or the
@@ -67,4 +69,8 @@ func (r sqlRepo) After(ctx context.Context, after, limit int64) ([]auditdb.Audit
 
 func (r sqlRepo) List(ctx context.Context, p auditdb.ListEventsParams) ([]auditdb.AuditEvent, error) {
 	return r.q.ListEvents(ctx, p)
+}
+
+func (r sqlRepo) Between(ctx context.Context, p auditdb.EventsBetweenParams) ([]auditdb.AuditEvent, error) {
+	return r.q.EventsBetween(ctx, p)
 }

@@ -121,10 +121,11 @@ func TestRegistryIsConsistent(t *testing.T) {
 		Get(s, DefaultApprovalTTLHours) != 72 || !Get(s, DefaultStoreRowImages) || Get(s, PreviewMaxAgeMinutes) != 5 ||
 		Get(s, StatementTimeoutMS) != 10000 || Get(s, LockTimeoutMS) != 3000 ||
 		Get(s, OIDCIssuer) != GoogleIssuer || len(Get(s, TrustedProxies)) != 0 ||
-		Get(s, MCPCallsPerMinute) != 60 || Get(s, MCPPreviewsPerHour) != 30 || Get(s, MCPSubmissionsPerHour) != 20 {
+		Get(s, MCPCallsPerMinute) != 60 || Get(s, MCPPreviewsPerHour) != 30 || Get(s, MCPSubmissionsPerHour) != 20 ||
+		Get(s, NotifyFormat) != "generic" || !slices.Equal(Get(s, NotifyEvents), NotifyEventNames) {
 		t.Fatalf("defaults = %v", s.Values())
 	}
-	if len(s.Values()) != len(Definitions()) || len(seen) != 19 {
+	if len(s.Values()) != len(Definitions()) || len(seen) != 21 {
 		t.Fatalf("registry has %d settings", len(seen))
 	}
 	if pub := s.PublicValues(); !reflect.DeepEqual(pub, map[string]any{"instance.name": "dbairlock"}) {
@@ -259,6 +260,31 @@ func TestIssuerAndProxyValidation(t *testing.T) {
 	}
 	if got := ParsePrefixes(v.([]string)); len(got) != 3 {
 		t.Fatalf("parsed %v", got)
+	}
+}
+
+func TestNotifyValidation(t *testing.T) {
+	f, _ := definition(NotifyFormat.name)
+	for _, ok := range []string{"generic", "slack"} {
+		if _, err := f.parse(ok); err != nil {
+			t.Errorf("format %q rejected: %v", ok, err)
+		}
+	}
+	for _, bad := range []string{"", "teams", "Slack"} {
+		if _, err := f.parse(bad); err == nil {
+			t.Errorf("format %q accepted", bad)
+		}
+	}
+	ev, _ := definition(NotifyEvents.name)
+	v, err := ev.parse([]string{"change.failed", "change.submitted", "change.failed"})
+	if err != nil || !reflect.DeepEqual(v, []string{"change.submitted", "change.failed"}) {
+		t.Fatalf("events = %v %v", v, err)
+	}
+	if v, err := ev.parse([]string{}); err != nil || len(v.([]string)) != 0 {
+		t.Fatalf("no events = %v %v", v, err)
+	}
+	if _, err := ev.parse([]string{"change.created"}); err == nil {
+		t.Fatal("unknown event accepted")
 	}
 }
 

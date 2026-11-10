@@ -1020,6 +1020,193 @@ paths:
                 $ref: "#/components/schemas/ChangeEventList"
         default:
           $ref: "#/components/responses/Error"
+  /api/audit:
+    get:
+      operationId: listAuditEvents
+      summary: The audit log
+      description: |
+        Audit events, newest first, one page at a time. Every filter is
+        optional; pass `next_before` from the previous page as `before` to
+        continue. Any signed-in user.
+      tags: [audit]
+      parameters:
+        - name: actor
+          in: query
+          description: The actor's email or user id, matched exactly.
+          schema:
+            type: string
+            maxLength: 320
+        - name: action
+          in: query
+          description: Action prefix, for example `change.` or `change.approved`.
+          schema:
+            type: string
+            maxLength: 100
+        - name: subject_type
+          in: query
+          schema:
+            type: string
+            maxLength: 64
+        - name: subject_id
+          in: query
+          schema:
+            type: string
+            maxLength: 64
+        - name: via
+          in: query
+          description: The channel the actor used.
+          schema:
+            $ref: "#/components/schemas/AuditVia"
+        - name: from
+          in: query
+          description: Events at or after this time.
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: Events before this time.
+          schema:
+            type: string
+            format: date-time
+        - name: before
+          in: query
+          description: Only events with a sequence number below this one.
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+      responses:
+        "200":
+          description: One page of events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditEventList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/audit/verify:
+    get:
+      operationId: getAuditVerification
+      summary: The latest chain verification
+      description: |
+        The verification running now, or the most recent one since the
+        server started, and the last one that found the chain intact. Admin
+        only.
+      tags: [audit]
+      responses:
+        "200":
+          description: Verification status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditVerification"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: verifyAudit
+      summary: Verify the audit hash chain
+      description: |
+        Walks the whole chain and reports the first broken link. Answers
+        when the check finishes, or after a second with `state: running` and
+        the progress so far; poll GET /api/audit/verify until it is done.
+        Joins a check that is already running. Records `audit.verified`.
+        Admin only.
+      tags: [audit]
+      responses:
+        "200":
+          description: Verification status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditVerification"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/audit/export:
+    get:
+      operationId: exportAudit
+      summary: Export the audit log
+      description: |
+        Streams every event in the time range as newline-delimited JSON,
+        oldest first, with the hashes in hex so the chain can be checked
+        elsewhere. Admin only.
+      tags: [audit]
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: One JSON event per line.
+          content:
+            application/x-ndjson:
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/Error"
+  /api/system:
+    get:
+      operationId: getSystem
+      summary: System status
+      description: Version, storage and counts of this instance. No secrets. Admin only.
+      tags: [system]
+      responses:
+        "200":
+          description: System status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemInfo"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/notifications:
+    get:
+      operationId: listNotifications
+      summary: Recent notifications
+      description: The newest queued notifications and their delivery outcome. Admin only.
+      tags: [notifications]
+      responses:
+        "200":
+          description: Notifications, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/notifications/test:
+    post:
+      operationId: sendTestNotification
+      summary: Send a test notification
+      description: |
+        Posts a test event now to the saved webhook URL in the saved format,
+        whether or not notifications are enabled. A receiver that fails is a
+        result with `ok: false`. 409 when no webhook URL is set. Admin only.
+      tags: [notifications]
+      responses:
+        "200":
+          description: The outcome.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationTestResult"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
 components:
   parameters:
     ID:
@@ -1411,6 +1598,8 @@ components:
         - limits.mcp_previews_per_hour
         - limits.mcp_submissions_per_hour
         - notify.enabled
+        - notify.format
+        - notify.events
       additionalProperties: false
       properties: &settingValueProperties
         instance.name:
@@ -1493,6 +1682,20 @@ components:
           description: MCP submit_change calls each API token may make per hour.
         notify.enabled:
           type: boolean
+        notify.format:
+          type: string
+          enum: [generic, slack]
+          minLength: 1
+          maxLength: 16
+          description: The webhook body. `generic` posts one flat JSON object; `slack` posts what Slack incoming webhooks accept.
+        notify.events:
+          type: array
+          maxItems: 5
+          items:
+            type: string
+            enum: [change.submitted, change.approved, change.rejected, change.executed, change.failed]
+            maxLength: 32
+          description: The events that are sent.
     SettingValuesPatch:
       type: object
       description: The settings to change; omitted settings are unchanged.
@@ -2454,6 +2657,229 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ChangeEvent"
+    AuditVia:
+      type: string
+      enum: [web, mcp, cli, system]
+    AuditActor:
+      type: object
+      required: [via]
+      additionalProperties: false
+      properties:
+        user_id:
+          type: string
+        email:
+          type: string
+        via:
+          $ref: "#/components/schemas/AuditVia"
+        api_token_id:
+          type: string
+        ip:
+          type: string
+    AuditEvent:
+      type: object
+      description: |
+        One stored event. The payload is data written by dbairlock and may
+        quote text people or agents wrote; show it as plain text only.
+      required: [seq, id, occurred_at, actor, action, subject_type, subject_id, payload, prev_hash, hash]
+      additionalProperties: false
+      properties:
+        seq:
+          type: integer
+          format: int64
+        id:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        actor:
+          $ref: "#/components/schemas/AuditActor"
+        action:
+          type: string
+        subject_type:
+          type: string
+        subject_id:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        prev_hash:
+          type: string
+          description: SHA-256 of the previous event, hex.
+        hash:
+          type: string
+          description: SHA-256 of the previous hash and this event, hex.
+    AuditEventList:
+      type: object
+      required: [events]
+      additionalProperties: false
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditEvent"
+        next_before:
+          type: integer
+          format: int64
+          description: Pass as `before` for the next page; absent on the last page.
+    AuditProblem:
+      type: object
+      required: [seq, reason]
+      additionalProperties: false
+      properties:
+        seq:
+          type: integer
+          format: int64
+          description: Sequence number of the first broken link.
+        reason:
+          type: string
+    AuditLastSuccess:
+      type: object
+      required: [at, by, checked]
+      additionalProperties: false
+      properties:
+        at:
+          type: string
+          format: date-time
+        by:
+          type: string
+        checked:
+          type: integer
+          format: int64
+    AuditVerification:
+      type: object
+      description: |
+        `none`: no check has run since the server started. `running`: a
+        check is under way; `checked` grows. `done`: finished; `ok` says
+        whether the chain is intact and `problem` names the first broken
+        link. `error`: the check could not run.
+      required: [state, checked]
+      additionalProperties: false
+      properties:
+        state:
+          type: string
+          enum: [none, running, done, error]
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+        checked:
+          type: integer
+          format: int64
+          description: Events checked so far.
+        last_seq:
+          type: integer
+          format: int64
+        ok:
+          type: boolean
+        problem:
+          $ref: "#/components/schemas/AuditProblem"
+        message:
+          type: string
+        last_success:
+          $ref: "#/components/schemas/AuditLastSuccess"
+    SystemCounts:
+      type: object
+      required: [users, connections, changes]
+      additionalProperties: false
+      properties:
+        users:
+          type: integer
+          format: int64
+          description: Active users (removed users are not counted).
+        connections:
+          type: integer
+          format: int64
+          description: Connections that are not archived.
+        changes:
+          type: integer
+          format: int64
+    SystemInfo:
+      type: object
+      required: [version, commit, data_dir, store_bytes, counts, migration, dev]
+      additionalProperties: false
+      properties:
+        version:
+          type: string
+        commit:
+          type: string
+          description: The source revision the binary was built from, or `unknown`.
+        data_dir:
+          type: string
+        store_bytes:
+          type: integer
+          format: int64
+          description: Size of the database file and its write-ahead log.
+        dev:
+          type: boolean
+        counts:
+          $ref: "#/components/schemas/SystemCounts"
+        migration:
+          type: object
+          required: [current, latest, pending]
+          additionalProperties: false
+          properties:
+            current:
+              type: integer
+              format: int64
+            latest:
+              type: integer
+              format: int64
+            pending:
+              type: boolean
+        last_verification:
+          $ref: "#/components/schemas/AuditLastSuccess"
+    Notification:
+      type: object
+      required: [id, event, status, attempts, created_at]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        event:
+          type: string
+        status:
+          type: string
+          enum: [pending, delivered, gave_up]
+        attempts:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+        next_attempt_at:
+          type: string
+          format: date-time
+          description: Present while pending.
+        finished_at:
+          type: string
+          format: date-time
+        last_status:
+          type: integer
+          description: The receiver's last HTTP status, if it answered.
+        last_error:
+          type: string
+    NotificationList:
+      type: object
+      required: [notifications]
+      additionalProperties: false
+      properties:
+        notifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/Notification"
+    NotificationTestResult:
+      type: object
+      required: [ok, message]
+      additionalProperties: false
+      properties:
+        ok:
+          type: boolean
+        status_code:
+          type: integer
+        message:
+          type: string
     Health:
       type: object
       required: [status]

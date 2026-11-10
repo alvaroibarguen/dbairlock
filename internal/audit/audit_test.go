@@ -439,7 +439,9 @@ func TestReaderFiltersAndPaging(t *testing.T) {
 			}
 		}
 	}
-	check("actor", audit.Filter{ActorUserID: "u-bob"}, 10, func(en audit.Entry) bool { return en.Actor.UserID == "u-bob" })
+	check("actor", audit.Filter{Actor: "u-bob"}, 10, func(en audit.Entry) bool { return en.Actor.UserID == "u-bob" })
+	check("actor by email", audit.Filter{Actor: "alice@example.com"}, 20, func(en audit.Entry) bool { return en.Actor.UserID == "u-alice" })
+	check("channel", audit.Filter{Via: audit.ViaMCP}, 10, func(en audit.Entry) bool { return en.Actor.Via == audit.ViaMCP })
 	check("action prefix", audit.Filter{ActionPrefix: "change."}, 20, func(en audit.Entry) bool { return en.Action == audit.ChangeSubmitted })
 	check("prefix is literal", audit.Filter{ActionPrefix: "%"}, 0, nil)
 	check("subject", audit.Filter{SubjectType: "change", SubjectID: "c-1"}, 6, func(en audit.Entry) bool { return en.SubjectID == "c-1" })
@@ -447,7 +449,7 @@ func TestReaderFiltersAndPaging(t *testing.T) {
 	check("time range", audit.Filter{From: from, To: to}, 5, func(en audit.Entry) bool {
 		return !en.OccurredAt.Before(from) && en.OccurredAt.Before(to)
 	})
-	check("combined", audit.Filter{ActorUserID: "u-bob", ActionPrefix: "setting.", SubjectID: "c-0"}, 2, func(en audit.Entry) bool {
+	check("combined", audit.Filter{Actor: "u-bob", ActionPrefix: "setting.", SubjectID: "c-0"}, 2, func(en audit.Entry) bool {
 		return en.Actor.UserID == "u-bob" && en.SubjectID == "c-0"
 	})
 }

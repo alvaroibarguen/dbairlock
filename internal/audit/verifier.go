@@ -44,6 +44,12 @@ func NewVerifier(db store.DBTX) *Verifier {
 // the first mismatch or gap. A non-nil error means the check could not run;
 // a broken chain is reported in Result.Problem with a nil error.
 func (v *Verifier) Verify(ctx context.Context) (Result, error) {
+	return v.VerifyProgress(ctx, nil)
+}
+
+// VerifyProgress is Verify, calling progress (if not nil) with the rows
+// checked so far after every batch.
+func (v *Verifier) VerifyProgress(ctx context.Context, progress func(checked int64)) (Result, error) {
 	var res Result
 	prev := make([]byte, hashSize)
 	expect := int64(1)
@@ -61,6 +67,9 @@ func (v *Verifier) Verify(ctx context.Context) (Result, error) {
 			res.LastSeq = row.Seq
 			prev = row.Hash
 			expect = row.Seq + 1
+		}
+		if progress != nil {
+			progress(res.Checked)
 		}
 		if len(rows) < verifyBatch {
 			break

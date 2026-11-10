@@ -37,6 +37,11 @@ type Deps struct {
 	Settings  Settings
 	Targets   Targets
 	Changes   Changes
+	// Phase 9: the audit page, the System page and notifications.
+	AuditLog   AuditLog
+	AuditCheck AuditChecker
+	System     System
+	Notify     Notifications
 }
 
 // Server implements gen.StrictServerInterface.

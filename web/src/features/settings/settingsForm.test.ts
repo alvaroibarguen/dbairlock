@@ -30,6 +30,8 @@ const settings: Settings = {
     'limits.mcp_previews_per_hour': 30,
     'limits.mcp_submissions_per_hour': 20,
     'notify.enabled': false,
+    'notify.format': 'generic',
+    'notify.events': ['change.submitted', 'change.approved'],
   },
   secrets: {
     'auth.google.client_secret': { is_set: false },

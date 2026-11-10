@@ -179,6 +179,38 @@ func migrate(ctx context.Context, db *sql.DB) error {
 // Path returns the database file path.
 func (s *Store) Path() string { return s.path }
 
+// Size returns the bytes used by the database file and its write-ahead log.
+func (s *Store) Size() (int64, error) {
+	var total int64
+	for _, p := range []string{s.path, s.path + "-wal"} {
+		fi, err := os.Stat(p)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return 0, fmt.Errorf("store: %w", err)
+		}
+		total += fi.Size()
+	}
+	return total, nil
+}
+
+// MigrationVersions returns the database's migration version and the
+// newest migration this binary carries. Open applies every pending
+// migration, so they differ only if the database changed underneath.
+func (s *Store) MigrationVersions(ctx context.Context) (current, latest int64, err error) {
+	p, err := goose.NewProvider(goose.DialectSQLite3, s.reader, Migrations(),
+		goose.WithDisableGlobalRegistry(true))
+	if err != nil {
+		return 0, 0, fmt.Errorf("store: load migrations: %w", err)
+	}
+	current, latest, err = p.GetVersions(ctx)
+	if err != nil {
+		return 0, 0, fmt.Errorf("store: read migration version: %w", err)
+	}
+	return current, latest, nil
+}
+
 // Ready returns nil when the store is open and migrated and the database
 // answers. /readyz reports through this.
 func (s *Store) Ready(ctx context.Context) error {

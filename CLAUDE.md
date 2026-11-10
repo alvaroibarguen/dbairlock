@@ -33,6 +33,6 @@ A self-hosted service where engineers and AI agents submit row-level SQL changes
 - [x] Phase 6: MySQL connector
 - [x] Phase 7: Changes and executor (integration tests in `internal/app/changes_test.go` start their own Postgres and MySQL containers; the e2e suite signs in a second user, bob, saved as `web/test-results/.auth/member.json`)
 - [x] Phase 8: MCP server (`internal/mcpserver`, stateless streamable HTTP; the end-to-end test is `internal/app/mcp_test.go`, driving the go-sdk client against the real handler; agent setup is in `docs/agents.md`)
-- [ ] Phase 9: Audit page, notifications and remaining settings
+- [x] Phase 9: Audit page, notifications and remaining settings (every configurable value is listed in `docs/configuration.md`; the e2e notification test posts to a receiver on this machine's non-loopback address, because only `--dev` allows loopback webhooks)
 - [ ] Phase 10: Packaging
 - [ ] Phase 11: Hardening

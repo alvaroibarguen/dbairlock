@@ -16,14 +16,18 @@ import {
   useMediaQuery,
   useTheme,
 } from '@/ui'
+import { NotificationTools } from './NotificationTools'
 import { settingsGroups } from './settingsForm'
 import { SettingsGroupForm } from './SettingsGroupForm'
+import { SystemSection } from './SystemSection'
 import { TokensSection } from './TokensSection'
 import { UsersSection } from './UsersSection'
 
 const APPEARANCE = 'appearance'
 const USERS = 'users'
 const TOKENS = 'api-tokens'
+const SYSTEM = 'system'
+const NOTIFICATIONS = 'notifications'
 
 interface Section {
   id: string
@@ -45,7 +49,8 @@ const allSections: Section[] = [
   { id: TOKENS, title: 'API tokens' },
   groupSection('review-policy'),
   groupSection('limits'),
-  groupSection('notifications'),
+  groupSection(NOTIFICATIONS),
+  { id: SYSTEM, title: 'System', permission: 'settings.manage' },
   { id: APPEARANCE, title: 'Appearance' },
 ]
 
@@ -123,6 +128,15 @@ function SectionBody({ id, title, isAdmin }: { id: string; title: string; isAdmi
       return <UsersSection title={header} />
     case TOKENS:
       return <TokensSection title={header} canSeeAll={isAdmin} />
+    case SYSTEM:
+      return (
+        <>
+          <PageHeader title={header} />
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <SystemSection />
+          </div>
+        </>
+      )
     case APPEARANCE:
       return (
         <>
@@ -174,7 +188,12 @@ function GroupSection({ id }: { id: string }) {
     )
   }
   // Keyed by group so switching sections starts a fresh form.
-  return <SettingsGroupForm key={group.id} group={group} settings={query.data} />
+  return (
+    <>
+      <SettingsGroupForm key={group.id} group={group} settings={query.data} />
+      {id === NOTIFICATIONS && <NotificationTools settings={query.data} />}
+    </>
+  )
 }
 
 const themeOptions = [

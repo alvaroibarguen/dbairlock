@@ -56,6 +56,65 @@ func (q *Queries) EventsAfter(ctx context.Context, arg EventsAfterParams) ([]Aud
 	return items, nil
 }
 
+const eventsBetween = `-- name: EventsBetween :many
+SELECT seq, id, occurred_at, actor_user_id, actor_email, via, api_token_id, ip, "action", subject_type, subject_id, payload, prev_hash, hash FROM audit_events
+WHERE seq > ?1
+  AND occurred_at >= ?2
+  AND occurred_at < ?3
+ORDER BY seq ASC
+LIMIT ?4
+`
+
+type EventsBetweenParams struct {
+	AfterSeq  int64
+	FromMs    int64
+	ToMs      int64
+	PageLimit int64
+}
+
+func (q *Queries) EventsBetween(ctx context.Context, arg EventsBetweenParams) ([]AuditEvent, error) {
+	rows, err := q.db.QueryContext(ctx, eventsBetween,
+		arg.AfterSeq,
+		arg.FromMs,
+		arg.ToMs,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AuditEvent{}
+	for rows.Next() {
+		var i AuditEvent
+		if err := rows.Scan(
+			&i.Seq,
+			&i.ID,
+			&i.OccurredAt,
+			&i.ActorUserID,
+			&i.ActorEmail,
+			&i.Via,
+			&i.ApiTokenID,
+			&i.Ip,
+			&i.Action,
+			&i.SubjectType,
+			&i.SubjectID,
+			&i.Payload,
+			&i.PrevHash,
+			&i.Hash,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertEvent = `-- name: InsertEvent :exec
 INSERT INTO audit_events (
     seq, id, occurred_at, actor_user_id, actor_email, via, api_token_id, ip,
@@ -121,19 +180,21 @@ func (q *Queries) LastEvent(ctx context.Context) (LastEventRow, error) {
 const listEvents = `-- name: ListEvents :many
 SELECT seq, id, occurred_at, actor_user_id, actor_email, via, api_token_id, ip, "action", subject_type, subject_id, payload, prev_hash, hash FROM audit_events
 WHERE seq < ?1
-  AND (CAST(?2 AS TEXT) = '' OR actor_user_id = ?2)
-  AND (CAST(?3 AS TEXT) = '' OR substr(action, 1, length(?3)) = ?3)
-  AND (CAST(?4 AS TEXT) = '' OR subject_type = ?4)
-  AND (CAST(?5 AS TEXT) = '' OR subject_id = ?5)
-  AND occurred_at >= ?6
-  AND occurred_at < ?7
+  AND (CAST(?2 AS TEXT) = '' OR actor_user_id = ?2 OR actor_email = ?2)
+  AND (CAST(?3 AS TEXT) = '' OR via = ?3)
+  AND (CAST(?4 AS TEXT) = '' OR substr(action, 1, length(?4)) = ?4)
+  AND (CAST(?5 AS TEXT) = '' OR subject_type = ?5)
+  AND (CAST(?6 AS TEXT) = '' OR subject_id = ?6)
+  AND occurred_at >= ?7
+  AND occurred_at < ?8
 ORDER BY seq DESC
-LIMIT ?8
+LIMIT ?9
 `
 
 type ListEventsParams struct {
 	BeforeSeq    int64
-	ActorUserID  string
+	Actor        string
+	Via          string
 	ActionPrefix string
 	SubjectType  string
 	SubjectID    string
@@ -145,7 +206,8 @@ type ListEventsParams struct {
 func (q *Queries) ListEvents(ctx context.Context, arg ListEventsParams) ([]AuditEvent, error) {
 	rows, err := q.db.QueryContext(ctx, listEvents,
 		arg.BeforeSeq,
-		arg.ActorUserID,
+		arg.Actor,
+		arg.Via,
 		arg.ActionPrefix,
 		arg.SubjectType,
 		arg.SubjectID,

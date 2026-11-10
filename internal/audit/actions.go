@@ -43,6 +43,15 @@ const (
 
 	SettingChanged Action = "setting.changed"
 
+	// AuditVerified records a run of the chain verification from the
+	// dashboard, with its outcome.
+	AuditVerified Action = "audit.verified"
+
+	// Notifications. Payloads carry the event and the outcome, never the
+	// webhook URL.
+	NotificationTestSent Action = "notification.test_sent"
+	NotificationGaveUp   Action = "notification.gave_up"
+
 	// First-run setup and recovery.
 	SetupCodeIssued      Action = "setup.code_issued"
 	SetupCodeAccepted    Action = "setup.code_accepted"
