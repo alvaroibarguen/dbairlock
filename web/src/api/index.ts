@@ -1,13 +1,53 @@
-export { api, createApiClient, setUnauthorizedHandler, SIGN_IN_PATH } from './client'
-export { ApiError, isApiError } from './errors'
+export {
+  api,
+  createApiClient,
+  setSetupRequiredHandler,
+  setUnauthorizedHandler,
+  SIGN_IN_PATH,
+} from './client'
+export { ApiError, isApiError, signInErrorMessage } from './errors'
 export type { FieldError } from './errors'
-export { metaQuery, queryKeys, settingsQuery, updateSettings } from './queries'
+export {
+  can,
+  createToken,
+  devLogin,
+  googleSignInUrl,
+  meQuery,
+  metaQuery,
+  queryKeys,
+  removeUser,
+  restoreUser,
+  revokeToken,
+  saveSetupSignIn,
+  settingsQuery,
+  setupSessionQuery,
+  setupSignInQuery,
+  setUserRole,
+  SETUP_GOOGLE_URL,
+  signOut,
+  signOutEverywhere,
+  tokensQuery,
+  updateSettings,
+  usersQuery,
+  verifyRecoveryCode,
+  verifySetupCode,
+} from './queries'
 export type {
+  ApiToken,
+  Me,
+  Permission,
+  Role,
   SecretSlot,
   SecretStatus,
   SettingKey,
   Settings,
   SettingsUpdate,
   SettingValues,
+  SetupSessionKind,
+  SetupSignIn,
+  SetupSignInUpdate,
+  TokenCreated,
+  TokenExpiryDays,
+  User,
 } from './queries'
 export type { components, paths } from './schema'

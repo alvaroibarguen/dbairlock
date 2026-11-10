@@ -47,7 +47,36 @@ func newDevApp(t *testing.T, dir string, logs *bytes.Buffer) *App {
 	return a
 }
 
-func call(t *testing.T, h http.Handler, method, path, body string) *httptest.ResponseRecorder {
+// devCookie is the session cookie of the dev admin, set by devLogin. Dev
+// mode on a loopback host uses a cookie without the __Host- prefix.
+const devCookie = "dbairlock_session"
+
+// devLogin signs in as an admin through POST /api/dev/login and returns the
+// session cookie value.
+func devLogin(t *testing.T, h http.Handler, email, role string) string {
+	t.Helper()
+	req := httptest.NewRequest("POST", "/api/dev/login", strings.NewReader(`{"email":"`+email+`","role":"`+role+`"}`))
+	req.Host = "127.0.0.1:8080"
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("dev login: %d %s", rec.Code, rec.Body)
+	}
+	for _, c := range (&http.Response{Header: rec.Header()}).Cookies() {
+		if c.Name == devCookie {
+			if c.Secure || !c.HttpOnly {
+				t.Fatalf("dev cookie attributes: %+v", c)
+			}
+			return c.Value
+		}
+	}
+	t.Fatalf("no %s cookie in %v", devCookie, rec.Header())
+	return ""
+}
+
+// callAs sends a request on a loopback host with the session cookie.
+func callAs(t *testing.T, h http.Handler, session, method, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	var req *http.Request
 	if body == "" {
@@ -55,6 +84,10 @@ func call(t *testing.T, h http.Handler, method, path, body string) *httptest.Res
 	} else {
 		req = httptest.NewRequest(method, path, strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
+	}
+	req.Host = "127.0.0.1:8080"
+	if session != "" {
+		req.AddCookie(&http.Cookie{Name: devCookie, Value: session})
 	}
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -76,6 +109,11 @@ func TestNoInterfaceRevealsASecret(t *testing.T) {
 	var logs bytes.Buffer
 	a := newDevApp(t, dir, &logs)
 	h := a.Handler()
+	session := devLogin(t, h, "admin@dev.localhost", "admin")
+	call := func(t *testing.T, h http.Handler, method, path, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		return callAs(t, h, session, method, path, body)
+	}
 
 	// Set secrets through the API and directly through the secret store.
 	body, _ := json.Marshal(map[string]any{
@@ -85,7 +123,7 @@ func TestNoInterfaceRevealsASecret(t *testing.T) {
 	if rec := call(t, h, "PATCH", "/api/settings", string(body)); rec.Code != 200 {
 		t.Fatalf("set secrets: %d %s", rec.Code, rec.Body)
 	}
-	actx := audit.WithActor(ctx, devAdmin)
+	actx := audit.WithActor(ctx, audit.Actor{UserID: "dev-admin", Email: "admin@dev.localhost", Via: audit.ViaWeb})
 	ref := secrets.Ref{Kind: secrets.KindTargetPassword, OwnerType: "connection", OwnerID: "c1"}
 	for range 2 { // set, then replace
 		if err := a.store.Tx(actx, func(tx *store.Tx) error {
@@ -124,6 +162,9 @@ func TestNoInterfaceRevealsASecret(t *testing.T) {
 	walked := 0
 	sawStatus := false
 	for path, item := range doc.Paths.Map() {
+		if strings.HasPrefix(path, "/api/auth/signout") {
+			continue // walked last: it ends the session
+		}
 		for method, op := range item.Operations() {
 			reqBody := ""
 			if op.RequestBody != nil {
@@ -140,7 +181,12 @@ func TestNoInterfaceRevealsASecret(t *testing.T) {
 			}
 		}
 	}
-	if walked < 5 || !sawStatus {
+	for _, p := range []string{"/api/auth/signout", "/api/auth/signout-everywhere"} {
+		rec := call(t, h, "POST", p, "")
+		assertNoPlaintext(t, "POST "+p, rec.Body.String())
+		walked++
+	}
+	if walked < 20 || !sawStatus {
 		t.Fatalf("walked %d operations", walked)
 	}
 
@@ -179,7 +225,7 @@ func TestRotateKeyThenRestart(t *testing.T) {
 	var logs bytes.Buffer
 	a := newDevApp(t, dir, &logs)
 	body := `{"secrets":{"auth.google.client_secret":"` + googleSecret + `"}}`
-	if rec := call(t, a.Handler(), "PATCH", "/api/settings", body); rec.Code != 200 {
+	if rec := callAs(t, a.Handler(), devLogin(t, a.Handler(), "admin@dev.localhost", "admin"), "PATCH", "/api/settings", body); rec.Code != 200 {
 		t.Fatalf("%d %s", rec.Code, rec.Body)
 	}
 	if err := a.Close(); err != nil {
@@ -199,17 +245,46 @@ func TestRotateKeyThenRestart(t *testing.T) {
 	if err != nil || v.IsEmpty() {
 		t.Fatalf("open after rotation: %v", err)
 	}
-	rec := call(t, b.Handler(), "GET", "/api/settings", "")
+	rec := callAs(t, b.Handler(), devLogin(t, b.Handler(), "admin@dev.localhost", "admin"), "GET", "/api/settings", "")
 	if !strings.Contains(rec.Body.String(), `"is_set":true`) {
 		t.Fatalf("%s", rec.Body)
 	}
 	assertNoPlaintext(t, "logs", logs.String())
 }
 
-func TestSettingsNeedDevModeUntilSignIn(t *testing.T) {
-	rec := call(t, newTestApp(t).Handler(), "GET", "/api/settings", "")
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("%d %s", rec.Code, rec.Body)
+// TestDevMode: setup is skipped, POST /api/dev/login exists, settings need
+// a signed-in admin, and a dev member is refused.
+func TestDevMode(t *testing.T) {
+	var logs bytes.Buffer
+	h := newDevApp(t, filepath.Join(t.TempDir(), "data"), &logs).Handler()
+	rec := callAs(t, h, "", "GET", "/api/meta", "")
+	if !strings.Contains(rec.Body.String(), `"setupState":"ready"`) || !strings.Contains(rec.Body.String(), `"devLogin":true`) {
+		t.Fatalf("meta: %s", rec.Body)
+	}
+	if rec := callAs(t, h, "", "GET", "/api/settings", ""); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("anonymous: %d %s", rec.Code, rec.Body)
+	}
+	member := devLogin(t, h, "member@dev.localhost", "member")
+	if rec := callAs(t, h, member, "GET", "/api/settings", ""); rec.Code != http.StatusForbidden {
+		t.Fatalf("member: %d %s", rec.Code, rec.Body)
+	}
+	if rec := callAs(t, h, devLogin(t, h, "admin@dev.localhost", "admin"), "GET", "/api/settings", ""); rec.Code != http.StatusOK {
+		t.Fatalf("admin: %d %s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(logs.String(), "DEV MODE") {
+		t.Fatal("no dev-mode warning")
+	}
+}
+
+func TestDevLoginIsOffOutsideDevMode(t *testing.T) {
+	hs := newHarness(t)
+	hs.completeSetup()
+	r := hs.browser("192.0.2.1").do("POST", "/api/dev/login", map[string]string{"email": "x@example.com", "role": "admin"})
+	if r.Code != http.StatusNotFound {
+		t.Fatalf("%d %s", r.Code, r.Body)
+	}
+	if r := hs.browser("192.0.2.1").do("GET", "/api/meta", nil); r.body["devLogin"] != false {
+		t.Fatalf("meta: %s", r.Body)
 	}
 }
 

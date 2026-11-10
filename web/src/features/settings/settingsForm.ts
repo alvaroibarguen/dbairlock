@@ -216,6 +216,12 @@ export function secretStatus(settings: Settings, slot: SecretSlot): SecretStatus
   return { isSet: s.is_set, setBy: s.set_by, setAt: s.set_at }
 }
 
+/**
+ * Settings that exist but are not shown. `auth.oidc_issuer` only lets tests
+ * point sign-in at a fake provider on a loopback address.
+ */
+export const hiddenSettings: SettingKey[] = ['auth.oidc_issuer']
+
 const domainPattern = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,61}[a-z0-9]$/
 
 /** The settings groups shown in Settings, in order. Bounds mirror the registry. */
@@ -241,6 +247,19 @@ export const settingsGroups: SettingsGroup[] = [
         maxLength: 2048,
         placeholder: 'https://dbairlock.example.com',
       },
+      {
+        kind: 'list',
+        key: 'instance.trusted_proxies',
+        label: 'Trusted proxies',
+        help: 'IP ranges of the load balancers in front of dbairlock. Their X-Forwarded-For header gives the client address in the audit log. Leave empty if nothing sits in front.',
+        maxItems: 50,
+        itemMaxLength: 49,
+        item: {
+          pattern: /^[0-9a-f:.]+(\/\d{1,3})?$/,
+          message: (v) => `"${v}" is not an IP range, for example 10.0.0.0/8.`,
+        },
+        placeholder: '10.0.0.0/8',
+      },
     ],
   },
   {
@@ -248,7 +267,7 @@ export const settingsGroups: SettingsGroup[] = [
     title: 'Sign-in',
     description: 'Google sign-in for everyone on the team.',
     warning:
-      'A mistake here can lock everyone out, including you. Check the client ID, secret and domains before saving.',
+      'A mistake here can lock everyone out, including you. Check the client ID, secret and domains before saving. If it happens, run "dbairlock recover" on the host: it prints a one-time link that reopens these settings.',
     fields: [
       {
         kind: 'text',
@@ -269,7 +288,7 @@ export const settingsGroups: SettingsGroup[] = [
         kind: 'list',
         key: 'auth.allowed_domains',
         label: 'Allowed domains',
-        help: 'Google Workspace domains whose accounts may sign in. One per line.',
+        help: 'Google Workspace domains whose accounts may sign in. Press Enter after each.',
         maxItems: 50,
         itemMaxLength: 253,
         item: {

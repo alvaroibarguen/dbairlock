@@ -1,6 +1,8 @@
+import { useQuery } from '@tanstack/react-query'
 import { Menu as MenuIcon } from 'lucide-react'
 import { useState } from 'react'
-import { Link, Outlet } from 'react-router'
+import { Link, Navigate, Outlet } from 'react-router'
+import { meQuery, metaQuery } from '@/api'
 import { Button, Drawer, Logo, MEDIUM, useMediaQuery } from '@/ui'
 import { NavList, Rail } from './Rail'
 import { UserMenu } from './UserMenu'
@@ -15,6 +17,12 @@ const skipLink =
 export function AppShell() {
   const medium = useMediaQuery(MEDIUM, true)
   const [navOpen, setNavOpen] = useState(false)
+  const meta = useQuery(metaQuery())
+  // Loading the signed-in user is the route guard: a 401 sends the browser
+  // to sign in (see the API client), remembering where it was.
+  useQuery(meQuery())
+
+  if (meta.data?.setupState === 'setup_required') return <Navigate to="/setup" replace />
 
   if (medium) {
     return (

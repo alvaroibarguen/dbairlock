@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/netip"
 	"net/url"
 	"regexp"
 	"slices"
@@ -36,10 +37,17 @@ func (k Key[T]) Name() string { return k.name }
 var (
 	InstanceName      = Key[string]{"instance.name"}
 	InstancePublicURL = Key[string]{"instance.public_url"}
+	// TrustedProxies lists the CIDR ranges of reverse proxies whose
+	// X-Forwarded-For header is believed.
+	TrustedProxies = Key[[]string]{"instance.trusted_proxies"}
 
 	GoogleClientID = Key[string]{"auth.google.client_id"}
 	AllowedDomains = Key[[]string]{"auth.allowed_domains"}
 	SessionHours   = Key[int]{"auth.session_hours"}
+	// OIDCIssuer is Google's issuer. It can point elsewhere only on a loopback
+	// address, which needs access to the host itself: that is how tests and
+	// the end-to-end suite use a fake provider. It is not shown in Settings.
+	OIDCIssuer = Key[string]{"auth.oidc_issuer"}
 
 	DefaultRequiredApprovals = Key[int]{"policy.default_required_approvals"}
 	DefaultMaxRows           = Key[int]{"policy.default_max_rows"}
@@ -74,15 +82,21 @@ type Definition struct {
 const (
 	maxURLLen    = 2048
 	maxDomainLen = 253
+	maxCIDRLen   = 49 // the longest IPv6 prefix in text form
 )
+
+// GoogleIssuer is the OpenID Connect issuer of Google accounts.
+const GoogleIssuer = "https://accounts.google.com"
 
 var definitions = []Definition{
 	{Key: InstanceName.name, Type: TypeString, Default: "dbairlock", Min: 1, MaxLen: 64, Public: true, check: checkName},
 	{Key: InstancePublicURL.name, Type: TypeURL, Default: "", MaxLen: maxURLLen, check: checkPublicURL},
+	{Key: TrustedProxies.name, Type: TypeStringList, Default: []string{}, MaxLen: maxCIDRLen, MaxItems: 50, check: checkCIDRs},
 
 	{Key: GoogleClientID.name, Type: TypeString, Default: "", MaxLen: 255, check: checkNoSpaces},
 	{Key: AllowedDomains.name, Type: TypeStringList, Default: []string{}, MaxLen: maxDomainLen, MaxItems: 50, check: checkDomains},
 	{Key: SessionHours.name, Type: TypeInt, Default: 12, Min: 1, Max: 720},
+	{Key: OIDCIssuer.name, Type: TypeURL, Default: GoogleIssuer, Min: 1, MaxLen: maxURLLen, check: checkIssuer},
 
 	{Key: DefaultRequiredApprovals.name, Type: TypeInt, Default: 1, Min: 1, Max: 5},
 	{Key: DefaultMaxRows.name, Type: TypeInt, Default: 100, Min: 1, Max: 10000},
@@ -292,6 +306,73 @@ func checkPublicURL(v any) (any, error) {
 		return nil, invalid("Must not contain credentials, a query or a fragment.")
 	}
 	return strings.TrimRight(u.String(), "/"), nil
+}
+
+// checkIssuer accepts Google's issuer, or an http(s) URL on a loopback
+// address. A remote issuer other than Google would let an admin mint
+// identities for any account (and so, for example, approve their own
+// change); a loopback one needs host access, which already grants
+// everything.
+func checkIssuer(v any) (any, error) {
+	s := strings.TrimRight(strings.TrimSpace(v.(string)), "/")
+	if s == GoogleIssuer {
+		return s, nil
+	}
+	u, err := url.Parse(s)
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return nil, invalid("Must be " + GoogleIssuer + ".")
+	}
+	if !IsLoopbackHost(u.Hostname()) {
+		return nil, invalid("Must be " + GoogleIssuer + ". Another issuer is accepted only on a loopback address, for tests.")
+	}
+	return s, nil
+}
+
+// IsLoopbackHost reports whether host is "localhost" or a loopback IP.
+func IsLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	a, err := netip.ParseAddr(host)
+	return err == nil && a.IsLoopback()
+}
+
+// checkCIDRs normalizes a list of CIDR ranges; a bare address means just
+// that address.
+func checkCIDRs(v any) (any, error) {
+	in := v.([]string)
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		p, err := netip.ParsePrefix(s)
+		if err != nil {
+			a, aerr := netip.ParseAddr(s)
+			if aerr != nil {
+				return nil, invalidf("%q is not an IP range, for example 10.0.0.0/8.", s)
+			}
+			p = netip.PrefixFrom(a, a.BitLen())
+		}
+		p = p.Masked()
+		if !slices.Contains(out, p.String()) {
+			out = append(out, p.String())
+		}
+	}
+	return out, nil
+}
+
+// ParsePrefixes parses a validated instance.trusted_proxies value. Entries
+// that do not parse (which validation rules out) are skipped.
+func ParsePrefixes(list []string) []netip.Prefix {
+	out := make([]netip.Prefix, 0, len(list))
+	for _, s := range list {
+		if p, err := netip.ParsePrefix(s); err == nil {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 var domainPattern = regexp.MustCompile(`^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,61}[a-z0-9]$`)

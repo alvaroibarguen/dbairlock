@@ -10,15 +10,30 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alvaroibarguen/dbairlock/internal/platform/httpx"
+	"github.com/alvaroibarguen/dbairlock/internal/identity"
 	"github.com/alvaroibarguen/dbairlock/internal/platform/logx"
 	"github.com/alvaroibarguen/dbairlock/internal/secrets"
 	"github.com/alvaroibarguen/dbairlock/internal/settings"
 )
 
-type fakeAccess struct{ err error }
+// fakeAccess authenticates every session cookie as the given user, or
+// fails with err.
+type fakeAccess struct {
+	Identity
+	err    error
+	member bool
+}
 
-func (f fakeAccess) RequireAdmin(ctx context.Context) (context.Context, error) { return ctx, f.err }
+func (f fakeAccess) AuthenticateSession(context.Context, string) (identity.Principal, error) {
+	if f.err != nil {
+		return identity.Principal{}, f.err
+	}
+	role := identity.RoleAdmin
+	if f.member {
+		role = identity.RoleMember
+	}
+	return identity.PrincipalOf(identity.User{ID: "u1", Email: "admin@example.com", Role: role}), nil
+}
 
 type fakeSettings struct {
 	got       *settings.Changes
@@ -34,6 +49,8 @@ func (f *fakeSettings) Values() map[string]any {
 	return out
 }
 
+func (f *fakeSettings) Value(key string) any { return f.Values()[key] }
+
 func (f *fakeSettings) SecretStatus(context.Context) (map[string]secrets.Meta, error) {
 	return f.status, nil
 }
@@ -43,14 +60,15 @@ func (f *fakeSettings) Update(_ context.Context, ch settings.Changes) error {
 	return f.updateErr
 }
 
-func settingsMux(access Access, s Settings) *http.ServeMux {
-	return newMux(Deps{Setup: fakeSetup{}, Readiness: fakeReady{}, Access: access, Settings: s})
+func settingsMux(access Identity, s Settings) *http.ServeMux {
+	return newMux(Deps{Setup: fakeSetup{}, Readiness: fakeReady{}, Identity: access, Settings: s})
 }
 
 func send(t *testing.T, h http.Handler, method, path, body string) (*httptest.ResponseRecorder, map[string]any) {
 	t.Helper()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "__Host-dbairlock_session", Value: "session-token"})
 	req = req.WithContext(logx.WithLogger(req.Context(), logx.Discard()))
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -63,11 +81,19 @@ func send(t *testing.T, h http.Handler, method, path, body string) (*httptest.Re
 
 func TestSettingsRequireAdmin(t *testing.T) {
 	fs := &fakeSettings{}
-	h := settingsMux(fakeAccess{err: httpx.ErrUnauthorized}, fs)
-	for _, m := range []string{"GET", "PATCH"} {
-		rec, _ := send(t, h, m, "/api/settings", `{"values":{"auth.session_hours":2}}`)
-		if rec.Code != http.StatusUnauthorized {
-			t.Errorf("%s: %d", m, rec.Code)
+	for _, tc := range []struct {
+		access fakeAccess
+		want   int
+	}{
+		{fakeAccess{err: identity.ErrUnauthenticated}, http.StatusUnauthorized},
+		{fakeAccess{member: true}, http.StatusForbidden},
+	} {
+		h := settingsMux(tc.access, fs)
+		for _, m := range []string{"GET", "PATCH"} {
+			rec, _ := send(t, h, m, "/api/settings", `{"values":{"auth.session_hours":2}}`)
+			if rec.Code != tc.want {
+				t.Errorf("%s: %d, want %d", m, rec.Code, tc.want)
+			}
 		}
 	}
 	if fs.got != nil {

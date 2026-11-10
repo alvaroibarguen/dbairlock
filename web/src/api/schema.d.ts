@@ -64,6 +64,367 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/setup/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enter the setup code
+         * @description Checks the one-time setup code printed in the server log and, if it
+         *     matches, sets a short-lived setup session cookie. Rate limited per
+         *     client address: 5 attempts per minute, then a growing delay (429
+         *     with Retry-After). Only available in setup mode.
+         */
+        post: operations["verifySetupCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/setup/recover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use a recovery code
+         * @description Checks a one-time recovery code printed by `dbairlock recover` and, if
+         *     it matches and has not expired, consumes it and sets a recovery
+         *     session cookie. The recovery session can only change the sign-in
+         *     settings and confirm them with a sign-in. Rate limited like
+         *     verifySetupCode.
+         */
+        post: operations["verifyRecoveryCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/setup/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Current setup or recovery session
+         * @description Reports which grant the browser holds, or 401 if none.
+         */
+        get: operations["getSetupSession"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/setup/signin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sign-in settings for the wizard
+         * @description Requires a setup or recovery session.
+         */
+        get: operations["getSetupSignIn"];
+        /**
+         * Store the sign-in settings
+         * @description Stores the public URL, Google client id, client secret and allowed
+         *     domains in one atomic update. Omit `client_secret` to keep the stored
+         *     one. Returns the redirect URI to register with Google. Requires a
+         *     setup or recovery session.
+         */
+        put: operations["putSetupSignIn"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/setup/google/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sign in with Google to finish setup or recovery
+         * @description Redirects to Google. After a successful sign-in during setup the
+         *     account becomes the first admin and setup ends; during recovery the
+         *     sign-in only confirms the settings. Requires a setup or recovery
+         *     session.
+         */
+        get: operations["startSetupGoogle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/google/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sign in with Google
+         * @description Redirects to Google. `next` is where to return afterwards; only a path on this origin is accepted.
+         */
+        get: operations["startGoogleSignIn"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/google/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Google redirects here after sign-in
+         * @description Verifies the sign-in (state, nonce, PKCE, the ID token's signature,
+         *     issuer, audience and expiry, `email_verified` and the `hd` domain) and
+         *     redirects: to the requested page with a session cookie on success, or
+         *     to the sign-in or setup page with an `error` code on failure.
+         */
+        get: operations["googleCallback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/signout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign out of this browser */
+        post: operations["signOut"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/signout-everywhere": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign out of every browser
+         * @description Ends all of the caller's sessions. API tokens keep working.
+         */
+        post: operations["signOutEverywhere"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dev/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Development sign-in
+         * @description Only in `--dev` mode (loopback only); 404 otherwise. Signs in as any email with the chosen role.
+         */
+        post: operations["devLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in user */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every user, including removed ones
+         * @description Admin only.
+         */
+        get: operations["listUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a user's role
+         * @description Admin only. The last enabled admin cannot be demoted (409 last_admin).
+         */
+        patch: operations["updateUser"];
+        trace?: never;
+    };
+    "/api/users/{id}/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove a user (offboarding)
+         * @description In one transaction: marks the user removed, ends all their sessions,
+         *     revokes all their API tokens permanently, and cancels their open
+         *     changes. The record is kept. Admin only. The last enabled admin
+         *     cannot be removed (409 last_admin).
+         */
+        post: operations["removeUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore a removed user
+         * @description The user can sign in again as a member. Revoked tokens stay revoked. Admin only.
+         */
+        post: operations["restoreUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * API tokens
+         * @description The caller's active tokens. With `all=true` (admin only), every user's.
+         */
+        get: operations["listTokens"];
+        put?: never;
+        /**
+         * Create an API token
+         * @description The token is in this response only. Only its hash is stored.
+         */
+        post: operations["createToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tokens/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke an API token
+         * @description The owner or an admin. Revocation is permanent.
+         */
+        delete: operations["revokeToken"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings": {
         parameters: {
             query?: never;
@@ -97,6 +458,107 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        SetupCode: {
+            /** @description The one-time code; dashes and spaces are ignored. */
+            code: string;
+        };
+        SetupSession: {
+            /** @enum {string} */
+            kind: "setup" | "recovery";
+        };
+        SetupSignIn: {
+            /** @description The stored public URL; empty until saved. */
+            public_url: string;
+            /** @description The address this request arrived on, offered for the admin to confirm. */
+            suggested_public_url: string;
+            client_id: string;
+            client_secret: components["schemas"]["SecretStatus"];
+            allowed_domains: string[];
+            /** @description The URI to register with Google; empty until the public URL is set. */
+            redirect_uri: string;
+        };
+        SetupSignInUpdate: {
+            public_url: string;
+            client_id: string;
+            /** @description Omit to keep the stored secret. */
+            client_secret?: string;
+            allowed_domains: string[];
+            /** @description Not shown in the dashboard. Google's issuer, or a loopback address for tests. */
+            oidc_issuer?: string;
+        };
+        DevLogin: {
+            email: string;
+            role: components["schemas"]["Role"];
+        };
+        /** @enum {string} */
+        Role: "admin" | "member";
+        /**
+         * @description An action the user may take (see identity.Can).
+         * @enum {string}
+         */
+        Permission: "change.submit" | "change.review" | "database.manage" | "settings.manage" | "user.manage" | "audit.read";
+        User: {
+            id: string;
+            email: string;
+            name: string;
+            picture_url?: string;
+            role: components["schemas"]["Role"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_sign_in_at?: string;
+            /**
+             * Format: date-time
+             * @description Present when the user was removed.
+             */
+            removed_at?: string;
+            removed_by?: string;
+        };
+        UserList: {
+            users: components["schemas"]["User"][];
+        };
+        UserUpdate: {
+            role: components["schemas"]["Role"];
+        };
+        Me: {
+            user: components["schemas"]["User"];
+            permissions: components["schemas"]["Permission"][];
+        };
+        ApiToken: {
+            id: string;
+            name: string;
+            /** @description The first characters of the token, for recognising it. Never used for lookup. */
+            prefix: string;
+            owner_id: string;
+            owner_email: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_used_at?: string;
+            /**
+             * Format: date-time
+             * @description Absent for a token that does not expire.
+             */
+            expires_at?: string;
+        };
+        TokenList: {
+            tokens: components["schemas"]["ApiToken"][];
+        };
+        TokenCreate: {
+            name: string;
+            /**
+             * @description 30, 90 or 365; omit for a token that does not expire.
+             * @enum {integer}
+             */
+            expires_in_days?: 30 | 90 | 365;
+        };
+        TokenCreated: {
+            token: components["schemas"]["ApiToken"];
+            /** @description The full token. Shown in this response only; it cannot be retrieved again. */
+            secret: string;
+            /** @description The MCP endpoint to configure in an agent. */
+            mcp_url: string;
+        };
         /** @description The error envelope returned by every failing request. */
         Error: {
             error: components["schemas"]["ErrorBody"];
@@ -161,6 +623,10 @@ export interface components {
             "instance.name": string;
             /** @description The URL people use to reach dbairlock; empty until setup captures it. */
             "instance.public_url": string;
+            /** @description CIDR ranges of reverse proxies whose X-Forwarded-For header is trusted for the client address. */
+            "instance.trusted_proxies": string[];
+            /** @description Google's issuer. Another issuer is accepted only on a loopback address, for tests. */
+            "auth.oidc_issuer": string;
             "auth.google.client_id": string;
             /** @description Google Workspace domains whose accounts may sign in. */
             "auth.allowed_domains": string[];
@@ -181,6 +647,10 @@ export interface components {
             "instance.name"?: string;
             /** @description The URL people use to reach dbairlock; empty until setup captures it. */
             "instance.public_url"?: string;
+            /** @description CIDR ranges of reverse proxies whose X-Forwarded-For header is trusted for the client address. */
+            "instance.trusted_proxies"?: string[];
+            /** @description Google's issuer. Another issuer is accepted only on a loopback address, for tests. */
+            "auth.oidc_issuer"?: string;
             "auth.google.client_id"?: string;
             /** @description Google Workspace domains whose accounts may sign in. */
             "auth.allowed_domains"?: string[];
@@ -212,6 +682,10 @@ export interface components {
              */
             version: string;
             setupState: components["schemas"]["SetupState"];
+            /** @description The instance name, shown on the sign-in page. */
+            instanceName: string;
+            /** @description True in `--dev` mode, where POST /api/dev/login is available. */
+            devLogin: boolean;
         };
     };
     responses: {
@@ -224,8 +698,18 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description A redirect. */
+        Redirect: {
+            headers: {
+                Location: string;
+                [name: string]: unknown;
+            };
+            content?: never;
+        };
     };
-    parameters: never;
+    parameters: {
+        ID: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -290,6 +774,418 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Meta"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    verifySetupCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetupCode"];
+            };
+        };
+        responses: {
+            /** @description The code matched; the setup session cookie is set. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    verifyRecoveryCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetupCode"];
+            };
+        };
+        responses: {
+            /** @description The code matched; the recovery session cookie is set. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getSetupSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The browser holds a valid grant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupSession"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getSetupSignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current sign-in settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupSignIn"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putSetupSignIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetupSignInUpdate"];
+            };
+        };
+        responses: {
+            /** @description The sign-in settings after the update. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupSignIn"];
+                };
+            };
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    startSetupGoogle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            302: components["responses"]["Redirect"];
+            default: components["responses"]["Error"];
+        };
+    };
+    startGoogleSignIn: {
+        parameters: {
+            query?: {
+                next?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            302: components["responses"]["Redirect"];
+            default: components["responses"]["Error"];
+        };
+    };
+    googleCallback: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            302: components["responses"]["Redirect"];
+            default: components["responses"]["Error"];
+        };
+    };
+    signOut: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The session was ended. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    signOutEverywhere: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every session was ended. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    devLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DevLogin"];
+            };
+        };
+        responses: {
+            /** @description Signed in; the session cookie is set. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The signed-in user and what they may do. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Users, ordered by email. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserUpdate"];
+            };
+        };
+        responses: {
+            /** @description The user after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    removeUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The user after removal. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    restoreUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The user after restoring. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listTokens: {
+        parameters: {
+            query?: {
+                all?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active tokens, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenCreate"];
+            };
+        };
+        responses: {
+            /** @description The new token, shown once. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenCreated"];
+                };
+            };
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    revokeToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The token was revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

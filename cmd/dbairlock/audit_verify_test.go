@@ -33,8 +33,8 @@ func TestAuditVerifyExitCodes(t *testing.T) {
 		t.Fatalf("bare audit: %d", code)
 	}
 
-	// A freshly created database has an intact chain (one event: the master
-	// key was initialized).
+	// A freshly created database has an intact chain (two events: the master
+	// key was initialized and a setup code issued).
 	a, err := app.New(app.Options{DataDir: dir, Listen: "127.0.0.1:0", Logger: logx.Discard()})
 	if err != nil {
 		t.Fatal(err)
@@ -54,11 +54,38 @@ func TestAuditVerifyExitCodes(t *testing.T) {
 	defer func() { _ = db.Close() }()
 	if _, err := db.ExecContext(context.Background(),
 		`INSERT INTO audit_events (seq, id, occurred_at, via, action, payload, prev_hash, hash)
-		 VALUES (2, 'forged', 0, 'system', 'setting.changed', '{}', zeroblob(32), zeroblob(32))`); err != nil {
+		 VALUES (3, 'forged', 0, 'system', 'setting.changed', '{}', zeroblob(32), zeroblob(32))`); err != nil {
 		t.Fatal(err)
 	}
-	if code, out := verify("--data-dir", dir); code != exitVerifyBroken || !strings.Contains(out, "seq 2") {
+	if code, out := verify("--data-dir", dir); code != exitVerifyBroken || !strings.Contains(out, "seq 3") {
 		t.Fatalf("tampered database: %d %q", code, out)
+	}
+}
+
+func TestRecoverCommand(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "data")
+	recoverCmd := func(args ...string) (int, string) {
+		t.Helper()
+		var out, errOut bytes.Buffer
+		code := run(append([]string{"recover"}, args...), &out, &errOut)
+		return code, out.String() + errOut.String()
+	}
+	if code, out := recoverCmd("--data-dir", dir); code != 1 || !strings.Contains(out, "not found") {
+		t.Fatalf("missing database: %d %q", code, out)
+	}
+	if code, _ := recoverCmd("--data-dir", dir, "extra"); code != exitUsage {
+		t.Fatalf("extra args: %d", code)
+	}
+	a, err := app.New(app.Options{DataDir: dir, Listen: "127.0.0.1:0", Logger: logx.Discard()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Close(); err != nil {
+		t.Fatal(err)
+	}
+	code, out := recoverCmd("--data-dir", dir, "--listen", "127.0.0.1:9000")
+	if code != 0 || !strings.Contains(out, "http://127.0.0.1:9000/recover#code=") || !strings.Contains(out, "No public URL") {
+		t.Fatalf("recover: %d %q", code, out)
 	}
 }
 

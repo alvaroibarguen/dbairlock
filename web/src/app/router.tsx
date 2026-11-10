@@ -1,5 +1,5 @@
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router'
-import { setUnauthorizedHandler, SIGN_IN_PATH } from '@/api'
+import { setSetupRequiredHandler, setUnauthorizedHandler, SIGN_IN_PATH } from '@/api'
 import { AuditPage } from '@/features/audit/AuditPage'
 import { SignInPage } from '@/features/auth/SignInPage'
 import { ChangeDetailPage } from '@/features/changes/ChangeDetailPage'
@@ -7,12 +7,14 @@ import { ChangesPage } from '@/features/changes/ChangesPage'
 import { NewChangePage } from '@/features/changes/NewChangePage'
 import { ConnectionsPage } from '@/features/connections/ConnectionsPage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
+import { RecoverPage } from '@/features/setup/RecoverPage'
 import { SetupPage } from '@/features/setup/SetupPage'
 import { NotFoundPage, RouteError } from './RouteError'
 import { AppShell } from './shell/AppShell'
 
 export const routes: RouteObject[] = [
   { path: '/setup', Component: SetupPage, errorElement: <RouteError /> },
+  { path: '/recover', Component: RecoverPage, errorElement: <RouteError /> },
   { path: SIGN_IN_PATH, Component: SignInPage, errorElement: <RouteError /> },
   {
     path: '/',
@@ -34,11 +36,14 @@ export const routes: RouteObject[] = [
 
 export function createAppRouter() {
   const router = createBrowserRouter(routes)
-  // Route 401s through the router so the app is not reloaded.
+  // Route 401s and "setup required" through the router so the app is not reloaded.
   setUnauthorizedHandler((returnTo) => {
     void router.navigate(`${SIGN_IN_PATH}?next=${encodeURIComponent(returnTo)}`, {
       replace: true,
     })
+  })
+  setSetupRequiredHandler(() => {
+    void router.navigate('/setup', { replace: true })
   })
   return router
 }

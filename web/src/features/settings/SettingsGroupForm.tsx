@@ -11,7 +11,7 @@ import {
   SecretField,
   type SecretChange,
   Switch,
-  Textarea,
+  TagInput,
   toast,
 } from '@/ui'
 import {
@@ -21,6 +21,7 @@ import {
   secretStatus,
   type SettingField,
   type SettingsGroup,
+  splitList,
   toFormValues,
   toUpdate,
 } from './settingsForm'
@@ -204,15 +205,14 @@ function FieldControl({
     case 'list':
       return (
         <FormField label={field.label} help={field.help} error={error} name={name}>
-          <Textarea
+          <TagInput
             mono
-            rows={3}
             name={name}
-            value={typeof value === 'string' ? value : ''}
+            value={splitList(typeof value === 'string' ? value : '')}
+            normalize={(s) => s.trim().toLowerCase()}
             placeholder={field.placeholder}
-            spellCheck={false}
             disabled={disabled}
-            onChange={(e) => onChange(e.currentTarget.value)}
+            onChange={(tags) => onChange(tags.join('\n'))}
             onBlur={onBlur}
           />
         </FormField>

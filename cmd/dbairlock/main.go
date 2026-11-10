@@ -26,6 +26,7 @@ Commands:
   serve          run the server (default)
   audit verify   check the audit log's hash chain
   rotate-key     replace the master key and re-encrypt every secret (stop the server first)
+  recover        print a one-time link that reopens the sign-in settings
   version        print the version and exit
 
 Run "dbairlock <command> -h" for flags.
@@ -59,6 +60,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return auditVerify(args[1:], stdout, stderr)
 	case "rotate-key":
 		return rotateKey(args, stdout, stderr)
+	case "recover":
+		return recoverSignIn(args, stdout, stderr)
 	case "version":
 		if len(args) > 0 {
 			_, _ = fmt.Fprintf(stderr, "version takes no arguments\n")
@@ -114,6 +117,7 @@ func serve(args []string, stderr io.Writer) int {
 		Dev:     f.dev,
 		Version: resolveVersion(),
 		Logger:  logger,
+		Banner:  stderr,
 	})
 	if err != nil {
 		logger.Error("startup failed", "error", err)
@@ -192,6 +196,37 @@ func rotateKey(args []string, stdout, stderr io.Writer) int {
 	}
 	_, _ = fmt.Fprintf(stdout, "master key rotated to version %d: %d secrets re-encrypted; the previous key is kept as master.key.old until the next successful start\n",
 		res.KeyVersion, res.Secrets)
+	return 0
+}
+
+func recoverSignIn(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("recover", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	dataDir := fs.String("data-dir", "./data", "directory that holds the database and master.key")
+	listen := fs.String("listen", ":8080", "the server's listen address, to suggest a URL when no public URL is set")
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			_, _ = fmt.Fprintf(stderr, "\nThe link works once, within 15 minutes, and opens only the sign-in settings.\n")
+			return 0
+		}
+		return exitUsage
+	}
+	if fs.NArg() > 0 {
+		_, _ = fmt.Fprintf(stderr, "unexpected arguments: %v\n", fs.Args())
+		return exitUsage
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	res, err := app.Recover(ctx, *dataDir, *listen, logx.New(stderr, false))
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "recover: %v\n", err)
+		return 1
+	}
+	_, _ = fmt.Fprintf(stdout, "Open this link within 15 minutes (until %s). It works once and opens only the sign-in settings:\n\n  %s\n\n",
+		res.Expires.Local().Format("15:04:05"), res.URL)
+	if !res.PublicURLSet {
+		_, _ = fmt.Fprintf(stdout, "No public URL is configured, so the link assumes the server listens on %s; adjust the address if needed.\n", *listen)
+	}
 	return 0
 }
 

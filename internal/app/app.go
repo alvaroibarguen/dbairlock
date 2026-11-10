@@ -7,19 +7,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"log/slog"
 	"net"
 	"net/http"
+	"net/netip"
 	"time"
 
 	"github.com/alvaroibarguen/dbairlock/internal/audit"
 	"github.com/alvaroibarguen/dbairlock/internal/httpapi"
+	"github.com/alvaroibarguen/dbairlock/internal/identity"
 	"github.com/alvaroibarguen/dbairlock/internal/platform/clock"
 	"github.com/alvaroibarguen/dbairlock/internal/platform/httpx"
 	"github.com/alvaroibarguen/dbairlock/internal/platform/ids"
 	"github.com/alvaroibarguen/dbairlock/internal/secrets"
 	"github.com/alvaroibarguen/dbairlock/internal/settings"
+	"github.com/alvaroibarguen/dbairlock/internal/setup"
 	"github.com/alvaroibarguen/dbairlock/internal/store"
 	"github.com/alvaroibarguen/dbairlock/internal/webui"
 )
@@ -37,10 +41,14 @@ type Options struct {
 	Version string
 	Logger  *slog.Logger
 
+	// Banner receives the setup-code block printed in setup mode (stderr).
+	Banner io.Writer
+
 	// Optional overrides for tests.
-	Clock clock.Clock
-	IDs   ids.Generator
-	WebUI fs.FS
+	Clock      clock.Clock
+	IDs        ids.Generator
+	WebUI      fs.FS
+	HTTPClient *http.Client // talks to the OpenID provider
 }
 
 // App is a fully wired dbairlock instance.
@@ -50,6 +58,8 @@ type App struct {
 	store    *store.Store
 	secrets  *secrets.Service
 	settings *settings.Service
+	identity *identity.Service
+	setup    *setup.Service
 	handler  http.Handler
 }
 
@@ -107,29 +117,33 @@ func build(ctx context.Context, opts Options, st *store.Store) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Transports and settings get the write-only side of the secret store.
-	// Only targets, identity and notify will be given a secrets.Opener.
-	var secretWriter secrets.Writer = sec
-
-	set, err := settings.New(ctx, settings.Options{
-		Store: st, Audit: recorder, Secrets: secretWriter,
-		Clock: opts.Clock, Logger: opts.Logger,
-	})
+	mods, err := buildModules(ctx, opts, st, recorder, sec)
 	if err != nil {
+		return nil, err
+	}
+	// Each start in setup mode prints a new setup code.
+	if err := mods.setup.Start(ctx); err != nil {
 		return nil, err
 	}
 
 	api := httpapi.New(httpapi.Deps{
 		Version:   opts.Version,
-		Setup:     setupStub{},
+		Dev:       opts.Dev,
+		Setup:     mods.setup,
 		Readiness: st,
-		Access:    accessStub{dev: opts.Dev},
-		Settings:  set,
+		Identity:  mods.identity,
+		Settings:  mods.settings,
 	})
 
 	mux := http.NewServeMux()
 	api.Register(mux)
+	// Agents authenticate with API tokens; the MCP server itself joins in a
+	// later phase.
+	mux.Handle("/mcp", mods.identity.RequireBearer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		httpx.WriteError(w, r, httpx.NewError(http.StatusNotFound, "not_found", "The MCP server is not available in this version."))
+	})))
 	mux.Handle("/", httpx.SPA(opts.WebUI))
+	set := mods.settings
 
 	// Mutating requests from another origin are rejected (PLAN 5.8).
 	csrf := http.NewCrossOriginProtection()
@@ -137,15 +151,75 @@ func build(ctx context.Context, opts Options, st *store.Store) (*App, error) {
 		httpx.WriteError(w, r, httpx.NewError(http.StatusForbidden, "cross_origin", "Cross-origin requests are not allowed."))
 	}))
 
-	handler := httpx.Chain(csrf.Handler(mux),
+	trusted := func() []netip.Prefix {
+		return settings.ParsePrefixes(settings.Get(set, settings.TrustedProxies))
+	}
+	handler := httpx.Chain(csrf.Handler(httpapi.SetupGate(mods.setup)(mux)),
 		httpx.RequestID(opts.IDs, opts.Logger),
+		httpx.ClientIP(trusted),
 		httpx.AccessLog(opts.Clock),
 		httpx.Recover(),
 		httpx.SecurityHeaders(),
 		httpx.BodyLimit(httpx.DefaultMaxBodyBytes),
 	)
 
-	return &App{opts: opts, log: opts.Logger, store: st, secrets: sec, settings: set, handler: handler}, nil
+	return &App{
+		opts: opts, log: opts.Logger, store: st, secrets: sec, settings: set,
+		identity: mods.identity, setup: mods.setup, handler: handler,
+	}, nil
+}
+
+type modules struct {
+	settings *settings.Service
+	identity *identity.Service
+	setup    *setup.Service
+}
+
+// buildModules wires settings, identity and setup. Settings get the
+// write-only side of the secret store; identity is one of the three modules
+// allowed a secrets.Opener (for the Google client secret).
+func buildModules(ctx context.Context, opts Options, st *store.Store, recorder *audit.Recorder, sec *secrets.Service) (modules, error) {
+	var secretWriter secrets.Writer = sec
+	var secretOpener secrets.Opener = sec
+
+	set, err := settings.New(ctx, settings.Options{
+		Store: st, Audit: recorder, Secrets: secretWriter,
+		Clock: opts.Clock, Logger: opts.Logger,
+	})
+	if err != nil {
+		return modules{}, err
+	}
+	idn, err := identity.New(identity.Options{
+		Store: st, Audit: recorder, Secrets: secretOpener, Settings: set,
+		Clock: opts.Clock, IDs: opts.IDs, Logger: opts.Logger,
+		HTTPClient: opts.HTTPClient, Dev: opts.Dev,
+	})
+	if err != nil {
+		return modules{}, err
+	}
+	// Rebuild the OpenID provider when the sign-in settings change.
+	set.OnChange(idn.SettingsChanged)
+	su, err := setup.New(setup.Options{
+		Store: st, Audit: recorder, Settings: set, Identity: idn,
+		Clock: opts.Clock, Logger: opts.Logger, Banner: opts.Banner,
+		URLHint: urlHint(opts.Listen), Dev: opts.Dev,
+	})
+	if err != nil {
+		return modules{}, err
+	}
+	return modules{settings: set, identity: idn, setup: su}, nil
+}
+
+// urlHint is the address to open while no public URL is set.
+func urlHint(listen string) string {
+	host, port, err := net.SplitHostPort(listen)
+	if err != nil {
+		return "http://localhost:8080"
+	}
+	if ip := net.ParseIP(host); host == "" || (ip != nil && ip.IsUnspecified()) {
+		host = "localhost"
+	}
+	return "http://" + net.JoinHostPort(host, port)
 }
 
 // Close releases the store. Call it once the server has stopped.
@@ -277,27 +351,43 @@ func RotateKey(ctx context.Context, dataDir string, logger *slog.Logger) (Rotate
 	})
 }
 
-// setupStub stands in for the setup module until Phase 4.
-type setupStub struct{}
+// RecoverResult is the outcome of Recover.
+type RecoverResult struct {
+	URL     string
+	Expires time.Time
+	// PublicURLSet is false when no public URL is configured; URL then
+	// starts with a guessed local address.
+	PublicURLSet bool
+}
 
-func (setupStub) SetupRequired(context.Context) (bool, error) { return false, nil }
-
-// devAdmin is the actor of every admin request in --dev mode until the
-// identity module (Phase 4) provides real sign-in.
-var devAdmin = audit.Actor{UserID: "dev-admin", Email: "admin@dev.localhost", Via: audit.ViaWeb}
-
-// errNoSignIn is returned for admin routes outside --dev mode until Phase 4.
-var errNoSignIn = httpx.NewError(http.StatusUnauthorized, "unauthorized",
-	"Sign-in is not available yet. Start dbairlock with --dev to manage settings.")
-
-// accessStub stands in for identity's RequireAdmin until Phase 4. In --dev
-// mode (loopback only) every request acts as devAdmin; otherwise admin routes
-// are refused.
-type accessStub struct{ dev bool }
-
-func (a accessStub) RequireAdmin(ctx context.Context) (context.Context, error) {
-	if !a.dev {
-		return ctx, errNoSignIn
+// Recover writes a one-time recovery code (hash only, valid 15 minutes) to
+// the store of the instance in dataDir and returns the URL that uses it. The
+// link reopens only the sign-in settings. It works while the server runs.
+func Recover(ctx context.Context, dataDir, listen string, logger *slog.Logger) (RecoverResult, error) {
+	st, err := store.OpenExisting(ctx, dataDir)
+	if err != nil {
+		return RecoverResult{}, err
 	}
-	return audit.WithActor(ctx, devAdmin), nil
+	defer func() { _ = st.Close() }()
+	c, g := clock.Real{}, ids.UUIDv7{}
+	recorder := audit.NewRecorder(c, g)
+	opts := Options{DataDir: dataDir, Listen: listen, Logger: logger, Clock: c, IDs: g}
+	sec, err := secrets.Load(ctx, secrets.Options{
+		DataDir: dataDir, Store: st, Audit: recorder, Clock: c, IDs: g, Logger: logger,
+	})
+	if err != nil {
+		return RecoverResult{}, err
+	}
+	mods, err := buildModules(ctx, opts, st, recorder, sec)
+	if err != nil {
+		return RecoverResult{}, err
+	}
+	url, exp, err := mods.setup.IssueRecovery(ctx)
+	if err != nil {
+		return RecoverResult{}, err
+	}
+	return RecoverResult{
+		URL: url, Expires: exp,
+		PublicURLSet: settings.Get(mods.settings, settings.InstancePublicURL) != "",
+	}, nil
 }

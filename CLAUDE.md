@@ -27,8 +27,8 @@ A self-hosted service where engineers and AI agents submit row-level SQL changes
 - [x] Phase 0: Tooling
 - [x] Phase 1: Skeleton
 - [x] Phase 2: Store and audit
-- [x] Phase 3: Secrets and settings (admin routes act as a dev admin in `--dev` only until Phase 4 adds sign-in)
-- [ ] Phase 4: Setup and identity
+- [x] Phase 3: Secrets and settings
+- [x] Phase 4: Setup and identity (the fake OpenID provider for tests is `internal/identity/oidctest` and `web/e2e/fake-oidc.ts`; the hidden setting `auth.oidc_issuer` accepts only Google or a loopback address)
 - [ ] Phase 5: Connector contract and Postgres
 - [ ] Phase 6: MySQL connector
 - [ ] Phase 7: Changes and executor

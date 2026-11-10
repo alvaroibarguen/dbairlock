@@ -5,7 +5,7 @@ import { isApiError } from '@/api'
 function shouldRetry(failureCount: number, error: unknown): boolean {
   if (failureCount >= 2) return false
   if (!isApiError(error)) return false
-  return error.status === 0 || error.status >= 500
+  return error.status === 0 || (error.status >= 500 && error.code !== 'setup_required')
 }
 
 export function createQueryClient() {

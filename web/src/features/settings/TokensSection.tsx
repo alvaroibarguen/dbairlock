@@ -1,0 +1,290 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Plus, TriangleAlert } from 'lucide-react'
+import { type ReactNode, type SyntheticEvent, useState } from 'react'
+import {
+  type ApiToken,
+  createToken,
+  isApiError,
+  queryKeys,
+  revokeToken,
+  type TokenCreated,
+  type TokenExpiryDays,
+  tokensQuery,
+} from '@/api'
+import {
+  Button,
+  CodeBlock,
+  Dialog,
+  DialogClose,
+  EmptyState,
+  ErrorState,
+  FormField,
+  Input,
+  PageHeader,
+  Select,
+  Skeleton,
+  Switch,
+  Table,
+  TBody,
+  Td,
+  Th,
+  THead,
+  toast,
+  Tr,
+} from '@/ui'
+import { formatDate, formatTime } from './format'
+
+type Expiry = '30' | '90' | '365' | 'never'
+
+const expiryOptions = [
+  { value: '30', label: '30 days' },
+  { value: '90', label: '90 days' },
+  { value: '365', label: '1 year' },
+  { value: 'never', label: 'No expiry' },
+] as const satisfies readonly { value: Expiry; label: string }[]
+
+/** The ready-to-paste MCP client configuration for a new token. */
+function mcpConfig(created: TokenCreated): string {
+  return JSON.stringify(
+    {
+      mcpServers: {
+        dbairlock: {
+          type: 'http',
+          url: created.mcp_url,
+          headers: { Authorization: `Bearer ${created.secret}` },
+        },
+      },
+    },
+    null,
+    2,
+  )
+}
+
+/** Settings → API tokens: personal access tokens for agents. */
+export function TokensSection({ title, canSeeAll }: { title: ReactNode; canSeeAll: boolean }) {
+  const [all, setAll] = useState(false)
+  const query = useQuery(tokensQuery(all && canSeeAll))
+  const tokens = query.data ?? []
+
+  return (
+    <>
+      <PageHeader title={title} actions={<CreateTokenDialog />} />
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-6 pt-5 pb-3">
+          <p className="max-w-xl text-base text-dim">
+            Tokens let your agents use dbairlock over MCP as you. Changes they submit are authored
+            by you and still need another person&apos;s review.
+          </p>
+          {canSeeAll && <Switch label="Everyone's tokens" checked={all} onCheckedChange={setAll} />}
+        </div>
+        {query.isPending ? (
+          <div className="flex flex-col gap-2 px-6 py-2" aria-busy="true" aria-label="Loading">
+            <Skeleton className="h-8 w-full" />
+          </div>
+        ) : query.isError ? (
+          <ErrorState
+            title="Tokens could not be loaded."
+            message={query.error.message}
+            code={isApiError(query.error) ? query.error.code : undefined}
+            action={<Button onClick={() => void query.refetch()}>Retry</Button>}
+          />
+        ) : tokens.length === 0 ? (
+          <EmptyState
+            title={all ? 'Nobody has an active token.' : 'You have no active tokens.'}
+            description="Create one to connect an agent."
+          />
+        ) : (
+          <Table aria-label="API tokens">
+            <THead>
+              <Tr>
+                <Th className="pl-6">Name</Th>
+                <Th>Token</Th>
+                {all && <Th>Owner</Th>}
+                <Th>Created</Th>
+                <Th>Last used</Th>
+                <Th>Expires</Th>
+                <Th className="pr-6 text-right">
+                  <span className="sr-only">Actions</span>
+                </Th>
+              </Tr>
+            </THead>
+            <TBody>
+              {tokens.map((t) => (
+                <TokenRow key={t.id} token={t} showOwner={all} />
+              ))}
+            </TBody>
+          </Table>
+        )}
+      </div>
+    </>
+  )
+}
+
+function TokenRow({ token, showOwner }: { token: ApiToken; showOwner: boolean }) {
+  const queryClient = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const revoke = useMutation({
+    mutationFn: () => revokeToken(token.id),
+    onSuccess: async () => {
+      setOpen(false)
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tokensAll })
+      toast.success(`Token "${token.name}" was revoked.`)
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'The token could not be revoked.'),
+  })
+  return (
+    <Tr>
+      <Td className="pl-6 font-sans text-base text-text">{token.name}</Td>
+      <Td>{token.prefix}…</Td>
+      {showOwner && <Td>{token.owner_email}</Td>}
+      <Td>{formatDate(token.created_at)}</Td>
+      <Td>{formatTime(token.last_used_at, 'Never')}</Td>
+      <Td>{formatDate(token.expires_at, 'Never')}</Td>
+      <Td className="pr-6 text-right">
+        <Dialog
+          open={open}
+          onOpenChange={setOpen}
+          trigger={
+            <Button size="sm" variant="destructive">
+              Revoke
+            </Button>
+          }
+          title={`Revoke "${token.name}"?`}
+          description="Agents using it are refused from their next request. This cannot be undone."
+          footer={
+            <>
+              <DialogClose render={<Button>Cancel</Button>} />
+              <Button
+                variant="destructive"
+                className="ml-auto"
+                loading={revoke.isPending}
+                onClick={() => revoke.mutate()}
+              >
+                Revoke token
+              </Button>
+            </>
+          }
+        />
+      </Td>
+    </Tr>
+  )
+}
+
+function CreateTokenDialog() {
+  const queryClient = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [expiry, setExpiry] = useState<Expiry>('90')
+  const [error, setError] = useState<string>()
+  const [created, setCreated] = useState<TokenCreated>()
+
+  const create = useMutation({
+    mutationFn: () =>
+      createToken(name.trim(), expiry === 'never' ? null : (Number(expiry) as TokenExpiryDays)),
+    onSuccess: async (result) => {
+      setCreated(result)
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tokensAll })
+    },
+    onError: (e) => setError(e instanceof Error ? e.message : 'The token could not be created.'),
+  })
+
+  const reset = (next: boolean) => {
+    setOpen(next)
+    if (!next) {
+      // Forget the token: it is shown once.
+      setCreated(undefined)
+      setName('')
+      setExpiry('90')
+      setError(undefined)
+      create.reset()
+    }
+  }
+
+  const submit = (e: SyntheticEvent) => {
+    e.preventDefault()
+    if (name.trim() === '') {
+      setError('Enter a name, for example the agent or machine it is for.')
+      return
+    }
+    setError(undefined)
+    create.mutate()
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={reset}
+      className="w-[560px]"
+      trigger={
+        <Button size="sm" variant="primary" icon={<Plus aria-hidden="true" className="size-3.5" />}>
+          Create token
+        </Button>
+      }
+      title={created ? `Token "${created.token.name}" created` : 'Create an API token'}
+      description={
+        created
+          ? undefined
+          : 'The token acts as you. Give it a name you will recognise when revoking it.'
+      }
+      footer={
+        created ? (
+          <Button variant="primary" className="ml-auto" onClick={() => reset(false)}>
+            Done
+          </Button>
+        ) : (
+          <>
+            <DialogClose render={<Button>Cancel</Button>} />
+            <Button
+              variant="primary"
+              className="ml-auto"
+              type="submit"
+              form="create-token"
+              loading={create.isPending}
+            >
+              Create token
+            </Button>
+          </>
+        )
+      }
+    >
+      {created ? (
+        <div className="flex flex-col gap-4">
+          <div
+            role="note"
+            className="flex items-start gap-2 rounded-md border border-amber/35 bg-amber/8 px-3 py-2.5 text-base text-amber"
+          >
+            <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            <span>Copy the token now. It is shown only once and cannot be retrieved later.</span>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-base font-medium text-text">Token</span>
+            <CodeBlock copyLabel="Copy token">{created.secret}</CodeBlock>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-base font-medium text-text">MCP client configuration</span>
+            <CodeBlock copyLabel="Copy configuration">{mcpConfig(created)}</CodeBlock>
+            <span className="text-xs text-mute">
+              Paste it into your agent&apos;s MCP settings, for example .mcp.json.
+            </span>
+          </div>
+        </div>
+      ) : (
+        <form id="create-token" noValidate onSubmit={submit} className="flex flex-col gap-4">
+          <FormField label="Name" error={error} name="name">
+            <Input
+              name="name"
+              value={name}
+              maxLength={64}
+              autoComplete="off"
+              placeholder="claude-code on my laptop"
+              onChange={(e) => setName(e.currentTarget.value)}
+            />
+          </FormField>
+          <FormField label="Expires after">
+            <Select options={expiryOptions} value={expiry} onValueChange={setExpiry} />
+          </FormField>
+        </form>
+      )}
+    </Dialog>
+  )
+}

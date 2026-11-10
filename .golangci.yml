@@ -71,6 +71,11 @@ linters:
         # secret may reveal it, at the moment of use. See the exclusion below.
         - pattern: ^secrets\.Value\.Reveal$
           msg: only targets, identity and notify may reveal a secret (PLAN 4.2 rule 5)
+        # Every authorization decision goes through identity.Can (phase 4);
+        # nothing else compares roles. identity.Principal keeps its role
+        # private; User.Role exists to display it.
+        - pattern: ^identity\.User\.Role$
+          msg: authorize with identity.Can; never read a user's role outside identity
 
     depguard:
       rules:
@@ -227,6 +232,9 @@ linters:
       - path: internal/(targets|identity|notify|secrets)/
         linters: [forbidigo]
         text: may reveal a secret
+      - path: internal/identity/
+        linters: [forbidigo]
+        text: authorize with identity.Can
       - path: _test\.go
         linters: [gosec]
 

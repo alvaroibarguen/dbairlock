@@ -1,11 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import type { Settings } from '@/api'
-import { formName, groupSchema, settingsGroups, toFormValues, toUpdate } from './settingsForm'
+import {
+  formName,
+  groupSchema,
+  hiddenSettings,
+  settingsGroups,
+  toFormValues,
+  toUpdate,
+} from './settingsForm'
 
 const settings: Settings = {
   values: {
     'instance.name': 'dbairlock',
     'instance.public_url': '',
+    'instance.trusted_proxies': [],
+    'auth.oidc_issuer': 'https://accounts.google.com',
     'auth.google.client_id': '',
     'auth.allowed_domains': ['example.com'],
     'auth.session_hours': 12,
@@ -44,7 +53,7 @@ describe('settings form', () => {
     const keys = settingsGroups.flatMap((g) =>
       g.fields.filter((f) => f.kind !== 'secret').map((f) => f.key),
     )
-    expect([...keys].sort()).toEqual(Object.keys(settings.values).sort())
+    expect([...keys, ...hiddenSettings].sort()).toEqual(Object.keys(settings.values).sort())
     const secrets = settingsGroups.flatMap((g) =>
       g.fields.filter((f) => f.kind === 'secret').map((f) => f.key),
     )

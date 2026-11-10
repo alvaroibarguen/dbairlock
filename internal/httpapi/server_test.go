@@ -14,7 +14,10 @@ import (
 	"github.com/alvaroibarguen/dbairlock/internal/platform/logx"
 )
 
+// fakeSetup implements SetupRequired; the other Setup methods are not
+// called by these tests (the embedded nil interface would panic).
 type fakeSetup struct {
+	Setup
 	required bool
 	err      error
 }

@@ -36,6 +36,7 @@ Re-verified on 2026-11-09 with `go list -m -f '{{.Version}}' <module>@latest`, `
 | `github.com/coreos/go-oidc/v3` | v3.21.0 |
 | `golang.org/x/oauth2` | v0.38.0 |
 | `golang.org/x/time` | v0.16.0 |
+| `github.com/go-jose/go-jose/v4` (signs ID tokens in the fake OpenID provider for tests; go-oidc already depends on it) | v4.1.9 |
 | `github.com/google/uuid` | v1.6.0 |
 | `github.com/testcontainers/testcontainers-go` | v0.45.0 |
 | `github.com/oapi-codegen/runtime` (used by the generated server) | v1.8.0 |

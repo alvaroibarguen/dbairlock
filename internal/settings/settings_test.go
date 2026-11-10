@@ -119,10 +119,11 @@ func TestRegistryIsConsistent(t *testing.T) {
 		Get(s, NotifyEnabled) || len(Get(s, AllowedDomains)) != 0 || Get(s, InstancePublicURL) != "" ||
 		Get(s, GoogleClientID) != "" || Get(s, DefaultRequiredApprovals) != 1 || Get(s, DefaultMaxRows) != 100 ||
 		Get(s, DefaultApprovalTTLHours) != 72 || !Get(s, DefaultStoreRowImages) || Get(s, PreviewMaxAgeMinutes) != 5 ||
-		Get(s, StatementTimeoutMS) != 10000 || Get(s, LockTimeoutMS) != 3000 {
+		Get(s, StatementTimeoutMS) != 10000 || Get(s, LockTimeoutMS) != 3000 ||
+		Get(s, OIDCIssuer) != GoogleIssuer || len(Get(s, TrustedProxies)) != 0 {
 		t.Fatalf("defaults = %v", s.Values())
 	}
-	if len(s.Values()) != len(Definitions()) || len(seen) != 14 {
+	if len(s.Values()) != len(Definitions()) || len(seen) != 16 {
 		t.Fatalf("registry has %d settings", len(seen))
 	}
 	if pub := s.PublicValues(); !reflect.DeepEqual(pub, map[string]any{"instance.name": "dbairlock"}) {
@@ -232,6 +233,31 @@ func TestInvalidUpdateChangesNothing(t *testing.T) {
 	}
 	if n := len(e.events("")); n != 1 { // only master_key.initialized
 		t.Fatalf("%d audit events", n)
+	}
+}
+
+func TestIssuerAndProxyValidation(t *testing.T) {
+	d, _ := definition(OIDCIssuer.name)
+	for _, ok := range []string{GoogleIssuer, GoogleIssuer + "/", "http://127.0.0.1:9999", "http://localhost:1/x", "https://[::1]:8443"} {
+		if _, err := d.parse(ok); err != nil {
+			t.Errorf("issuer %q rejected: %v", ok, err)
+		}
+	}
+	for _, bad := range []string{"https://evil.example.com", "http://10.0.0.1", "", "accounts.google.com", "http://127.0.0.1.evil.com"} {
+		if _, err := d.parse(bad); err == nil {
+			t.Errorf("issuer %q accepted", bad)
+		}
+	}
+	p, _ := definition(TrustedProxies.name)
+	v, err := p.parse([]string{"10.0.0.0/8", " 192.168.1.7 ", "10.1.2.3/8", "2001:db8::/32"})
+	if err != nil || !reflect.DeepEqual(v, []string{"10.0.0.0/8", "192.168.1.7/32", "2001:db8::/32"}) {
+		t.Fatalf("proxies = %v %v", v, err)
+	}
+	if _, err := p.parse([]string{"10.0.0.0/33"}); err == nil {
+		t.Fatal("bad CIDR accepted")
+	}
+	if got := ParsePrefixes(v.([]string)); len(got) != 3 {
+		t.Fatalf("parsed %v", got)
 	}
 }
 

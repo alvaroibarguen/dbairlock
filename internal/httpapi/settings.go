@@ -3,13 +3,12 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/oapi-codegen/nullable"
 
 	"github.com/alvaroibarguen/dbairlock/internal/httpapi/gen"
-	"github.com/alvaroibarguen/dbairlock/internal/platform/httpx"
+	"github.com/alvaroibarguen/dbairlock/internal/identity"
 	"github.com/alvaroibarguen/dbairlock/internal/secrets"
 	"github.com/alvaroibarguen/dbairlock/internal/settings"
 )
@@ -17,6 +16,7 @@ import (
 // Settings is the settings module as the REST API uses it. Secrets go
 // through it as write-only values; nothing here can read one back.
 type Settings interface {
+	settings.Source
 	Values() map[string]any
 	SecretStatus(ctx context.Context) (map[string]secrets.Meta, error)
 	Update(ctx context.Context, ch settings.Changes) error
@@ -24,8 +24,7 @@ type Settings interface {
 
 // GetSettings returns every setting and the status of related secrets.
 func (s *Server) GetSettings(ctx context.Context, _ gen.GetSettingsRequestObject) (gen.GetSettingsResponseObject, error) {
-	ctx, err := s.deps.Access.RequireAdmin(ctx)
-	if err != nil {
+	if _, err := authorize(ctx, identity.ActionSettingsManage, identity.Instance); err != nil {
 		return nil, err
 	}
 	body, err := s.settingsBody(ctx)
@@ -37,8 +36,7 @@ func (s *Server) GetSettings(ctx context.Context, _ gen.GetSettingsRequestObject
 
 // UpdateSettings applies a settings update atomically.
 func (s *Server) UpdateSettings(ctx context.Context, req gen.UpdateSettingsRequestObject) (gen.UpdateSettingsResponseObject, error) {
-	ctx, err := s.deps.Access.RequireAdmin(ctx)
-	if err != nil {
+	if _, err := authorize(ctx, identity.ActionSettingsManage, identity.Instance); err != nil {
 		return nil, err
 	}
 	ch, err := settingsChanges(req.Body)
@@ -46,15 +44,7 @@ func (s *Server) UpdateSettings(ctx context.Context, req gen.UpdateSettingsReque
 		return nil, err
 	}
 	if err := s.deps.Settings.Update(ctx, ch); err != nil {
-		var ve *settings.ValidationError
-		if errors.As(err, &ve) {
-			fields := make([]httpx.FieldError, len(ve.Fields))
-			for i, f := range ve.Fields {
-				fields[i] = httpx.FieldError{Field: f.Field, Message: f.Message}
-			}
-			return nil, httpx.NewValidationError("Some settings are invalid. Nothing was changed.", fields)
-		}
-		return nil, err
+		return nil, err // a *settings.ValidationError becomes 422 in mapError
 	}
 	body, err := s.settingsBody(ctx)
 	if err != nil {

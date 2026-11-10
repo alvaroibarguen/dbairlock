@@ -19,17 +19,41 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): voi
   onUnauthorized = handler ?? redirectToSignIn
 }
 
+export const SETUP_PATH = '/setup'
+
+const redirectToSetup = () => window.location.assign(SETUP_PATH)
+let onSetupRequired: () => void = redirectToSetup
+
+/** Lets the app route "setup required" (503) through its router. */
+export function setSetupRequiredHandler(handler: (() => void) | null): void {
+  onSetupRequired = handler ?? redirectToSetup
+}
+
+/** Pages outside the signed-in app: a 401 there is expected, not a redirect. */
+function isPublicPage(pathname: string): boolean {
+  return (
+    pathname === SIGN_IN_PATH ||
+    pathname === SETUP_PATH ||
+    pathname.startsWith(`${SETUP_PATH}/`) ||
+    pathname === '/recover'
+  )
+}
+
 /**
  * Converts every non-2xx response into a thrown ApiError (so callers only
- * ever see successful data), and sends the user to sign in on 401.
+ * ever see successful data). Sends the user to sign in on 401, and to the
+ * setup wizard while the instance is not set up.
  */
 export const errorMiddleware: Middleware = {
   async onResponse({ response }) {
     if (response.ok) return undefined
     const error = await apiErrorFromResponse(response)
-    if (response.status === 401) {
-      const here = window.location.pathname + window.location.search
-      if (window.location.pathname !== SIGN_IN_PATH) onUnauthorized(here)
+    const { pathname, search } = window.location
+    if (response.status === 401 && !isPublicPage(pathname)) {
+      onUnauthorized(pathname + search)
+    }
+    if (error.code === 'setup_required' && !isPublicPage(pathname)) {
+      onSetupRequired()
     }
     throw error
   },

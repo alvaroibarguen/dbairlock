@@ -39,8 +39,10 @@ func TestRoutes(t *testing.T) {
 		{"/healthz", 200, "application/json"},
 		{"/readyz", 200, "application/json"},
 		{"/api/meta", 200, "application/json"},
-		{"/api/unknown", 404, "application/json"},
-		{"/mcp", 404, "application/json"},
+		// A new instance is in setup mode.
+		{"/api/unknown", 503, "application/json"},
+		{"/api/setup/unknown", 404, "application/json"},
+		{"/mcp", 503, "application/json"},
 		{"/", 200, "text/html; charset=utf-8"},
 		{"/changes/1", 200, "text/html; charset=utf-8"},
 	}
@@ -59,11 +61,11 @@ func TestRoutes(t *testing.T) {
 func TestMetaBody(t *testing.T) {
 	rec := httptest.NewRecorder()
 	newTestApp(t).Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/meta", nil))
-	var body map[string]string
+	var body map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if body["version"] != "test" || body["setupState"] != "ready" {
+	if body["version"] != "test" || body["setupState"] != "setup_required" || body["devLogin"] != false || body["instanceName"] != "dbairlock" {
 		t.Fatalf("body = %v", body)
 	}
 }

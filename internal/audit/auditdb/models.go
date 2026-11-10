@@ -4,6 +4,22 @@
 
 package auditdb
 
+import (
+	"database/sql"
+)
+
+type ApiToken struct {
+	ID         string
+	UserID     string
+	Name       string
+	Prefix     string
+	TokenHash  []byte
+	CreatedAt  int64
+	LastUsedAt sql.NullInt64
+	ExpiresAt  sql.NullInt64
+	RevokedAt  sql.NullInt64
+}
+
 type AuditEvent struct {
 	Seq         int64
 	ID          string
@@ -41,9 +57,47 @@ type SecretKeyCheck struct {
 	UpdatedAt  int64
 }
 
+type Session struct {
+	IDHash     []byte
+	UserID     string
+	CreatedAt  int64
+	ExpiresAt  int64
+	LastSeenAt int64
+	Ip         string
+	UserAgent  string
+}
+
 type Setting struct {
 	Key       string
 	Value     string
 	UpdatedBy string
 	UpdatedAt int64
+}
+
+type SetupGrant struct {
+	IDHash    []byte
+	Kind      string
+	CreatedAt int64
+	ExpiresAt int64
+}
+
+type SetupState struct {
+	ID           int64
+	CodeHash     []byte
+	CodeIssuedAt int64
+	CompletedAt  sql.NullInt64
+	CompletedBy  string
+}
+
+type User struct {
+	ID           string
+	GoogleSub    string
+	Email        string
+	Name         string
+	PictureUrl   string
+	Role         string
+	CreatedAt    int64
+	LastSignInAt sql.NullInt64
+	DisabledAt   sql.NullInt64
+	DisabledBy   string
 }

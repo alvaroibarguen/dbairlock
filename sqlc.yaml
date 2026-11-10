@@ -26,3 +26,19 @@ sql:
         package: settingsdb
         out: internal/settings/settingsdb
         emit_empty_slices: true
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/setup/queries.sql
+    gen:
+      go:
+        package: setupdb
+        out: internal/setup/setupdb
+        emit_empty_slices: true
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/identity/queries.sql
+    gen:
+      go:
+        package: identitydb
+        out: internal/identity/identitydb
+        emit_empty_slices: true

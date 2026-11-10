@@ -1,13 +1,12 @@
-import { mkdtempSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import { defineConfig, devices } from '@playwright/test'
+import { ADMIN_STATE } from './e2e/state.ts'
 
-// End-to-end tests run against the real binary (`make e2e` builds it first),
-// with a throwaway data directory.
+// End-to-end tests run against the real binary (`make e2e` builds it first)
+// with a throwaway data directory and a fake Google (e2e/fake-oidc.ts), both
+// started by e2e/global-setup.ts. The "setup" project completes the setup
+// wizard first and saves the admin's session for the other projects.
 const port = 18080
 const baseURL = `http://127.0.0.1:${port}`
-const dataDir = mkdtempSync(join(tmpdir(), 'dbairlock-e2e-'))
 
 export default defineConfig({
   testDir: './e2e',
@@ -15,21 +14,33 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
+  globalSetup: './e2e/global-setup.ts',
   use: { baseURL, trace: 'retain-on-failure' },
   projects: [
     {
-      name: 'desktop',
+      name: 'setup',
+      testMatch: /setup\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
     },
     {
+      name: 'desktop',
+      testIgnore: /setup\.spec\.ts/,
+      dependencies: ['setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 800 },
+        storageState: ADMIN_STATE,
+      },
+    },
+    {
       name: 'mobile',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 375, height: 800 } },
+      testIgnore: /setup\.spec\.ts/,
+      dependencies: ['setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 375, height: 800 },
+        storageState: ADMIN_STATE,
+      },
     },
   ],
-  webServer: {
-    command: `../bin/dbairlock serve --data-dir ${dataDir} --listen 127.0.0.1:${port}`,
-    url: `${baseURL}/healthz`,
-    reuseExistingServer: false,
-    timeout: 30_000,
-  },
 })

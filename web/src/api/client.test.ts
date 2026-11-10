@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createApiClient, setUnauthorizedHandler } from './client'
+import { createApiClient, setSetupRequiredHandler, setUnauthorizedHandler } from './client'
 import { ApiError } from './errors'
 
 const json = (status: number, body: unknown) =>
@@ -81,5 +81,30 @@ describe('api client error middleware', () => {
     )
     await rejection(api.GET('/api/meta'))
     expect(onUnauthorized).not.toHaveBeenCalled()
+  })
+
+  it('leaves 401s to the setup wizard and the recovery page', async () => {
+    const onUnauthorized = vi.fn()
+    setUnauthorizedHandler(onUnauthorized)
+    for (const path of ['/setup', '/recover']) {
+      window.history.replaceState(null, '', path)
+      const api = clientReturning(
+        json(401, { error: { code: 'setup_session_required', message: 'Enter the code.' } }),
+      )
+      await rejection(api.GET('/api/setup/session'))
+    }
+    expect(onUnauthorized).not.toHaveBeenCalled()
+  })
+
+  it('sends the user to the setup wizard while the instance is not set up', async () => {
+    window.history.replaceState(null, '', '/changes')
+    const onSetupRequired = vi.fn()
+    setSetupRequiredHandler(onSetupRequired)
+    const api = clientReturning(
+      json(503, { error: { code: 'setup_required', message: 'Not set up yet.' } }),
+    )
+    await rejection(api.GET('/api/me'))
+    expect(onSetupRequired).toHaveBeenCalledOnce()
+    setSetupRequiredHandler(null)
   })
 })

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { createMemoryRouter } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
 import { describe, expect, it, vi } from 'vitest'
-import type { Settings } from '@/api'
+import type { Me, Settings } from '@/api'
 import { Providers } from './Providers'
 import { createQueryClient } from './queryClient'
 import { routes } from './router'
@@ -12,6 +12,8 @@ const settings: Settings = {
   values: {
     'instance.name': 'dbairlock',
     'instance.public_url': '',
+    'instance.trusted_proxies': [],
+    'auth.oidc_issuer': 'https://accounts.google.com',
     'auth.google.client_id': '123.apps.googleusercontent.com',
     'auth.allowed_domains': ['example.com'],
     'auth.session_hours': 12,
@@ -35,6 +37,24 @@ const settings: Settings = {
   },
 }
 
+const me: Me = {
+  user: {
+    id: 'u1',
+    email: 'admin@example.com',
+    name: 'Ada Admin',
+    role: 'admin',
+    created_at: '2026-11-09T10:00:00Z',
+  },
+  permissions: [
+    'change.submit',
+    'change.review',
+    'database.manage',
+    'settings.manage',
+    'user.manage',
+    'audit.read',
+  ],
+}
+
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
@@ -50,7 +70,15 @@ function mockApi(patch: (body: unknown) => Response = () => json(200, settings))
       patches.push(body)
       return patch(body)
     }
-    if (path === '/api/meta') return json(200, { version: 'test', setupState: 'ready' })
+    if (path === '/api/meta') {
+      return json(200, {
+        version: 'test',
+        setupState: 'ready',
+        instanceName: 'dbairlock',
+        devLogin: false,
+      })
+    }
+    if (path === '/api/me') return json(200, me)
     return json(404, { error: { code: 'not_found', message: 'Not found.' } })
   })
   return patches

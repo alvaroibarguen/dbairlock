@@ -54,6 +54,31 @@ function isFieldError(value: unknown): value is FieldError {
   )
 }
 
+const signInErrors: Record<string, string> = {
+  domain_not_allowed:
+    'This Google account is not in a domain allowed to sign in. Use your work account, or ask an admin to add your domain.',
+  account_removed:
+    'Your access to dbairlock has been removed. Ask an admin if you think this is a mistake.',
+  email_unverified: 'Google has not verified the email address of this account.',
+  not_configured: 'Google sign-in is not configured yet. An admin has to finish setup first.',
+  rate_limited: 'Too many sign-in attempts from your network. Wait a minute and try again.',
+  provider_error: 'Google did not complete the sign-in. Try again.',
+  flow_expired: 'The sign-in took too long or was started in another browser. Try again.',
+  provider_unreachable:
+    'The dbairlock server could not reach Google. Check its network access and try again.',
+  setup_session_expired: 'Your setup session has ended. Enter the setup code again.',
+  setup_complete: 'Setup is already complete. Sign in instead.',
+}
+
+/**
+ * The message for an `error` code the server puts on /signin or /setup
+ * after a failed Google sign-in. Unknown codes (failed verification steps)
+ * share one message; the code is shown next to it for support.
+ */
+export function signInErrorMessage(code: string): string {
+  return signInErrors[code] ?? 'The sign-in could not be verified, so it was refused. Try again.'
+}
+
 /** Builds an ApiError from a failed response, reading the error envelope when present. */
 export async function apiErrorFromResponse(response: Response): Promise<ApiError> {
   let body: unknown

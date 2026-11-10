@@ -54,6 +54,379 @@ paths:
                 $ref: "#/components/schemas/Meta"
         default:
           $ref: "#/components/responses/Error"
+  /api/setup/verify:
+    post:
+      operationId: verifySetupCode
+      summary: Enter the setup code
+      description: |
+        Checks the one-time setup code printed in the server log and, if it
+        matches, sets a short-lived setup session cookie. Rate limited per
+        client address: 5 attempts per minute, then a growing delay (429
+        with Retry-After). Only available in setup mode.
+      tags: [setup]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetupCode"
+      responses:
+        "204":
+          description: The code matched; the setup session cookie is set.
+        "401":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/setup/recover:
+    post:
+      operationId: verifyRecoveryCode
+      summary: Use a recovery code
+      description: |
+        Checks a one-time recovery code printed by `dbairlock recover` and, if
+        it matches and has not expired, consumes it and sets a recovery
+        session cookie. The recovery session can only change the sign-in
+        settings and confirm them with a sign-in. Rate limited like
+        verifySetupCode.
+      tags: [setup]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetupCode"
+      responses:
+        "204":
+          description: The code matched; the recovery session cookie is set.
+        "401":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/setup/session:
+    get:
+      operationId: getSetupSession
+      summary: Current setup or recovery session
+      description: Reports which grant the browser holds, or 401 if none.
+      tags: [setup]
+      security: []
+      responses:
+        "200":
+          description: The browser holds a valid grant.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetupSession"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/setup/signin:
+    get:
+      operationId: getSetupSignIn
+      summary: Sign-in settings for the wizard
+      description: Requires a setup or recovery session.
+      tags: [setup]
+      security: []
+      responses:
+        "200":
+          description: The current sign-in settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetupSignIn"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: putSetupSignIn
+      summary: Store the sign-in settings
+      description: |
+        Stores the public URL, Google client id, client secret and allowed
+        domains in one atomic update. Omit `client_secret` to keep the stored
+        one. Returns the redirect URI to register with Google. Requires a
+        setup or recovery session.
+      tags: [setup]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetupSignInUpdate"
+      responses:
+        "200":
+          description: The sign-in settings after the update.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetupSignIn"
+        "422":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/setup/google/start:
+    get:
+      operationId: startSetupGoogle
+      summary: Sign in with Google to finish setup or recovery
+      description: |
+        Redirects to Google. After a successful sign-in during setup the
+        account becomes the first admin and setup ends; during recovery the
+        sign-in only confirms the settings. Requires a setup or recovery
+        session.
+      tags: [setup]
+      security: []
+      responses:
+        "302":
+          $ref: "#/components/responses/Redirect"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/auth/google/start:
+    get:
+      operationId: startGoogleSignIn
+      summary: Sign in with Google
+      description: Redirects to Google. `next` is where to return afterwards; only a path on this origin is accepted.
+      tags: [auth]
+      security: []
+      parameters:
+        - name: next
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 2048
+      responses:
+        "302":
+          $ref: "#/components/responses/Redirect"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/auth/google/callback:
+    get:
+      operationId: googleCallback
+      summary: Google redirects here after sign-in
+      description: |
+        Verifies the sign-in (state, nonce, PKCE, the ID token's signature,
+        issuer, audience and expiry, `email_verified` and the `hd` domain) and
+        redirects: to the requested page with a session cookie on success, or
+        to the sign-in or setup page with an `error` code on failure.
+      tags: [auth]
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 4096
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 512
+        - name: error
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 256
+      responses:
+        "302":
+          $ref: "#/components/responses/Redirect"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/auth/signout:
+    post:
+      operationId: signOut
+      summary: Sign out of this browser
+      tags: [auth]
+      responses:
+        "204":
+          description: The session was ended.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/auth/signout-everywhere:
+    post:
+      operationId: signOutEverywhere
+      summary: Sign out of every browser
+      description: Ends all of the caller's sessions. API tokens keep working.
+      tags: [auth]
+      responses:
+        "204":
+          description: Every session was ended.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/dev/login:
+    post:
+      operationId: devLogin
+      summary: Development sign-in
+      description: Only in `--dev` mode (loopback only); 404 otherwise. Signs in as any email with the chosen role.
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DevLogin"
+      responses:
+        "204":
+          description: Signed in; the session cookie is set.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/me:
+    get:
+      operationId: getMe
+      summary: The signed-in user
+      tags: [auth]
+      responses:
+        "200":
+          description: The signed-in user and what they may do.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/users:
+    get:
+      operationId: listUsers
+      summary: Every user, including removed ones
+      description: Admin only.
+      tags: [users]
+      responses:
+        "200":
+          description: Users, ordered by email.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/users/{id}:
+    patch:
+      operationId: updateUser
+      summary: Change a user's role
+      description: Admin only. The last enabled admin cannot be demoted (409 last_admin).
+      tags: [users]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: The user after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/users/{id}/remove:
+    post:
+      operationId: removeUser
+      summary: Remove a user (offboarding)
+      description: |
+        In one transaction: marks the user removed, ends all their sessions,
+        revokes all their API tokens permanently, and cancels their open
+        changes. The record is kept. Admin only. The last enabled admin
+        cannot be removed (409 last_admin).
+      tags: [users]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The user after removal.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/users/{id}/restore:
+    post:
+      operationId: restoreUser
+      summary: Restore a removed user
+      description: The user can sign in again as a member. Revoked tokens stay revoked. Admin only.
+      tags: [users]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The user after restoring.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/tokens:
+    get:
+      operationId: listTokens
+      summary: API tokens
+      description: The caller's active tokens. With `all=true` (admin only), every user's.
+      tags: [tokens]
+      parameters:
+        - name: all
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Active tokens, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createToken
+      summary: Create an API token
+      description: The token is in this response only. Only its hash is stored.
+      tags: [tokens]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenCreate"
+      responses:
+        "201":
+          description: The new token, shown once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenCreated"
+        "422":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/tokens/{id}:
+    delete:
+      operationId: revokeToken
+      summary: Revoke an API token
+      description: The owner or an admin. Revocation is permanent.
+      tags: [tokens]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          description: The token was revoked.
+        default:
+          $ref: "#/components/responses/Error"
   /api/settings:
     get:
       operationId: getSettings
@@ -99,6 +472,14 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 components:
+  parameters:
+    ID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        maxLength: 64
   responses:
     Error:
       description: An error. The body is always the shared error envelope.
@@ -106,7 +487,220 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+    Redirect:
+      description: A redirect.
+      headers:
+        Location:
+          required: true
+          schema:
+            type: string
   schemas:
+    SetupCode:
+      type: object
+      required: [code]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          writeOnly: true
+          x-dbairlock-secret: true
+          description: The one-time code; dashes and spaces are ignored.
+    SetupSession:
+      type: object
+      required: [kind]
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum: [setup, recovery]
+    SetupSignIn:
+      type: object
+      required: [public_url, suggested_public_url, client_id, client_secret, allowed_domains, redirect_uri]
+      additionalProperties: false
+      properties:
+        public_url:
+          type: string
+          description: The stored public URL; empty until saved.
+        suggested_public_url:
+          type: string
+          description: The address this request arrived on, offered for the admin to confirm.
+        client_id:
+          type: string
+        client_secret:
+          $ref: "#/components/schemas/SecretStatus"
+        allowed_domains:
+          type: array
+          items:
+            type: string
+        redirect_uri:
+          type: string
+          description: The URI to register with Google; empty until the public URL is set.
+    SetupSignInUpdate:
+      type: object
+      required: [public_url, client_id, allowed_domains]
+      additionalProperties: false
+      properties:
+        public_url:
+          type: string
+          minLength: 1
+          maxLength: 2048
+        client_id:
+          type: string
+          minLength: 1
+          maxLength: 255
+        client_secret:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          writeOnly: true
+          x-dbairlock-secret: true
+          description: Omit to keep the stored secret.
+        allowed_domains:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 253
+        oidc_issuer:
+          type: string
+          maxLength: 2048
+          description: Not shown in the dashboard. Google's issuer, or a loopback address for tests.
+    DevLogin:
+      type: object
+      required: [email, role]
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          minLength: 3
+          maxLength: 254
+        role:
+          $ref: "#/components/schemas/Role"
+    Role:
+      type: string
+      enum: [admin, member]
+    Permission:
+      type: string
+      description: An action the user may take (see identity.Can).
+      enum: [change.submit, change.review, database.manage, settings.manage, user.manage, audit.read]
+    User:
+      type: object
+      required: [id, email, name, role, created_at]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        picture_url:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+        created_at:
+          type: string
+          format: date-time
+        last_sign_in_at:
+          type: string
+          format: date-time
+        removed_at:
+          type: string
+          format: date-time
+          description: Present when the user was removed.
+        removed_by:
+          type: string
+    UserList:
+      type: object
+      required: [users]
+      additionalProperties: false
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+    UserUpdate:
+      type: object
+      required: [role]
+      additionalProperties: false
+      properties:
+        role:
+          $ref: "#/components/schemas/Role"
+    Me:
+      type: object
+      required: [user, permissions]
+      additionalProperties: false
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        permissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Permission"
+    ApiToken:
+      type: object
+      required: [id, name, prefix, owner_id, owner_email, created_at]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        prefix:
+          type: string
+          description: The first characters of the token, for recognising it. Never used for lookup.
+        owner_id:
+          type: string
+        owner_email:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          description: Absent for a token that does not expire.
+    TokenList:
+      type: object
+      required: [tokens]
+      additionalProperties: false
+      properties:
+        tokens:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiToken"
+    TokenCreate:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+        expires_in_days:
+          description: 30, 90 or 365; omit for a token that does not expire.
+          type: integer
+          enum: [30, 90, 365]
+    TokenCreated:
+      type: object
+      required: [token, secret, mcp_url]
+      additionalProperties: false
+      properties:
+        token:
+          $ref: "#/components/schemas/ApiToken"
+        secret:
+          type: string
+          description: The full token. Shown in this response only; it cannot be retrieved again.
+        mcp_url:
+          type: string
+          description: The MCP endpoint to configure in an agent.
     Error:
       type: object
       description: The error envelope returned by every failing request.
@@ -214,9 +808,11 @@ components:
       required:
         - instance.name
         - instance.public_url
+        - instance.trusted_proxies
         - auth.google.client_id
         - auth.allowed_domains
         - auth.session_hours
+        - auth.oidc_issuer
         - policy.default_required_approvals
         - policy.default_max_rows
         - policy.default_approval_ttl_hours
@@ -237,6 +833,18 @@ components:
           type: string
           maxLength: 2048
           description: The URL people use to reach dbairlock; empty until setup captures it.
+        instance.trusted_proxies:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 49
+          description: CIDR ranges of reverse proxies whose X-Forwarded-For header is trusted for the client address.
+        auth.oidc_issuer:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          description: Google's issuer. Another issuer is accepted only on a loopback address, for tests.
         auth.google.client_id:
           type: string
           maxLength: 255
@@ -302,7 +910,7 @@ components:
       enum: [setup_required, ready]
     Meta:
       type: object
-      required: [version, setupState]
+      required: [version, setupState, instanceName, devLogin]
       additionalProperties: false
       properties:
         version:
@@ -311,3 +919,9 @@ components:
           examples: [v0.1.0]
         setupState:
           $ref: "#/components/schemas/SetupState"
+        instanceName:
+          type: string
+          description: The instance name, shown on the sign-in page.
+        devLogin:
+          type: boolean
+          description: True in `--dev` mode, where POST /api/dev/login is available.
