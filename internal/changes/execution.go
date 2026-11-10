@@ -143,6 +143,12 @@ func (s *Service) claim(ctx context.Context, id string, c targets.Connection) (*
 		if Status(cur.Status) != StatusApproved {
 			return nil
 		}
+		// The approval lifetime may have ended since ExpireDue last ran
+		// (or the clock moved forward): such a change never runs; the next
+		// cycle expires it.
+		if cur.ExpiresAt.Valid && cur.ExpiresAt.Int64 <= msOf(s.now()) {
+			return nil
+		}
 		if c.ArchivedAt != nil {
 			return s.cancelTx(ctx, tx, cur, CancelledArchived, "The connection was archived before the change ran.")
 		}

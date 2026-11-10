@@ -30,6 +30,7 @@ func TestMySQLSpecific(t *testing.T) {
 	t.Run("timed-out statement releases its locks", func(t *testing.T) { testTimeoutKill(t, srv) })
 	t.Run("program name on pooled connections", func(t *testing.T) { testProgramName(t, srv) })
 	t.Run("missing database", func(t *testing.T) { testMissingDatabase(t, srv) })
+	t.Run("hostile text on a server with every lexical sql_mode", func(t *testing.T) { testHostileOnServer(t, srv) })
 }
 
 func open(t *testing.T, tg connectortest.Target, role connectortest.Role, mutate func(connector.Config)) connector.Conn {
