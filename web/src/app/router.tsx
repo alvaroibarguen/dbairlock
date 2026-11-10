@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router'
 import { setSetupRequiredHandler, setUnauthorizedHandler, SIGN_IN_PATH } from '@/api'
 import { AuditPage } from '@/features/audit/AuditPage'
+import { ConsentPage } from '@/features/auth/ConsentPage'
 import { SignInPage } from '@/features/auth/SignInPage'
 import { ChangeDetailPage } from '@/features/changes/ChangeDetailPage'
 import { ChangesPage } from '@/features/changes/ChangesPage'
@@ -24,6 +25,8 @@ export const routes: RouteObject[] = [
   { path: '/setup', Component: SetupPage, errorElement: <RouteError /> },
   { path: '/recover', Component: RecoverPage, errorElement: <RouteError /> },
   { path: SIGN_IN_PATH, Component: SignInPage, errorElement: <RouteError /> },
+  // The OAuth consent page for MCP clients: outside the app shell, like sign-in.
+  { path: '/oauth/consent', Component: ConsentPage, errorElement: <RouteError /> },
   {
     path: '/',
     Component: AppShell,

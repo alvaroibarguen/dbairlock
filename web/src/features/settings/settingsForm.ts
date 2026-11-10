@@ -341,6 +341,12 @@ export const settingsGroups: SettingsGroup[] = [
         max: 720,
         unit: 'hours',
       },
+      {
+        kind: 'bool',
+        key: 'mcp.oauth_enabled',
+        label: 'Agents can sign in with OAuth',
+        help: 'MCP clients such as Claude Code sign in through the browser instead of using an API token. Needs the public URL. Turning it off refuses connected apps at once; API tokens keep working.',
+      },
     ],
   },
   {

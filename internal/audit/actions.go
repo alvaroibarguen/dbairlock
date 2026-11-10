@@ -75,6 +75,14 @@ const (
 	APITokenCreated     Action = "api_token.created"
 	APITokenRevoked     Action = "api_token.revoked"
 
+	// OAuth sign-in of MCP clients. Payloads carry client names, ids and
+	// redirect URIs, never a code or token.
+	OAuthClientRegistered Action = "oauth.client_registered"
+	OAuthClientsPruned    Action = "oauth.clients_pruned"
+	OAuthGrantApproved    Action = "oauth.grant_approved"
+	OAuthTokenIssued      Action = "oauth.token_issued" //nolint:gosec // an action name, not a credential
+	OAuthGrantRevoked     Action = "oauth.grant_revoked"
+
 	// Connections (target databases). Payloads never carry the password;
 	// setting it records secret.set or secret.replaced alongside.
 	ConnectionCreated  Action = "connection.created"

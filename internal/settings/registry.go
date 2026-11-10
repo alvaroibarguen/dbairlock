@@ -62,6 +62,9 @@ var (
 	MCPCallsPerMinute     = Key[int]{"limits.mcp_calls_per_minute"}
 	MCPPreviewsPerHour    = Key[int]{"limits.mcp_previews_per_hour"}
 	MCPSubmissionsPerHour = Key[int]{"limits.mcp_submissions_per_hour"}
+	// MCPOAuthEnabled turns on OAuth sign-in for MCP clients (dbairlock as
+	// the authorization server of /mcp). API tokens work either way.
+	MCPOAuthEnabled = Key[bool]{"mcp.oauth_enabled"}
 
 	NotifyEnabled = Key[bool]{"notify.enabled"}
 	// NotifyFormat is the shape of the webhook body: NotifyFormats.
@@ -112,6 +115,7 @@ var definitions = []Definition{
 	{Key: GoogleClientID.name, Type: TypeString, Default: "", MaxLen: 255, check: checkNoSpaces},
 	{Key: AllowedDomains.name, Type: TypeStringList, Default: []string{}, MaxLen: maxDomainLen, MaxItems: 50, check: checkDomains},
 	{Key: SessionHours.name, Type: TypeInt, Default: 12, Min: 1, Max: 720},
+	{Key: MCPOAuthEnabled.name, Type: TypeBool, Default: true},
 	{Key: OIDCIssuer.name, Type: TypeURL, Default: GoogleIssuer, Min: 1, MaxLen: maxURLLen, check: checkIssuer},
 
 	{Key: DefaultRequiredApprovals.name, Type: TypeInt, Default: 1, Min: 1, Max: 5},

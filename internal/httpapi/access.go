@@ -81,6 +81,13 @@ var operationAccess = map[string]Access{
 	"CreateToken": anyUser,
 	"RevokeToken": anyUser, // own tokens; others' need user.manage (checked by the module)
 
+	// OAuth consent page and connected apps. The protocol endpoints
+	// (/oauth/*, /.well-known/*) are outside the contract (OAuthRoutes).
+	"GetOAuthRequest":    anyUser,
+	"DecideOAuthRequest": anyUser, // the decision acts as the signed-in person
+	"ListOAuthGrants":    anyUser, // own apps; ?all=true needs user.manage (checked by the module)
+	"RevokeOAuthGrant":   anyUser, // own apps; others' need user.manage (checked by the module)
+
 	// Settings
 	"GetSettings":    allowed(identity.ActionSettingsManage),
 	"UpdateSettings": allowed(identity.ActionSettingsManage),

@@ -215,5 +215,7 @@ func (s *Service) AuthenticateToken(ctx context.Context, raw string) (Principal,
 			return Principal{}, fmt.Errorf("identity: record token use: %w", err)
 		}
 	}
-	return principalOf(u, audit.ViaMCP, t.ID), nil
+	p := principalOf(u, audit.ViaMCP, t.ID)
+	p.Agent = t.Name
+	return p, nil
 }

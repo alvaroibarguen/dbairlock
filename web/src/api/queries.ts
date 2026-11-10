@@ -16,6 +16,8 @@ export type Permission = components['schemas']['Permission']
 export type ApiToken = components['schemas']['ApiToken']
 export type TokenCreated = components['schemas']['TokenCreated']
 export type TokenExpiryDays = NonNullable<components['schemas']['TokenCreate']['expires_in_days']>
+export type OAuthGrant = components['schemas']['OAuthGrant']
+export type OAuthRequest = components['schemas']['OAuthRequest']
 export type SetupSignIn = components['schemas']['SetupSignIn']
 export type SetupSignInUpdate = components['schemas']['SetupSignInUpdate']
 export type SetupSessionKind = components['schemas']['SetupSession']['kind']
@@ -41,6 +43,9 @@ export const queryKeys = {
   users: () => ['users'] as const,
   tokens: (all: boolean) => ['tokens', { all }] as const,
   tokensAll: ['tokens'] as const,
+  oauthGrants: (all: boolean) => ['oauth-grants', { all }] as const,
+  oauthGrantsAll: ['oauth-grants'] as const,
+  oauthRequest: (id: string) => ['oauth-request', id] as const,
   setup: {
     session: () => ['setup', 'session'] as const,
     signIn: () => ['setup', 'signin'] as const,
@@ -176,6 +181,45 @@ export async function createToken(name: string, expiresInDays: TokenExpiryDays |
 
 export async function revokeToken(id: string): Promise<void> {
   await api.DELETE('/api/tokens/{id}', { params: { path: { id } } })
+}
+
+/** A pending OAuth authorization request, for the consent page. */
+export const oauthRequestQuery = (id: string) =>
+  queryOptions({
+    queryKey: queryKeys.oauthRequest(id),
+    queryFn: async ({ signal }) => {
+      const { data } = await api.GET('/api/oauth/requests/{id}', {
+        signal,
+        params: { path: { id } },
+      })
+      return requireData(data)
+    },
+    // A request is decided once; never refetch it behind the person's back.
+    retry: false,
+    staleTime: Infinity,
+  })
+
+/** Allows or denies an OAuth request; returns where to send the browser. */
+export async function decideOAuthRequest(id: string, approve: boolean): Promise<string> {
+  const { data } = await api.POST('/api/oauth/requests/{id}/decision', {
+    params: { path: { id } },
+    body: { approve },
+  })
+  return requireData(data).redirect_url
+}
+
+/** Connected apps (OAuth grants): the caller's, or with `all` every user's (admin only). */
+export const oauthGrantsQuery = (all: boolean) =>
+  queryOptions({
+    queryKey: queryKeys.oauthGrants(all),
+    queryFn: async ({ signal }) => {
+      const { data } = await api.GET('/api/oauth/grants', { signal, params: { query: { all } } })
+      return requireData(data).grants
+    },
+  })
+
+export async function revokeOAuthGrant(id: string): Promise<void> {
+  await api.DELETE('/api/oauth/grants/{id}', { params: { path: { id } } })
 }
 
 /** The setup or recovery session this browser holds; rejects with 401 if none. */

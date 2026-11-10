@@ -153,15 +153,24 @@ func addTool[In, Out any](s *Server, t tool[In, Out]) {
 			return nil, zero, err
 		}
 		payload := map[string]any{"tool": name}
+		if p.Agent != "" {
+			payload["agent"] = p.Agent
+		}
 		if t.args != nil {
 			for k, v := range t.args(in) {
 				payload[k] = v
 			}
 		}
+		// The subject is the credential: an API token, or the OAuth grant
+		// (connected app) whose access token made the call.
+		subject := "api_token"
+		if p.OAuth {
+			subject = "oauth_grant"
+		}
 		// Recorded before the tool runs, so a call that cannot be audited
 		// does not run (a preview is a real dry run on the target).
 		if err := s.opts.Audit(ctx, audit.Event{
-			Action: audit.MCPToolCalled, SubjectType: "api_token", SubjectID: p.APITokenID, Payload: payload,
+			Action: audit.MCPToolCalled, SubjectType: subject, SubjectID: p.APITokenID, Payload: payload,
 		}); err != nil {
 			s.opts.Logger.Error("mcp audit failed", slog.String("tool", name), slog.Any("error", err))
 			return nil, zero, errInternal

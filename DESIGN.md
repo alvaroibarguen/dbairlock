@@ -53,7 +53,7 @@ The primary button is green with dark text (`#0f1a13`) in dark theme; in light t
 - **Buttons**: 32 px high. Primary = solid green. Secondary = `--raise` fill with seam border. Destructive = transparent with `--red` text and a 50%-alpha red border, always placed **apart** from the primary action (pushed to the far end of the action bar) with a short consequence hint beside it. Keyboard hints in mono at 60% opacity (`⌘↵`).
 - **Tags/pills**: 5 px radius, tinted fill at 8% alpha with a 35%-alpha border in the state colour.
 - **Status dots**: 7 px circles, colour by status (amber pending, green executed/approved, red rejected/failed, mute for expired/cancelled/draft).
-- **AGENT badge**: violet mono uppercase `AGENT` label, then the agent name and "via <owner> token". A human author is plain text with an avatar. Authorship must be unmistakable.
+- **AGENT badge**: violet mono uppercase `AGENT` label, then the agent name (the API token's name, or the name an OAuth client registered) and "via <owner email>", for example "Claude Code via ada@example.com". A human author is plain text with an avatar. Authorship must be unmistakable.
 - **SQL block**: `--bg` fill, seam border, Geist Mono 13 px / 1.7, syntax colours: keywords blue, strings green, numbers amber, functions violet, operators mute.
 - **Before/after table**: rows paired (before, then after) per primary key. Before values that change: red with strikethrough. After values that change: green with 8% green fill and a 2 px inset green left edge. Unchanged values: `--dim`.
 - **Preview freshness**: the age counts up live in mono (`2:46 / fresh until 5:00`) with a 3 px progress bar; it turns amber in the last minute and the Approve button is disabled with an explanation once stale.

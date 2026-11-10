@@ -433,6 +433,26 @@ func TestMCP(t *testing.T) {
 		c.fails("cancel_change", map[string]any{"number": number}, "cancelled")
 	})
 
+	t.Run("an agent signed in with OAuth acts like an API token", func(t *testing.T) {
+		oc := connectMCP(t, srv.URL, oauthAccess(e.ctx(e.dan), t, e.a, e.dan))
+		bobs := e.submit(e.bob, "UPDATE users SET name = 'Bobbie' WHERE id = 2")
+		oc.fails("get_change", map[string]any{"number": bobs.Number}, "No such change")
+		oc.fails("cancel_change", map[string]any{"number": bobs.Number}, "No such change")
+		out := oc.ok("submit_change", map[string]any{
+			"connection": "target", "title": "Via OAuth", "reason": "r", "statements": []string{"UPDATE users SET name = 'Oz' WHERE id = 3"},
+		})
+		ch, err := e.a.changes.Get(e.ctx(e.bob), e.bob, itoa(int(num(out["number"]))))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ch.Author.ID != e.dan.UserID || ch.Via != "mcp" || ch.AgentName != "Claude Code (dbairlock)" || ch.APITokenID == "" {
+			t.Errorf("change by the OAuth agent: author %s via %s agent %q", ch.Author.ID, ch.Via, ch.AgentName)
+		}
+		if strings.Contains(oc.rec.all(), marker) {
+			t.Error("row data reached the OAuth agent")
+		}
+	})
+
 	t.Run("waiting for an unreachable target", func(t *testing.T) {
 		out := c.ok("submit_change", map[string]any{
 			"connection": "target", "title": "Rename", "reason": "Typo.", "statements": []string{"UPDATE users SET name = 'Zed' WHERE id = 4"},

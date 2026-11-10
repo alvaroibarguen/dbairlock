@@ -34,9 +34,12 @@ type Deps struct {
 	Setup     Setup
 	Readiness Readiness
 	Identity  Identity
-	Settings  Settings
-	Targets   Targets
-	Changes   Changes
+	// OAuth is the authorization server for MCP clients (the identity
+	// module).
+	OAuth    OAuth
+	Settings Settings
+	Targets  Targets
+	Changes  Changes
 	// Phase 9: the audit page, the System page and notifications.
 	AuditLog   AuditLog
 	AuditCheck AuditChecker
@@ -134,6 +137,8 @@ var errorTable = []struct {
 		"There must always be at least one admin. Make someone else an admin first.")},
 	{identity.ErrNotConfigured, httpx.NewError(http.StatusConflict, "sign_in_not_configured",
 		"Google sign-in is not configured yet.")},
+	{identity.ErrOAuthUnavailable, httpx.NewError(http.StatusConflict, "oauth_unavailable",
+		"Agent sign-in with OAuth is turned off, or the instance's public URL is not set. An admin changes this in Settings.")},
 	{setup.ErrInvalidCode, httpx.NewError(http.StatusUnauthorized, "invalid_code",
 		"That code is not valid. Check it and try again.")},
 	{setup.ErrComplete, httpx.NewError(http.StatusConflict, "setup_complete",
@@ -247,14 +252,16 @@ func requestError(w http.ResponseWriter, r *http.Request, err error) {
 }
 
 // SetupGate answers 503 setup_required on every API route except /api/meta,
-// /api/setup/* and the Google callback (which finishes setup), and on /mcp,
-// while the instance is in setup mode. Health probes and the dashboard
-// itself stay available.
+// /api/setup/* and the Google callback (which finishes setup), and on /mcp
+// and the OAuth endpoints, while the instance is in setup mode. Health
+// probes and the dashboard itself stay available (the consent page at
+// /oauth/consent is a dashboard page).
 func SetupGate(st SetupStatus) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			p := r.URL.Path
-			gated := (strings.HasPrefix(p, "/api/") || p == "/mcp" || strings.HasPrefix(p, "/mcp/")) &&
+			oauth := (strings.HasPrefix(p, "/oauth/") && p != ConsentPath) || strings.HasPrefix(p, "/.well-known/oauth-")
+			gated := (strings.HasPrefix(p, "/api/") || p == "/mcp" || strings.HasPrefix(p, "/mcp/") || oauth) &&
 				p != "/api/meta" && !strings.HasPrefix(p, "/api/setup/") && p != identity.CallbackPath
 			if gated {
 				required, err := st.SetupRequired(r.Context())

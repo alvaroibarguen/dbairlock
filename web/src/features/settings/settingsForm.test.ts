@@ -18,6 +18,7 @@ const settings: Settings = {
     'auth.google.client_id': '',
     'auth.allowed_domains': ['example.com'],
     'auth.session_hours': 12,
+    'mcp.oauth_enabled': true,
     'policy.default_required_approvals': 1,
     'policy.default_max_rows': 100,
     'policy.default_approval_ttl_hours': 72,

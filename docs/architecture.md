@@ -9,7 +9,16 @@ connectors. One process serves:
   server stubs (`internal/httpapi/gen`) and the TypeScript types
   (`web/src/api/schema.d.ts`) are generated from it with `make generate`.
 - `/mcp`: the MCP server for agents (stateless streamable HTTP, bearer
-  tokens). See [agents.md](agents.md).
+  tokens: API tokens or OAuth access tokens). See [agents.md](agents.md).
+- `/.well-known/oauth-protected-resource[/mcp]`,
+  `/.well-known/oauth-authorization-server` and `/oauth/{register,authorize,token,revoke}`:
+  dbairlock as the OAuth authorization server of its own MCP endpoint, so
+  agents sign in with a browser. The protocol logic (clients, consent
+  requests, codes, grants, tokens) is in `identity/oauth.go` with its pure
+  checks in `identity/oauthcheck.go`; the protocol endpoints are
+  `httpapi/oauth.go` (outside the OpenAPI contract, since they speak
+  OAuth's own formats); the consent page (`/oauth/consent`) and the
+  connected apps list are dashboard pages on `/api/oauth/*`.
 - `/healthz` (liveness) and `/readyz` (the metadata store answers).
 - `/*`: the dashboard, built by Vite and embedded from `internal/webui/dist`.
 - Background workers: the executor that runs approved changes, and the
@@ -32,7 +41,7 @@ Modules depend on interfaces, never on each other's concrete types.
 | `audit` | Append-only, hash-chained event log; one `Record` call inside the caller's transaction; verification and export |
 | `secrets` | Write-only secret store under the master key (`Writer` sets and describes, `Opener` decrypts) |
 | `settings` | Typed instance settings: registry, validation, audit |
-| `identity` | Users, roles and the single authorization function `identity.Can`, sessions, API tokens, Google sign-in |
+| `identity` | Users, roles and the single authorization function `identity.Can`, sessions, API tokens, Google sign-in, OAuth sign-in for agents (authorization server and token checks) |
 | `setup` | First-run wizard, setup code, recovery links |
 | `connector` | The contract every database connector implements, the registry, the row fingerprint, safe dialing |
 | `connector/postgres`, `connector/mysql` | One self-contained package per database product: driver, parser and validation, schema introspection, privilege check, dry run and execution |

@@ -122,10 +122,11 @@ func TestRegistryIsConsistent(t *testing.T) {
 		Get(s, StatementTimeoutMS) != 10000 || Get(s, LockTimeoutMS) != 3000 ||
 		Get(s, OIDCIssuer) != GoogleIssuer || len(Get(s, TrustedProxies)) != 0 ||
 		Get(s, MCPCallsPerMinute) != 60 || Get(s, MCPPreviewsPerHour) != 30 || Get(s, MCPSubmissionsPerHour) != 20 ||
-		Get(s, NotifyFormat) != "generic" || !slices.Equal(Get(s, NotifyEvents), NotifyEventNames) {
+		Get(s, NotifyFormat) != "generic" || !slices.Equal(Get(s, NotifyEvents), NotifyEventNames) ||
+		!Get(s, MCPOAuthEnabled) {
 		t.Fatalf("defaults = %v", s.Values())
 	}
-	if len(s.Values()) != len(Definitions()) || len(seen) != 21 {
+	if len(s.Values()) != len(Definitions()) || len(seen) != 22 {
 		t.Fatalf("registry has %d settings", len(seen))
 	}
 	if pub := s.PublicValues(); !reflect.DeepEqual(pub, map[string]any{"instance.name": "dbairlock"}) {

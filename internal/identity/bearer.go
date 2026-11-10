@@ -1,6 +1,7 @@
 package identity
 
 import (
+	"context"
 	"math"
 	"net/http"
 	"strconv"
@@ -12,21 +13,44 @@ import (
 // errBearer is the response to a missing or unusable token. It does not say
 // which check failed.
 var errBearer = httpx.NewError(http.StatusUnauthorized, "unauthorized",
-	"A valid API token is required: send it as \"Authorization: Bearer dbal_pat_...\".")
+	"A valid API token is required: send it as \"Authorization: Bearer dbal_pat_...\", or sign in with OAuth.")
 
 // errBearerLimited answers a client address that sent too many bad tokens.
 var errBearerLimited = httpx.NewError(http.StatusTooManyRequests, "rate_limited",
 	"Too many requests with an invalid API token. Wait a moment, then check the token.")
 
-// RequireBearer authenticates API-token requests (the /mcp endpoint). It
-// rejects a missing, unknown, revoked or expired token and a token whose
-// owner was removed, and otherwise puts the token owner's principal (via
-// mcp, with the token id) and audit actor in the request context.
+// challenge is the WWW-Authenticate header of a 401 from /mcp. While OAuth
+// is available it names the protected resource metadata and the scope, so
+// MCP clients can discover the authorization server (RFC 9728 section 5.1).
+func (s *Service) challenge(invalid bool) string {
+	h := `Bearer realm="dbairlock"`
+	if srv, err := s.OAuthServer(); err == nil {
+		h += `, resource_metadata="` + srv.ResourceMetadataURL() + `", scope="` + OAuthScope + `"`
+	}
+	if invalid {
+		h += `, error="invalid_token"`
+	}
+	return h
+}
+
+// authenticateBearer authenticates an API token or an OAuth access token.
+func (s *Service) authenticateBearer(ctx context.Context, token string) (Principal, error) {
+	if strings.HasPrefix(token, OAuthAccessPrefix) {
+		return s.AuthenticateOAuthToken(ctx, token)
+	}
+	return s.AuthenticateToken(ctx, token)
+}
+
+// RequireBearer authenticates agent requests (the /mcp endpoint) by API
+// token or OAuth access token. It rejects a missing, unknown, revoked or
+// expired token and a token whose owner was removed, and otherwise puts the
+// owner's principal (via mcp, with the token or grant id) and audit actor in
+// the request context.
 func (s *Service) RequireBearer(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		scheme, token, ok := strings.Cut(r.Header.Get("Authorization"), " ")
 		if !ok || !strings.EqualFold(scheme, "Bearer") {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="dbairlock"`)
+			w.Header().Set("WWW-Authenticate", s.challenge(false))
 			httpx.WriteError(w, r, errBearer)
 			return
 		}
@@ -36,9 +60,9 @@ func (s *Service) RequireBearer(next http.Handler) http.Handler {
 			httpx.WriteError(w, r, errBearerLimited)
 			return
 		}
-		p, err := s.AuthenticateToken(r.Context(), strings.TrimSpace(token))
+		p, err := s.authenticateBearer(r.Context(), strings.TrimSpace(token))
 		if err != nil {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="dbairlock", error="invalid_token"`)
+			w.Header().Set("WWW-Authenticate", s.challenge(true))
 			if err == ErrUnauthenticated {
 				s.tokenBackoff.Fail(ip)
 				httpx.WriteError(w, r, errBearer)

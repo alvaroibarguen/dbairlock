@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { claudeCodeCommand, genericConfig, mcpUrl } from './mcp'
+import {
+  claudeCodeCommand,
+  claudeCodeOAuthCommand,
+  genericConfig,
+  genericOAuthConfig,
+  mcpUrl,
+} from './mcp'
 
 describe('agent configuration', () => {
   it('builds the endpoint from the dashboard origin', () => {
@@ -12,6 +18,15 @@ describe('agent configuration', () => {
       'claude mcp add --transport http dbairlock https://db.example.com/mcp \\\n' +
         '  --header "Authorization: Bearer dbal_pat_abc"',
     )
+  })
+
+  it('writes the OAuth configuration without any token', () => {
+    expect(claudeCodeOAuthCommand('https://db.example.com/mcp')).toBe(
+      'claude mcp add --transport http dbairlock https://db.example.com/mcp',
+    )
+    expect(JSON.parse(genericOAuthConfig('https://db.example.com/mcp'))).toEqual({
+      mcpServers: { dbairlock: { type: 'http', url: 'https://db.example.com/mcp' } },
+    })
   })
 
   it('writes a generic mcpServers configuration', () => {

@@ -42,12 +42,19 @@ func (r Role) valid() bool { return r == RoleAdmin || r == RoleMember }
 // dashboard (a session) or an agent (an API token). Its role is private to
 // this package, so authorization can only happen through Can.
 type Principal struct {
-	UserID     string
-	Email      string
-	Name       string
-	Via        audit.Via
+	UserID string
+	Email  string
+	Name   string
+	Via    audit.Via
+	// APITokenID is the API token of an agent, or for an agent signed in
+	// with OAuth, its grant (the connected app). Rate limits and audit
+	// events key on it either way.
 	APITokenID string
-	role       Role
+	// Agent names the agent: the API token's name or the OAuth client's.
+	Agent string
+	// OAuth is true when APITokenID is an OAuth grant.
+	OAuth bool
+	role  Role
 }
 
 // Actor converts p to the audit actor, tagged with the client address.
@@ -118,6 +125,11 @@ type Service struct {
 	authLimit    *ratelimit.Limiter
 	tokenBackoff *ratelimit.Backoff
 
+	oauth               oauthState
+	oauthRegisterLimit  *ratelimit.Limiter
+	oauthAuthorizeLimit *ratelimit.Limiter
+	oauthTokenLimit     *ratelimit.Limiter
+
 	subMu       sync.Mutex
 	subscribers []RemovalSubscriber
 }
@@ -146,6 +158,15 @@ func New(opts Options) (*Service, error) {
 		// minutes. Tokens cannot be guessed; this bounds the lookups a
 		// misbehaving or hostile client can cause.
 		tokenBackoff: ratelimit.NewBackoff(opts.Clock, 10, time.Second, 5*time.Minute),
+		// OAuth, per client address. Not settings, like the sign-in limit.
+		// Registration: a client registers once per server, so 10 and then
+		// one a minute. Authorization requests: as many as sign-in starts.
+		// Token and revocation requests: 60, then one a second, ample for
+		// a refresh an hour per agent behind one address.
+		oauth:               oauthState{pending: map[string]*pendingAuthorization{}},
+		oauthRegisterLimit:  ratelimit.New(opts.Clock, time.Minute, 10),
+		oauthAuthorizeLimit: ratelimit.New(opts.Clock, 3*time.Second, 20),
+		oauthTokenLimit:     ratelimit.New(opts.Clock, time.Second, 60),
 	}, nil
 }
 

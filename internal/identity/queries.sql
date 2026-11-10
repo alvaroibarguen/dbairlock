@@ -78,3 +78,88 @@ UPDATE api_tokens SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL;
 
 -- name: RevokeUserTokens :execrows
 UPDATE api_tokens SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL;
+
+-- OAuth (00008).
+
+-- name: InsertOAuthClient :exec
+INSERT INTO oauth_clients (id, name, redirect_uris, created_at, created_ip)
+VALUES (?, ?, ?, ?, ?);
+
+-- name: GetOAuthClient :one
+SELECT * FROM oauth_clients WHERE id = ?;
+
+-- name: CountUnusedOAuthClients :one
+SELECT count(*) FROM oauth_clients WHERE last_used_at IS NULL;
+
+-- name: DeleteUnusedOAuthClients :execrows
+DELETE FROM oauth_clients
+WHERE oauth_clients.last_used_at IS NULL AND oauth_clients.created_at <= ?
+  AND NOT EXISTS (SELECT 1 FROM oauth_grants WHERE oauth_grants.client_id = oauth_clients.id);
+
+-- name: TouchOAuthClient :exec
+UPDATE oauth_clients SET last_used_at = ? WHERE id = ?;
+
+-- name: InsertOAuthGrant :exec
+INSERT INTO oauth_grants (id, client_id, user_id, client_name, redirect_uri, resource, scope, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: GetOAuthGrant :one
+SELECT * FROM oauth_grants WHERE id = ?;
+
+-- name: ListActiveOAuthGrantsOfClientUser :many
+SELECT * FROM oauth_grants
+WHERE client_id = ? AND user_id = ? AND revoked_at IS NULL
+ORDER BY created_at, id;
+
+-- name: ListActiveOAuthGrantsOfUser :many
+SELECT * FROM oauth_grants WHERE user_id = ? AND revoked_at IS NULL;
+
+-- name: ListOAuthGrantsOfUser :many
+SELECT oauth_grants.*, users.email AS owner_email
+FROM oauth_grants JOIN users ON users.id = oauth_grants.user_id
+WHERE oauth_grants.user_id = ? AND oauth_grants.revoked_at IS NULL
+ORDER BY oauth_grants.created_at DESC, oauth_grants.id;
+
+-- name: ListAllOAuthGrants :many
+SELECT oauth_grants.*, users.email AS owner_email
+FROM oauth_grants JOIN users ON users.id = oauth_grants.user_id
+WHERE oauth_grants.revoked_at IS NULL
+ORDER BY oauth_grants.created_at DESC, oauth_grants.id;
+
+-- name: TouchOAuthGrant :exec
+UPDATE oauth_grants SET last_used_at = ? WHERE id = ?;
+
+-- name: RevokeOAuthGrant :execrows
+UPDATE oauth_grants SET revoked_at = ?, revoked_reason = ? WHERE id = ? AND revoked_at IS NULL;
+
+-- name: DeleteOAuthGrantTokens :exec
+DELETE FROM oauth_tokens WHERE grant_id = ?;
+
+-- name: DeleteOAuthGrantCodes :exec
+DELETE FROM oauth_codes WHERE grant_id = ?;
+
+-- name: InsertOAuthCode :exec
+INSERT INTO oauth_codes (code_hash, grant_id, redirect_uri, code_challenge, created_at, expires_at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+-- name: GetOAuthCode :one
+SELECT * FROM oauth_codes WHERE code_hash = ?;
+
+-- name: UseOAuthCode :execrows
+UPDATE oauth_codes SET used_at = ? WHERE code_hash = ? AND used_at IS NULL;
+
+-- name: InsertOAuthToken :exec
+INSERT INTO oauth_tokens (token_hash, grant_id, kind, created_at, expires_at)
+VALUES (?, ?, ?, ?, ?);
+
+-- name: GetOAuthToken :one
+SELECT * FROM oauth_tokens WHERE token_hash = ?;
+
+-- name: UseOAuthToken :execrows
+UPDATE oauth_tokens SET used_at = ? WHERE token_hash = ? AND used_at IS NULL;
+
+-- name: DeleteExpiredOAuthTokens :exec
+DELETE FROM oauth_tokens WHERE expires_at <= ?;
+
+-- name: DeleteExpiredOAuthCodes :exec
+DELETE FROM oauth_codes WHERE expires_at <= ?;

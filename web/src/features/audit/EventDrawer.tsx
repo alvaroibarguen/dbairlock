@@ -91,7 +91,12 @@ function EventDetail({ event: e }: { event: AuditEvent }) {
             e.actor.via
           )}
         </Row>
-        {e.actor.api_token_id && <Row label="API token">{e.actor.api_token_id}</Row>}
+        {e.actor.api_token_id && (
+          <Row label="Agent credential">
+            {e.actor.api_token_id}
+            <span className="block text-xs text-mute">API token or connected app</span>
+          </Row>
+        )}
         {e.actor.ip && <Row label="IP address">{e.actor.ip}</Row>}
         <Row label="Subject">
           {e.subject_type || e.subject_id ? (

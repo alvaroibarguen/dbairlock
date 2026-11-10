@@ -3,12 +3,14 @@ package app
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -22,6 +24,7 @@ import (
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"golang.org/x/oauth2"
 
 	"github.com/alvaroibarguen/dbairlock/internal/identity/oidctest"
 	"github.com/alvaroibarguen/dbairlock/internal/platform/clock"
@@ -85,7 +88,8 @@ func calledFrom(fragment string) bool {
 type leakCollector struct {
 	mu      sync.Mutex
 	outputs []string // "where: text"
-	// pats are API token values; allowed only in their creation response.
+	// pats are API token values, and OAuth codes, access tokens and refresh
+	// tokens; each is allowed only in the one response that issues it.
 	pats []string
 }
 
@@ -291,6 +295,119 @@ func TestSecretLeak(t *testing.T) {
 		lc.add("MCP with a bad credential", string(raw)+fmt.Sprint(resp.Header))
 	}
 
+	// OAuth sign-in of an MCP client: codes, access tokens and refresh
+	// tokens appear only in the response that issues them, never in another
+	// response, a log line, the audit log or the database files.
+	ok(do(ada, "PATCH", "/api/settings", map[string]any{"values": map[string]any{"instance.public_url": srv.URL}}), 200)
+	noRedirect := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	oauthCall := func(method, path, contentType, body string) (int, string, http.Header) {
+		t.Helper()
+		req, _ := http.NewRequestWithContext(context.Background(), method, srv.URL+path, strings.NewReader(body))
+		if contentType != "" {
+			req.Header.Set("Content-Type", contentType)
+		}
+		resp, err := noRedirect.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		return resp.StatusCode, string(raw), resp.Header
+	}
+	issued := func(where, body string, secrets ...string) {
+		lc.mu.Lock()
+		lc.pats = append(lc.pats, secrets...)
+		lc.mu.Unlock()
+		for _, s := range secrets {
+			if s == "" || !strings.Contains(body, s) {
+				t.Fatalf("%s did not issue %q", where, s)
+			}
+			body = strings.ReplaceAll(body, s, "[issued here]")
+		}
+		lc.add(where, body)
+	}
+	field := func(body, name string) string {
+		var m map[string]any
+		_ = json.Unmarshal([]byte(body), &m)
+		s, _ := m[name].(string)
+		return s
+	}
+	for _, p := range []string{"/.well-known/oauth-protected-resource/mcp", "/.well-known/oauth-authorization-server"} {
+		code, body, h := oauthCall("GET", p, "", "")
+		lc.add("GET "+p+" ("+strconv.Itoa(code)+")", body+fmt.Sprint(h))
+	}
+	status, body, _ := oauthCall("POST", "/oauth/register", "application/json",
+		`{"client_name":"leak client","redirect_uris":["http://127.0.0.1:5555/cb"],"token_endpoint_auth_method":"none"}`)
+	lc.add("POST /oauth/register", body)
+	clientID := field(body, "client_id")
+	if status != http.StatusCreated || clientID == "" {
+		t.Fatalf("register: %d %s", status, body)
+	}
+	verifier := strings.Repeat("v", 50)
+	authorize := func() string {
+		q := url.Values{
+			"response_type": {"code"}, "client_id": {clientID}, "redirect_uri": {"http://127.0.0.1:5555/cb"},
+			"code_challenge": {oauth2.S256ChallengeFromVerifier(verifier)}, "code_challenge_method": {"S256"},
+			"state": {"s"}, "resource": {srv.URL + "/mcp"},
+		}
+		_, body, h := oauthCall("GET", "/oauth/authorize?"+q.Encode(), "", "")
+		lc.add("GET /oauth/authorize", body+fmt.Sprint(h))
+		loc, _ := url.Parse(h.Get("Location"))
+		id := loc.Query().Get("request")
+		do(ada, "GET", "/api/oauth/requests/"+id, nil)
+		r := ok(ada.do("POST", "/api/oauth/requests/"+id+"/decision", map[string]any{"approve": true}), 200)
+		to, _ := url.Parse(r.body["redirect_url"].(string))
+		code := to.Query().Get("code")
+		issued("POST /api/oauth/requests/{id}/decision", r.Body.String()+fmt.Sprint(r.Header()), code)
+		return code
+	}
+	code := authorize()
+	exchange := url.Values{
+		"grant_type": {"authorization_code"}, "client_id": {clientID}, "code": {code},
+		"redirect_uri": {"http://127.0.0.1:5555/cb"}, "code_verifier": {verifier},
+	}.Encode()
+	status, body, h := oauthCall("POST", "/oauth/token", "application/x-www-form-urlencoded", exchange)
+	access, refresh := field(body, "access_token"), field(body, "refresh_token")
+	if status != http.StatusOK {
+		t.Fatalf("token: %d %s", status, body)
+	}
+	issued("POST /oauth/token (code)", body+fmt.Sprint(h), access, refresh)
+	om := connectMCP(t, srv.URL, access)
+	for _, name := range []string{"list_connections", "list_changes"} {
+		lc.add("MCP over OAuth "+name, om.call(name, nil).text)
+	}
+	lc.add("MCP over OAuth bodies", om.rec.all())
+	status, body, _ = oauthCall("POST", "/oauth/token", "application/x-www-form-urlencoded",
+		url.Values{"grant_type": {"refresh_token"}, "client_id": {clientID}, "refresh_token": {refresh}}.Encode())
+	if status != http.StatusOK {
+		t.Fatalf("refresh: %d %s", status, body)
+	}
+	access2, refresh2 := field(body, "access_token"), field(body, "refresh_token")
+	issued("POST /oauth/token (refresh)", body, access2, refresh2)
+	for _, form := range []string{
+		exchange, // the code again: refused, and the grant is revoked
+		url.Values{"grant_type": {"refresh_token"}, "client_id": {clientID}, "refresh_token": {refresh}}.Encode(),
+		"grant_type=authorization_code&client_id=" + clientID + "&code=" + code + "&code_verifier=wrong",
+	} {
+		code, body, h := oauthCall("POST", "/oauth/token", "application/x-www-form-urlencoded", form)
+		lc.add("POST /oauth/token refused ("+strconv.Itoa(code)+")", body+fmt.Sprint(h))
+	}
+	code2 := authorize()
+	_, body, _ = oauthCall("POST", "/oauth/token", "application/x-www-form-urlencoded",
+		strings.Replace(exchange, url.QueryEscape(code), url.QueryEscape(code2), 1))
+	access3, refresh3 := field(body, "access_token"), field(body, "refresh_token")
+	issued("POST /oauth/token (second code)", body, access3, refresh3)
+	for _, tok := range []string{access3, refresh3, "dbal_oat_" + strings.Repeat("B", 43)} {
+		code, body, h := oauthCall("POST", "/oauth/revoke", "application/x-www-form-urlencoded", "token="+url.QueryEscape(tok))
+		lc.add("POST /oauth/revoke ("+strconv.Itoa(code)+")", body+fmt.Sprint(h))
+	}
+	for _, tok := range []string{access, access3, "dbal_oat_" + strings.Repeat("C", 43)} {
+		r := rawMCP(t, srv.URL, "Bearer "+tok, initializeBody)
+		lc.add("MCP with a used OAuth token", fmt.Sprint(r.Header))
+	}
+	do(ada, "GET", "/api/oauth/grants?all=true", nil)
+	do(bob, "GET", "/api/oauth/grants", nil)
+
 	// Forced panics while a secret is being handled.
 	for _, p := range []struct {
 		fragment, method, path string
@@ -325,7 +442,7 @@ func TestSecretLeak(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ids := map[string]string{"users": bobID, "connections": connID, "changes": changeRef, "tokens": "x"}
+	ids := map[string]string{"users": bobID, "connections": connID, "changes": changeRef, "tokens": "x", "oauth": "x"}
 	param := regexp.MustCompile(`\{[^}]+\}`)
 	walked := 0
 	for path, item := range doc.Paths.Map() {

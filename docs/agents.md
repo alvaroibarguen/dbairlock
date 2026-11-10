@@ -7,30 +7,70 @@ approves the change in the dashboard before dbairlock runs it.
 
 ## Setup
 
-1. In the dashboard, open **Settings → API tokens** and create a token. It
-   starts with `dbal_pat_`, acts as you, and is shown only once. The
-   **Connect an agent** page in the dashboard shows the commands below with
-   your instance's address filled in.
-2. Add dbairlock to the agent as an MCP server that sends the token as a
-   bearer token.
-3. Ask the agent for a data change. It gives you a review link; someone
-   other than you approves it there, and dbairlock runs it.
+An agent signs in one of two ways:
 
-### Claude Code
+- **OAuth (recommended for people).** The agent opens your browser on
+  dbairlock, you allow it on a consent page, and it receives its own
+  short-lived tokens. Nothing is copied or pasted. Needs
+  `instance.public_url` set and **Settings → Sign-in → Agents can sign in
+  with OAuth** on (the default).
+- **API token (for CI, scripts and clients without OAuth).** Create one in
+  **Settings → API tokens**. It starts with `dbal_pat_`, acts as you, and is
+  shown only once.
+
+The **Connect an agent** page in the dashboard shows the commands below
+with your instance's address filled in. Then ask the agent for a data
+change: it gives you a review link, someone other than you approves it
+there, and dbairlock runs it.
+
+### Claude Code with OAuth
+
+```sh
+claude mcp add --transport http dbairlock https://dbairlock.example.com/mcp
+```
+
+Then, in Claude Code, run `/mcp`, choose **dbairlock** and
+**Authenticate** (or run `claude mcp login dbairlock` in a shell). Claude
+Code finds dbairlock's authorization server from the `401` the MCP endpoint
+answers, registers itself, and opens your browser. Sign in with Google if
+you are not signed in already, check the consent page (the client's name,
+the `localhost` address on your computer the sign-in is sent to, and what
+it can and cannot do) and choose **Allow**. Claude Code refreshes its token
+by itself from then on.
+
+- Add `--scope user` to make it available in every project. `--scope
+  project` is safe here too: `.mcp.json` then holds only the URL, and each
+  person signs in for themselves.
+- Over SSH, `claude mcp login dbairlock --no-browser` prints the URL to open
+  on your own machine; paste the redirect URL back when it asks.
+- `claude mcp logout dbairlock` revokes the sign-in at dbairlock (Claude
+  Code calls the revocation endpoint). You can also disconnect it in
+  **Settings → API tokens → Connected apps**.
+- Headless runs (`claude -p`) cannot sign in; sign in once interactively
+  first, or use an API token.
+
+### Claude Code with an API token
 
 ```sh
 claude mcp add --transport http dbairlock https://dbairlock.example.com/mcp \
   --header "Authorization: Bearer dbal_pat_YOUR_TOKEN"
 ```
 
-Add `--scope user` to make it available in every project, or
-`--scope project` to write it to the project's `.mcp.json` (do not commit a
-token: use a per-person scope instead).
+Do not commit a token: use `--scope local` or `--scope user`. When an
+`Authorization` header is configured, Claude Code uses it and never starts
+OAuth.
 
 ### Other clients
 
-Any MCP client that supports streamable HTTP with custom headers works.
-The usual JSON configuration:
+Clients that implement MCP authorization (OAuth 2.1 with protected
+resource metadata, dynamic client registration and PKCE) need only the URL:
+
+```json
+{ "mcpServers": { "dbairlock": { "type": "http", "url": "https://dbairlock.example.com/mcp" } } }
+```
+
+Any other client that supports streamable HTTP with custom headers works
+with an API token. The usual JSON configuration:
 
 ```json
 {
@@ -46,7 +86,40 @@ The usual JSON configuration:
 
 The server is stateless: every request stands alone and carries the token.
 A request without a valid token gets `401` with a `WWW-Authenticate: Bearer`
-header; while the instance is still in setup mode, `/mcp` answers `503`.
+header that names the protected resource metadata while OAuth is available;
+while the instance is still in setup mode, `/mcp` answers `503`.
+
+### How OAuth works here
+
+dbairlock is the authorization server for its own MCP endpoint, following
+the MCP authorization specification (revision 2026-07-28):
+
+| What | Where |
+|---|---|
+| Protected resource metadata (RFC 9728) | `/.well-known/oauth-protected-resource/mcp` (also at the root, describing the instance) |
+| Authorization server metadata (RFC 8414) | `/.well-known/oauth-authorization-server` |
+| Dynamic client registration (RFC 7591) | `POST /oauth/register` |
+| Authorization (consent page at `/oauth/consent`) | `GET /oauth/authorize` |
+| Token: `authorization_code` with PKCE `S256`, `refresh_token` | `POST /oauth/token` |
+| Revocation (RFC 7009) | `POST /oauth/revoke` |
+
+- Clients are public (no secret) and register **loopback redirect URIs
+  only**: `http://127.0.0.1`, `http://localhost` or `http://[::1]` with a
+  plain path; any port is accepted at authorization time (RFC 8252), the
+  host and path must match exactly.
+- The token is bound to the MCP endpoint (`resource`, RFC 8707). The
+  issuer, the endpoints and the resource all come from
+  `instance.public_url`; changing it invalidates every OAuth token.
+- Authorization responses carry `iss` (RFC 9207).
+- One scope, `mcp`: exactly the tools below. `offline_access` is accepted;
+  a refresh token is always issued.
+- Codes live 60 seconds and work once; access tokens live an hour;
+  refresh tokens rotate on every use and expire after 30 days unused.
+  Presenting a used refresh token, or a code a second time, revokes the
+  whole sign-in.
+- Client ID metadata documents are not supported (see
+  [security.md](security.md#oauth-sign-in-for-agents) for why); clients fall
+  back to dynamic registration, as Claude Code does.
 
 ## What agents can do
 
@@ -63,6 +136,10 @@ header; while the instance is still in setup mode, `/mcp` answers `503`.
 | `cancel_change` | Cancels one of the token owner's changes that has not run. |
 
 ## What agents cannot do
+
+An agent signed in with OAuth is treated exactly like an API token of the
+person who allowed it: the same tools, restrictions, rate limits and audit
+events. "The token's owner" below means that person too.
 
 - **Approve or run anything.** There is no tool for it, and the changes
   module refuses reviews made with a token. Changes an agent submits are
@@ -92,11 +169,18 @@ limits and the audit log.
   20 `submit_change` calls per hour. Admins change these in
   **Settings → Limits**. A call over a limit returns an error saying when to
   try again.
+  An agent signed in with OAuth has the same limits, counted per sign-in
+  (connected app).
 - Every tool call is recorded in the audit log as `mcp.tool_called`, with the
-  tool, the connection, the change number and the statement count. The SQL is
-  recorded with the change itself.
-- Removing a person, or revoking a token, stops its agents on their next
-  request.
+  tool, the agent's name, the connection, the change number and the
+  statement count; its subject is the API token or, for OAuth, the
+  connected app (`oauth_grant`). The SQL is recorded with the change itself.
+  OAuth registrations, approvals, token issues and revocations are recorded
+  as `oauth.*` events. A change shows the agent as "AGENT Claude Code via
+  ada@example.com".
+- Removing a person, revoking a token or disconnecting an app stops its
+  agents on their next request. Turning off **Agents can sign in with
+  OAuth** refuses every OAuth token at once; API tokens keep working.
 
 ## Suggested agent instructions
 

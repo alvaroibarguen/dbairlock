@@ -1293,6 +1293,53 @@ type NotificationTestResult struct {
 	StatusCode *int   `json:"status_code,omitempty"`
 }
 
+// OAuthDecision defines model for OAuthDecision.
+type OAuthDecision struct {
+	Approve bool `json:"approve"`
+}
+
+// OAuthDecisionResult defines model for OAuthDecisionResult.
+type OAuthDecisionResult struct {
+	// RedirectUrl Where to send the browser next. With approval it carries the single-use authorization code for the client.
+	RedirectUrl string `json:"redirect_url"`
+}
+
+// OAuthGrant defines model for OAuthGrant.
+type OAuthGrant struct {
+	ClientId string `json:"client_id"`
+
+	// ClientName The name the client registered itself with, as the person approved it.
+	ClientName  string     `json:"client_name"`
+	CreatedAt   time.Time  `json:"created_at"`
+	Id          string     `json:"id"`
+	LastUsedAt  *time.Time `json:"last_used_at,omitempty"`
+	OwnerEmail  string     `json:"owner_email"`
+	OwnerId     string     `json:"owner_id"`
+	RedirectUri string     `json:"redirect_uri"`
+}
+
+// OAuthGrantList defines model for OAuthGrantList.
+type OAuthGrantList struct {
+	Grants []OAuthGrant `json:"grants"`
+}
+
+// OAuthRequest defines model for OAuthRequest.
+type OAuthRequest struct {
+	ClientId string `json:"client_id"`
+
+	// ClientName The name the client registered itself with. Unverified; anyone can register any name.
+	ClientName         string    `json:"client_name"`
+	ClientRegisteredAt time.Time `json:"client_registered_at"`
+	ExpiresAt          time.Time `json:"expires_at"`
+	Id                 string    `json:"id"`
+
+	// RedirectHost Host and port of redirect_uri.
+	RedirectHost string `json:"redirect_host"`
+
+	// RedirectUri The loopback address on this computer the code is sent to.
+	RedirectUri string `json:"redirect_uri"`
+}
+
 // Permission An action the user may take (see identity.Can).
 type Permission string
 
@@ -1449,9 +1496,12 @@ type SettingValues struct {
 	LimitsMcpPreviewsPerHour int `json:"limits.mcp_previews_per_hour"`
 
 	// LimitsMcpSubmissionsPerHour MCP submit_change calls each API token may make per hour.
-	LimitsMcpSubmissionsPerHour int  `json:"limits.mcp_submissions_per_hour"`
-	LimitsStatementTimeoutMs    int  `json:"limits.statement_timeout_ms"`
-	NotifyEnabled               bool `json:"notify.enabled"`
+	LimitsMcpSubmissionsPerHour int `json:"limits.mcp_submissions_per_hour"`
+	LimitsStatementTimeoutMs    int `json:"limits.statement_timeout_ms"`
+
+	// McpOauthEnabled Whether MCP clients may sign in with OAuth (a browser login) instead of an API token. API tokens work either way. Needs instance.public_url.
+	McpOauthEnabled bool `json:"mcp.oauth_enabled"`
+	NotifyEnabled   bool `json:"notify.enabled"`
 
 	// NotifyEvents The events that are sent.
 	NotifyEvents []SettingValuesNotifyEvents `json:"notify.events"`
@@ -1499,9 +1549,12 @@ type SettingValuesPatch struct {
 	LimitsMcpPreviewsPerHour *int `json:"limits.mcp_previews_per_hour,omitempty"`
 
 	// LimitsMcpSubmissionsPerHour MCP submit_change calls each API token may make per hour.
-	LimitsMcpSubmissionsPerHour *int  `json:"limits.mcp_submissions_per_hour,omitempty"`
-	LimitsStatementTimeoutMs    *int  `json:"limits.statement_timeout_ms,omitempty"`
-	NotifyEnabled               *bool `json:"notify.enabled,omitempty"`
+	LimitsMcpSubmissionsPerHour *int `json:"limits.mcp_submissions_per_hour,omitempty"`
+	LimitsStatementTimeoutMs    *int `json:"limits.statement_timeout_ms,omitempty"`
+
+	// McpOauthEnabled Whether MCP clients may sign in with OAuth (a browser login) instead of an API token. API tokens work either way. Needs instance.public_url.
+	McpOauthEnabled *bool `json:"mcp.oauth_enabled,omitempty"`
+	NotifyEnabled   *bool `json:"notify.enabled,omitempty"`
 
 	// NotifyEvents The events that are sent.
 	NotifyEvents *[]SettingValuesPatchNotifyEvents `json:"notify.events,omitempty"`
@@ -1773,6 +1826,11 @@ type ListChangesParams struct {
 // ListChangesParamsView defines parameters for ListChanges.
 type ListChangesParamsView string
 
+// ListOAuthGrantsParams defines parameters for ListOAuthGrants.
+type ListOAuthGrantsParams struct {
+	All *bool `form:"all,omitempty" json:"all,omitempty"`
+}
+
 // ListTokensParams defines parameters for ListTokens.
 type ListTokensParams struct {
 	All *bool `form:"all,omitempty" json:"all,omitempty"`
@@ -1807,6 +1865,9 @@ type UpdateConnectionJSONRequestBody = ConnectionUpdate
 
 // DevLoginJSONRequestBody defines body for DevLogin for application/json ContentType.
 type DevLoginJSONRequestBody = DevLogin
+
+// DecideOAuthRequestJSONRequestBody defines body for DecideOAuthRequest for application/json ContentType.
+type DecideOAuthRequestJSONRequestBody = OAuthDecision
 
 // UpdateSettingsJSONRequestBody defines body for UpdateSettings for application/json ContentType.
 type UpdateSettingsJSONRequestBody = SettingsUpdate
@@ -1930,6 +1991,18 @@ type ServerInterface interface {
 	// SendTestNotification Send a test notification
 	// (POST /api/notifications/test)
 	SendTestNotification(w http.ResponseWriter, r *http.Request)
+	// ListOAuthGrants Connected apps
+	// (GET /api/oauth/grants)
+	ListOAuthGrants(w http.ResponseWriter, r *http.Request, params ListOAuthGrantsParams)
+	// RevokeOAuthGrant Disconnect an app
+	// (DELETE /api/oauth/grants/{id})
+	RevokeOAuthGrant(w http.ResponseWriter, r *http.Request, id ID)
+	// GetOAuthRequest A pending OAuth authorization request
+	// (GET /api/oauth/requests/{id})
+	GetOAuthRequest(w http.ResponseWriter, r *http.Request, id ID)
+	// DecideOAuthRequest Allow or deny an OAuth authorization request
+	// (POST /api/oauth/requests/{id}/decision)
+	DecideOAuthRequest(w http.ResponseWriter, r *http.Request, id ID)
 	// GetSettings Instance settings
 	// (GET /api/settings)
 	GetSettings(w http.ResponseWriter, r *http.Request)
@@ -2955,6 +3028,117 @@ func (siw *ServerInterfaceWrapper) SendTestNotification(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// ListOAuthGrants operation middleware
+func (siw *ServerInterfaceWrapper) ListOAuthGrants(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListOAuthGrantsParams
+
+	// ------------- Optional query parameter "all" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "all", r.URL.Query(), &params.All, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "all"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "all", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOAuthGrants(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeOAuthGrant operation middleware
+func (siw *ServerInterfaceWrapper) RevokeOAuthGrant(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeOAuthGrant(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOAuthRequest operation middleware
+func (siw *ServerInterfaceWrapper) GetOAuthRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOAuthRequest(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DecideOAuthRequest operation middleware
+func (siw *ServerInterfaceWrapper) DecideOAuthRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DecideOAuthRequest(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetSettings operation middleware
 func (siw *ServerInterfaceWrapper) GetSettings(w http.ResponseWriter, r *http.Request) {
 
@@ -3416,6 +3600,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/tokens", wrapper.ListTokens)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/tokens", wrapper.CreateToken)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/tokens/{id}", wrapper.RevokeToken)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/oauth/requests/{id}", wrapper.GetOAuthRequest)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/oauth/requests/{id}/decision", wrapper.DecideOAuthRequest)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/oauth/grants", wrapper.ListOAuthGrants)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/oauth/grants/{id}", wrapper.RevokeOAuthGrant)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/settings", wrapper.GetSettings)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/api/settings", wrapper.UpdateSettings)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/connectors", wrapper.ListConnectors)
@@ -5115,6 +5303,157 @@ func (response SendTestNotificationdefaultJSONResponse) VisitSendTestNotificatio
 	return err
 }
 
+type ListOAuthGrantsRequestObject struct {
+	Params ListOAuthGrantsParams
+}
+
+type ListOAuthGrantsResponseObject interface {
+	VisitListOAuthGrantsResponse(w http.ResponseWriter) error
+}
+
+type ListOAuthGrants200JSONResponse OAuthGrantList
+
+func (response ListOAuthGrants200JSONResponse) VisitListOAuthGrantsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListOAuthGrantsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListOAuthGrantsdefaultJSONResponse) VisitListOAuthGrantsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeOAuthGrantRequestObject struct {
+	Id ID `json:"id"`
+}
+
+type RevokeOAuthGrantResponseObject interface {
+	VisitRevokeOAuthGrantResponse(w http.ResponseWriter) error
+}
+
+type RevokeOAuthGrant204Response struct {
+}
+
+func (response RevokeOAuthGrant204Response) VisitRevokeOAuthGrantResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RevokeOAuthGrantdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RevokeOAuthGrantdefaultJSONResponse) VisitRevokeOAuthGrantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOAuthRequestRequestObject struct {
+	Id ID `json:"id"`
+}
+
+type GetOAuthRequestResponseObject interface {
+	VisitGetOAuthRequestResponse(w http.ResponseWriter) error
+}
+
+type GetOAuthRequest200JSONResponse OAuthRequest
+
+func (response GetOAuthRequest200JSONResponse) VisitGetOAuthRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOAuthRequestdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetOAuthRequestdefaultJSONResponse) VisitGetOAuthRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DecideOAuthRequestRequestObject struct {
+	Id   ID `json:"id"`
+	Body *DecideOAuthRequestJSONRequestBody
+}
+
+type DecideOAuthRequestResponseObject interface {
+	VisitDecideOAuthRequestResponse(w http.ResponseWriter) error
+}
+
+type DecideOAuthRequest200JSONResponse OAuthDecisionResult
+
+func (response DecideOAuthRequest200JSONResponse) VisitDecideOAuthRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DecideOAuthRequestdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response DecideOAuthRequestdefaultJSONResponse) VisitDecideOAuthRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetSettingsRequestObject struct {
 }
 
@@ -6010,6 +6349,18 @@ type StrictServerInterface interface {
 	// SendTestNotification Send a test notification
 	// (POST /api/notifications/test)
 	SendTestNotification(ctx context.Context, request SendTestNotificationRequestObject) (SendTestNotificationResponseObject, error)
+	// ListOAuthGrants Connected apps
+	// (GET /api/oauth/grants)
+	ListOAuthGrants(ctx context.Context, request ListOAuthGrantsRequestObject) (ListOAuthGrantsResponseObject, error)
+	// RevokeOAuthGrant Disconnect an app
+	// (DELETE /api/oauth/grants/{id})
+	RevokeOAuthGrant(ctx context.Context, request RevokeOAuthGrantRequestObject) (RevokeOAuthGrantResponseObject, error)
+	// GetOAuthRequest A pending OAuth authorization request
+	// (GET /api/oauth/requests/{id})
+	GetOAuthRequest(ctx context.Context, request GetOAuthRequestRequestObject) (GetOAuthRequestResponseObject, error)
+	// DecideOAuthRequest Allow or deny an OAuth authorization request
+	// (POST /api/oauth/requests/{id}/decision)
+	DecideOAuthRequest(ctx context.Context, request DecideOAuthRequestRequestObject) (DecideOAuthRequestResponseObject, error)
 	// GetSettings Instance settings
 	// (GET /api/settings)
 	GetSettings(ctx context.Context, request GetSettingsRequestObject) (GetSettingsResponseObject, error)
@@ -7022,6 +7373,117 @@ func (sh *strictHandler) SendTestNotification(w http.ResponseWriter, r *http.Req
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SendTestNotificationResponseObject); ok {
 		if err := validResponse.VisitSendTestNotificationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListOAuthGrants operation middleware
+func (sh *strictHandler) ListOAuthGrants(w http.ResponseWriter, r *http.Request, params ListOAuthGrantsParams) {
+	var request ListOAuthGrantsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListOAuthGrants(ctx, request.(ListOAuthGrantsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListOAuthGrants")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListOAuthGrantsResponseObject); ok {
+		if err := validResponse.VisitListOAuthGrantsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RevokeOAuthGrant operation middleware
+func (sh *strictHandler) RevokeOAuthGrant(w http.ResponseWriter, r *http.Request, id ID) {
+	var request RevokeOAuthGrantRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RevokeOAuthGrant(ctx, request.(RevokeOAuthGrantRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RevokeOAuthGrant")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RevokeOAuthGrantResponseObject); ok {
+		if err := validResponse.VisitRevokeOAuthGrantResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetOAuthRequest operation middleware
+func (sh *strictHandler) GetOAuthRequest(w http.ResponseWriter, r *http.Request, id ID) {
+	var request GetOAuthRequestRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetOAuthRequest(ctx, request.(GetOAuthRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetOAuthRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetOAuthRequestResponseObject); ok {
+		if err := validResponse.VisitGetOAuthRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DecideOAuthRequest operation middleware
+func (sh *strictHandler) DecideOAuthRequest(w http.ResponseWriter, r *http.Request, id ID) {
+	var request DecideOAuthRequestRequestObject
+
+	request.Id = id
+
+	var body DecideOAuthRequestJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DecideOAuthRequest(ctx, request.(DecideOAuthRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DecideOAuthRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DecideOAuthRequestResponseObject); ok {
+		if err := validResponse.VisitDecideOAuthRequestResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

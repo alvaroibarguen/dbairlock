@@ -147,6 +147,7 @@ func build(ctx context.Context, opts Options, st *store.Store) (*App, error) {
 		Setup:      mods.setup,
 		Readiness:  st,
 		Identity:   mods.identity,
+		OAuth:      mods.identity,
 		Settings:   mods.settings,
 		Targets:    mods.targets,
 		Changes:    mods.changes,
@@ -177,6 +178,11 @@ func build(ctx context.Context, opts Options, st *store.Store) (*App, error) {
 	// Routes outside api/openapi.yaml declare their access level here.
 	mux.handle("/mcp", httpapi.Access{Level: httpapi.LevelToken},
 		httpx.BodyLimit(mcpserver.MaxBodyBytes)(mods.identity.RequireBearer(mcpSrv.Handler())))
+	// OAuth sign-in for MCP clients: discovery documents and the protocol
+	// endpoints of the authorization server (identity/oauth.go).
+	for _, rt := range api.OAuthRoutes() {
+		mux.handle(rt.Pattern, rt.Access, httpx.BodyLimit(httpapi.MaxOAuthBodyBytes)(rt.Handler))
+	}
 	// The dashboard's static files; every piece of data comes from the API.
 	mux.handle("/", httpapi.Access{Level: httpapi.LevelPublic}, httpx.SPA(opts.WebUI))
 	set := mods.settings

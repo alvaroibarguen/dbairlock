@@ -194,6 +194,7 @@ Postgres and MySQL containers.
 | Cross-origin mutating requests rejected | `TestCrossSitePostIsRejected`, `app/secrets_test.go` `TestCrossOriginPatchIsRejected` |
 | ID tokens verified (signature, audience, `email_verified`, `hd`) | `TestSignInChecks` |
 | API tokens shown once, hash stored | `TestAPITokens`; `TestSecretLeak` |
+| OAuth: loopback redirects only, PKCE S256, single-use codes bound to client, redirect URI and resource, rotating refresh tokens with reuse detection, revocation, the off switch, user removal | `identity/oauthcheck_test.go` (`TestLoopbackRedirectURIs`, `TestRedirectMatching`, `TestPKCE`, `TestResourceIndicators`); `app/oauth_test.go` (`TestOAuthEndToEnd` with the go-sdk's OAuth client, `TestOAuthDiscovery`, `TestOAuthRegistration`, `TestOAuthAuthorization`, `TestOAuthCodes`, `TestOAuthResourceServer`); `TestMCP/an_agent_signed_in_with_OAuth_acts_like_an_API_token`; `TestSecretLeak`; `web/e2e/oauth.spec.ts` |
 | SQL, titles and reasons rendered as plain text | `web/src/app/audit.test.tsx` (payload as plain text); see the web security section for the full check |
 
 ### Fixed by this audit
@@ -226,13 +227,104 @@ Postgres and MySQL containers.
   session ends after the idle length (`auth.session_hours`, default 12) and
   at most after 30 days.
 - API tokens (`dbal_pat_...`) are shown once; only their hash is stored.
-  Removing a user ends their sessions, revokes their tokens and cancels their
-  open changes; approvals they gave stop counting.
+  Removing a user ends their sessions, revokes their tokens and OAuth
+  connected apps, and cancels their open changes; approvals they gave stop
+  counting.
 - The setup code and recovery codes are one-time, short-lived and rate
   limited. Setup ends at the first admin's sign-in, for good; afterwards only
   `dbairlock recover`, run on the host, reopens the sign-in settings.
 - SQL, titles, reasons and comments are rendered as plain text everywhere;
   agent-written content is never interpreted as HTML or markdown.
+
+## OAuth sign-in for agents
+
+MCP clients can sign in with a browser instead of a pasted API token
+([agents.md](agents.md#how-oauth-works-here)). dbairlock is the
+authorization server of its own `/mcp` endpoint and nothing else; the
+person authenticates with their existing Google sign-in session. An access
+token gives exactly what an API token of that person gives (the MCP tools:
+no approvals, no row data, own changes only) and nothing more.
+
+**Properties.**
+
+- Codes (`dbal_oac_`), access tokens (`dbal_oat_`) and refresh tokens
+  (`dbal_ort_`) carry 256 random bits and are stored as SHA-256 hashes only,
+  like API tokens. They appear in exactly one response each (the
+  redirect URL the consent page sends the browser to, and the token
+  response) and never in logs, audit payloads or other responses
+  (`TestSecretLeak`).
+- PKCE `S256` is required (`plain` is refused); a code is bound to the
+  client, the redirect URI, the challenge, the person and the resource,
+  lives 60 seconds and works once. A second redemption revokes everything
+  issued from it.
+- Access tokens live one hour and are bound to the MCP endpoint (RFC 8707):
+  the token endpoint and the resource server both refuse another resource,
+  and a change of `instance.public_url` invalidates every token.
+- Refresh tokens rotate on every use; a used one presented again revokes
+  the grant (both the thief's and the client's tokens die). One left unused
+  for 30 days expires.
+- Fail closed: with `mcp.oauth_enabled` off or no public URL, the metadata
+  documents answer 404, the protocol endpoints refuse, and every OAuth
+  access token is rejected. API tokens are unaffected.
+- Every state change is audited in its transaction: `oauth.client_registered`,
+  `oauth.clients_pruned`, `oauth.grant_approved`, `oauth.token_issued`,
+  `oauth.grant_revoked` (with the reason: revoked in the dashboard, by the
+  client, superseded by a new approval, refresh-token or code reuse, user
+  removed). Using an access token is not audited (like API tokens), but every
+  tool call is, as `mcp.tool_called` with the agent's name.
+
+**Threats and what limits them.**
+
+- **Abuse of dynamic client registration.** Registration is open by design
+  (RFC 7591), so anyone who can reach the instance can register clients.
+  Registration grants nothing: a client acts only after a signed-in person
+  approves it. It is rate limited per address (10, then one a minute);
+  at most 200 never-approved clients may exist at once, and those older
+  than a day are deleted. Names are limited to 100 characters without
+  control characters; logos and URIs a client sends are ignored, never
+  shown.
+- **Consent phishing.** Someone sends a person a link to the authorization
+  endpoint for a client named like a trusted one. The consent page marks
+  the name **Unverified**, shows the exact host and port the sign-in goes
+  to, says what the agent can and cannot do, and tells the person to allow
+  only a sign-in they just started. Because every redirect URI is a
+  loopback address, an approval delivers the code to a program on the
+  person's own computer, not to the attacker; the attacker would also need
+  the PKCE verifier. The decision is a same-origin `POST` behind
+  cross-origin protection, so another site cannot approve on the person's
+  behalf, and the page cannot be framed (`frame-ancestors 'none'`).
+- **Loopback redirect.** Only `http://127.0.0.1`, `http://localhost` and
+  `http://[::1]` are accepted, with plain paths: no user info, query,
+  fragment, percent-encoding, dot segments or look-alike hosts
+  (`localhost.evil.com`, `127.0.0.1.nip.io`, integer and hex forms). The
+  host and path must match the registration exactly; only the port may
+  vary (RFC 8252). Errors about an untrusted client or redirect URI are
+  shown on the consent page and never redirected. The residual risk is
+  another program on the same computer listening on the port first; it
+  still lacks the PKCE verifier of the real client.
+- **Token theft.** A stolen access token works for at most an hour, only at
+  `/mcp`, and only as the person's agent; a stolen refresh token is
+  detected the first time both parties use it. People see and disconnect
+  their apps in **Settings → API tokens → Connected apps**; admins see and
+  disconnect everyone's. Removing a person revokes all their apps.
+- **Brute force and floods.** Authorization requests (20, then one every 3
+  seconds) and token and revocation requests (60, then one a second) are
+  rate limited per address; bad bearer tokens on `/mcp` share the API
+  token back-off.
+
+**Not supported, on purpose.**
+
+- *Client ID metadata documents.* The 2026-07-28 MCP specification prefers
+  them to dynamic registration. Supporting them means fetching any HTTPS URL
+  a caller names, from inside the private network dbairlock runs in (a
+  server-side request forgery surface), and many such networks have no
+  internet egress, where a client that prefers them would fail. They add no
+  protection for loopback redirect URIs (the specification says so). Not
+  advertising them makes clients, Claude Code among them, use dynamic
+  registration.
+- *Confidential clients, other grant types, browser-based clients.* Only
+  public native clients with loopback redirects; no CORS on the protocol
+  endpoints.
 
 ## Audit log
 
@@ -420,8 +512,12 @@ Every route declares who may call it:
   otherwise) or `user` with an optional required action (`database.manage`,
   `settings.manage`, `user.manage`, `audit.read`, `change.submit`).
 - Routes outside the OpenAPI contract, where `internal/app/app.go`
-  registers them: `/mcp` (`token`: an API token, never a session cookie)
-  and `/` (the dashboard's static files; all data comes from the API).
+  registers them: `/mcp` (`token`: an API token or OAuth access token,
+  never a session cookie), the OAuth discovery documents and protocol
+  endpoints (`/.well-known/oauth-*`, `/oauth/register`, `/oauth/authorize`,
+  `/oauth/token`, `/oauth/revoke`: `public`, each authenticating what it
+  needs) and `/` (the dashboard's static files; all data comes from the
+  API).
 
 The REST middleware enforces the declaration before any handler runs, and
 refuses (403) an operation that has none. Handlers authorize again against
@@ -454,7 +550,10 @@ All limits are per client address (the forwarded address only from
 | Setup code | 5 per minute, then after 5 failures a lock-out doubling from 30 s to 15 min | `TestSetupEndToEnd` |
 | Recovery code | the same limiter as the setup code | `TestRecoveryCodeIsRateLimited` |
 | Bad API tokens on `/mcp` (added in phase 11) | 10 free failures, then a lock-out doubling from 1 s to 5 min; a valid token resets it | `TestBadAPITokensAreRateLimited` |
-| MCP tool calls, per token | `limits.mcp_calls_per_minute`, plus `limits.mcp_previews_per_hour` and `limits.mcp_submissions_per_hour` | `TestMCP/rate_limits`, `TestLimits` |
+| MCP tool calls, per token or connected app | `limits.mcp_calls_per_minute`, plus `limits.mcp_previews_per_hour` and `limits.mcp_submissions_per_hour` | `TestMCP/rate_limits`, `TestLimits` |
+| OAuth client registration | 10, then one a minute; at most 200 unapproved clients | `TestOAuthRegistration` |
+| OAuth authorization requests | 20, then one every 3 s | `TestOAuthAuthorization` |
+| OAuth token and revocation requests | 60, then one a second | `TestOAuthCodes` |
 | Preview refresh, per change | one every 10 s | `TestChangeReview` |
 
 API tokens carry 256 random bits, so the token limit is about bounding
