@@ -72,4 +72,9 @@ const (
 	ConnectionUpdated  Action = "connection.updated"
 	ConnectionArchived Action = "connection.archived"
 	ConnectionTested   Action = "connection.tested"
+
+	// MCPToolCalled records every MCP tool call (subject "api_token"): the
+	// tool and a summary of its arguments (connection, change number,
+	// statement count), never the SQL.
+	MCPToolCalled Action = "mcp.tool_called"
 )

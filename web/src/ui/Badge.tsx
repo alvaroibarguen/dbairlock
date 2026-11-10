@@ -92,7 +92,10 @@ export interface AgentBadgeProps {
  */
 export function AgentBadge({ agent, owner, className }: AgentBadgeProps) {
   return (
-    <span className={cn(tagBase, 'border-seam bg-raise pl-1 text-dim', className)}>
+    <span
+      className={cn(tagBase, 'border-seam bg-raise pl-1 text-dim', className)}
+      title={`Submitted by an agent using ${owner}'s API token "${agent}"`}
+    >
       <span className="rounded-[3px] bg-violet/8 px-1.5 font-mono text-2xs font-medium tracking-[0.04em] text-violet">
         AGENT
       </span>

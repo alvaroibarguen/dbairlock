@@ -22,11 +22,13 @@ const (
 )
 
 // mayActFor reports whether p may act on row as its author or as an admin.
+// An agent acts only on its token owner's own changes, even when the owner
+// is an admin.
 func mayActFor(p identity.Principal, row changesdb.ChangeRequest) bool {
 	if row.AuthorID == p.UserID && identity.Can(p, identity.ActionChangeSubmit, connectionResource(row.ConnectionID)) == nil {
 		return true
 	}
-	return identity.Can(p, identity.ActionChangeAdminister, connectionResource(row.ConnectionID)) == nil
+	return !isAgent(p) && identity.Can(p, identity.ActionChangeAdminister, connectionResource(row.ConnectionID)) == nil
 }
 
 // Cancel cancels a draft, a change in review or an approved change. The
@@ -38,6 +40,9 @@ func (s *Service) Cancel(ctx context.Context, p identity.Principal, ref, reason 
 	}
 	if p.UserID == "" {
 		return Change{}, identity.ErrUnauthenticated
+	}
+	if err := s.canRead(p, row); err != nil {
+		return Change{}, err // an agent cannot tell another person's change exists
 	}
 	if !mayActFor(p, row) {
 		return Change{}, identity.ErrForbidden

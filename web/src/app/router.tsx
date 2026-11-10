@@ -17,6 +17,8 @@ const connections = () =>
   import('@/features/connections/ConnectionsPage').then((m) => ({ Component: m.ConnectionsPage }))
 const settings = () =>
   import('@/features/settings/SettingsPage').then((m) => ({ Component: m.SettingsPage }))
+const agents = () =>
+  import('@/features/agents/ConnectAgentPage').then((m) => ({ Component: m.ConnectAgentPage }))
 
 export const routes: RouteObject[] = [
   { path: '/setup', Component: SetupPage, errorElement: <RouteError /> },
@@ -36,6 +38,7 @@ export const routes: RouteObject[] = [
       { path: 'connections', lazy: connections },
       { path: 'connections/new', lazy: connections },
       { path: 'connections/:id', lazy: connections },
+      { path: 'agents', lazy: agents },
       { path: 'settings', lazy: settings },
       { path: 'settings/:section', lazy: settings },
       { path: '*', Component: NotFoundPage },

@@ -1407,6 +1407,9 @@ components:
         - policy.preview_max_age_minutes
         - limits.statement_timeout_ms
         - limits.lock_timeout_ms
+        - limits.mcp_calls_per_minute
+        - limits.mcp_previews_per_hour
+        - limits.mcp_submissions_per_hour
         - notify.enabled
       additionalProperties: false
       properties: &settingValueProperties
@@ -1473,6 +1476,21 @@ components:
           type: integer
           minimum: 100
           maximum: 60000
+        limits.mcp_calls_per_minute:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          description: MCP tool calls each API token may make per minute.
+        limits.mcp_previews_per_hour:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          description: MCP preview_change calls (dry runs on the target) each API token may make per hour.
+        limits.mcp_submissions_per_hour:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          description: MCP submit_change calls each API token may make per hour.
         notify.enabled:
           type: boolean
     SettingValuesPatch:

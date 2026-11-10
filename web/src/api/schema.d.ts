@@ -1069,6 +1069,12 @@ export interface components {
             "policy.preview_max_age_minutes": number;
             "limits.statement_timeout_ms": number;
             "limits.lock_timeout_ms": number;
+            /** @description MCP tool calls each API token may make per minute. */
+            "limits.mcp_calls_per_minute": number;
+            /** @description MCP preview_change calls (dry runs on the target) each API token may make per hour. */
+            "limits.mcp_previews_per_hour": number;
+            /** @description MCP submit_change calls each API token may make per hour. */
+            "limits.mcp_submissions_per_hour": number;
             "notify.enabled": boolean;
         };
         /** @description The settings to change; omitted settings are unchanged. */
@@ -1093,6 +1099,12 @@ export interface components {
             "policy.preview_max_age_minutes"?: number;
             "limits.statement_timeout_ms"?: number;
             "limits.lock_timeout_ms"?: number;
+            /** @description MCP tool calls each API token may make per minute. */
+            "limits.mcp_calls_per_minute"?: number;
+            /** @description MCP preview_change calls (dry runs on the target) each API token may make per hour. */
+            "limits.mcp_previews_per_hour"?: number;
+            /** @description MCP submit_change calls each API token may make per hour. */
+            "limits.mcp_submissions_per_hour"?: number;
             "notify.enabled"?: boolean;
         };
         /** @description One input of a connection form, declared by the connector. */

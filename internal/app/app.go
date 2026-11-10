@@ -23,6 +23,7 @@ import (
 	"github.com/alvaroibarguen/dbairlock/internal/executor"
 	"github.com/alvaroibarguen/dbairlock/internal/httpapi"
 	"github.com/alvaroibarguen/dbairlock/internal/identity"
+	"github.com/alvaroibarguen/dbairlock/internal/mcpserver"
 	"github.com/alvaroibarguen/dbairlock/internal/platform/clock"
 	"github.com/alvaroibarguen/dbairlock/internal/platform/httpx"
 	"github.com/alvaroibarguen/dbairlock/internal/platform/ids"
@@ -148,11 +149,18 @@ func build(ctx context.Context, opts Options, st *store.Store) (*App, error) {
 
 	mux := http.NewServeMux()
 	api.Register(mux)
-	// Agents authenticate with API tokens; the MCP server itself joins in a
-	// later phase.
-	mux.Handle("/mcp", mods.identity.RequireBearer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		httpx.WriteError(w, r, httpx.NewError(http.StatusNotFound, "not_found", "The MCP server is not available in this version."))
-	})))
+	// Agents reach the MCP server with API tokens (PLAN 4.1).
+	mcpSrv, err := mcpserver.New(mcpserver.Options{
+		Version: opts.Version, Changes: mods.changes, Targets: mods.targets, Settings: mods.settings,
+		Audit: func(ctx context.Context, ev audit.Event) error {
+			return st.Tx(ctx, func(tx *store.Tx) error { return recorder.Record(ctx, tx, ev) })
+		},
+		Clock: opts.Clock, Logger: opts.Logger,
+	})
+	if err != nil {
+		return nil, err
+	}
+	mux.Handle("/mcp", httpx.BodyLimit(mcpserver.MaxBodyBytes)(mods.identity.RequireBearer(mcpSrv.Handler())))
 	mux.Handle("/", httpx.SPA(opts.WebUI))
 	set := mods.settings
 

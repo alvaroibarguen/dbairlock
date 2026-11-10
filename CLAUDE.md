@@ -32,7 +32,7 @@ A self-hosted service where engineers and AI agents submit row-level SQL changes
 - [x] Phase 5: Connector contract and Postgres (sample targets: `docker compose -f deploy/dev/compose.yml up -d`; the e2e suite starts them and skips the connection tests without Docker)
 - [x] Phase 6: MySQL connector
 - [x] Phase 7: Changes and executor (integration tests in `internal/app/changes_test.go` start their own Postgres and MySQL containers; the e2e suite signs in a second user, bob, saved as `web/test-results/.auth/member.json`)
-- [ ] Phase 8: MCP server
+- [x] Phase 8: MCP server (`internal/mcpserver`, stateless streamable HTTP; the end-to-end test is `internal/app/mcp_test.go`, driving the go-sdk client against the real handler; agent setup is in `docs/agents.md`)
 - [ ] Phase 9: Audit page, notifications and remaining settings
 - [ ] Phase 10: Packaging
 - [ ] Phase 11: Hardening

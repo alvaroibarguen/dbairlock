@@ -1167,16 +1167,25 @@ type SettingValues struct {
 	InstancePublicUrl string `json:"instance.public_url"`
 
 	// InstanceTrustedProxies CIDR ranges of reverse proxies whose X-Forwarded-For header is trusted for the client address.
-	InstanceTrustedProxies         []string `json:"instance.trusted_proxies"`
-	LimitsLockTimeoutMs            int      `json:"limits.lock_timeout_ms"`
-	LimitsStatementTimeoutMs       int      `json:"limits.statement_timeout_ms"`
-	NotifyEnabled                  bool     `json:"notify.enabled"`
-	PolicyDefaultApprovalTtlHours  int      `json:"policy.default_approval_ttl_hours"`
-	PolicyDefaultAutoExecute       bool     `json:"policy.default_auto_execute"`
-	PolicyDefaultMaxRows           int      `json:"policy.default_max_rows"`
-	PolicyDefaultRequiredApprovals int      `json:"policy.default_required_approvals"`
-	PolicyDefaultStoreRowImages    bool     `json:"policy.default_store_row_images"`
-	PolicyPreviewMaxAgeMinutes     int      `json:"policy.preview_max_age_minutes"`
+	InstanceTrustedProxies []string `json:"instance.trusted_proxies"`
+	LimitsLockTimeoutMs    int      `json:"limits.lock_timeout_ms"`
+
+	// LimitsMcpCallsPerMinute MCP tool calls each API token may make per minute.
+	LimitsMcpCallsPerMinute int `json:"limits.mcp_calls_per_minute"`
+
+	// LimitsMcpPreviewsPerHour MCP preview_change calls (dry runs on the target) each API token may make per hour.
+	LimitsMcpPreviewsPerHour int `json:"limits.mcp_previews_per_hour"`
+
+	// LimitsMcpSubmissionsPerHour MCP submit_change calls each API token may make per hour.
+	LimitsMcpSubmissionsPerHour    int  `json:"limits.mcp_submissions_per_hour"`
+	LimitsStatementTimeoutMs       int  `json:"limits.statement_timeout_ms"`
+	NotifyEnabled                  bool `json:"notify.enabled"`
+	PolicyDefaultApprovalTtlHours  int  `json:"policy.default_approval_ttl_hours"`
+	PolicyDefaultAutoExecute       bool `json:"policy.default_auto_execute"`
+	PolicyDefaultMaxRows           int  `json:"policy.default_max_rows"`
+	PolicyDefaultRequiredApprovals int  `json:"policy.default_required_approvals"`
+	PolicyDefaultStoreRowImages    bool `json:"policy.default_store_row_images"`
+	PolicyPreviewMaxAgeMinutes     int  `json:"policy.preview_max_age_minutes"`
 }
 
 // SettingValuesPatch The settings to change; omitted settings are unchanged.
@@ -1196,16 +1205,25 @@ type SettingValuesPatch struct {
 	InstancePublicUrl *string `json:"instance.public_url,omitempty"`
 
 	// InstanceTrustedProxies CIDR ranges of reverse proxies whose X-Forwarded-For header is trusted for the client address.
-	InstanceTrustedProxies         *[]string `json:"instance.trusted_proxies,omitempty"`
-	LimitsLockTimeoutMs            *int      `json:"limits.lock_timeout_ms,omitempty"`
-	LimitsStatementTimeoutMs       *int      `json:"limits.statement_timeout_ms,omitempty"`
-	NotifyEnabled                  *bool     `json:"notify.enabled,omitempty"`
-	PolicyDefaultApprovalTtlHours  *int      `json:"policy.default_approval_ttl_hours,omitempty"`
-	PolicyDefaultAutoExecute       *bool     `json:"policy.default_auto_execute,omitempty"`
-	PolicyDefaultMaxRows           *int      `json:"policy.default_max_rows,omitempty"`
-	PolicyDefaultRequiredApprovals *int      `json:"policy.default_required_approvals,omitempty"`
-	PolicyDefaultStoreRowImages    *bool     `json:"policy.default_store_row_images,omitempty"`
-	PolicyPreviewMaxAgeMinutes     *int      `json:"policy.preview_max_age_minutes,omitempty"`
+	InstanceTrustedProxies *[]string `json:"instance.trusted_proxies,omitempty"`
+	LimitsLockTimeoutMs    *int      `json:"limits.lock_timeout_ms,omitempty"`
+
+	// LimitsMcpCallsPerMinute MCP tool calls each API token may make per minute.
+	LimitsMcpCallsPerMinute *int `json:"limits.mcp_calls_per_minute,omitempty"`
+
+	// LimitsMcpPreviewsPerHour MCP preview_change calls (dry runs on the target) each API token may make per hour.
+	LimitsMcpPreviewsPerHour *int `json:"limits.mcp_previews_per_hour,omitempty"`
+
+	// LimitsMcpSubmissionsPerHour MCP submit_change calls each API token may make per hour.
+	LimitsMcpSubmissionsPerHour    *int  `json:"limits.mcp_submissions_per_hour,omitempty"`
+	LimitsStatementTimeoutMs       *int  `json:"limits.statement_timeout_ms,omitempty"`
+	NotifyEnabled                  *bool `json:"notify.enabled,omitempty"`
+	PolicyDefaultApprovalTtlHours  *int  `json:"policy.default_approval_ttl_hours,omitempty"`
+	PolicyDefaultAutoExecute       *bool `json:"policy.default_auto_execute,omitempty"`
+	PolicyDefaultMaxRows           *int  `json:"policy.default_max_rows,omitempty"`
+	PolicyDefaultRequiredApprovals *int  `json:"policy.default_required_approvals,omitempty"`
+	PolicyDefaultStoreRowImages    *bool `json:"policy.default_store_row_images,omitempty"`
+	PolicyPreviewMaxAgeMinutes     *int  `json:"policy.preview_max_age_minutes,omitempty"`
 }
 
 // Settings defines model for Settings.

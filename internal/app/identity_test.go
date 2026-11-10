@@ -277,7 +277,8 @@ func TestRemovedUser(t *testing.T) {
 	}
 	agent := hs.browser("198.51.100.4")
 	agent.header.Set("Authorization", "Bearer "+secret)
-	if r := agent.do("GET", "/mcp", nil); r.Code != http.StatusNotFound {
+	// Past the token check, the stateless MCP server answers GET with 405.
+	if r := agent.do("GET", "/mcp", nil); r.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("token before removal: %d %s", r.Code, r.Body)
 	}
 
@@ -547,7 +548,8 @@ func TestAPITokens(t *testing.T) {
 		}
 	}
 	agent.header.Set("Authorization", "Bearer "+secret)
-	if r := agent.do("GET", "/mcp", nil); r.Code != http.StatusNotFound {
+	// Past the token check, the stateless MCP server answers GET with 405.
+	if r := agent.do("GET", "/mcp", nil); r.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("valid token: %d %s", r.Code, r.Body)
 	}
 	// A token is not a session: it cannot use the dashboard API.
@@ -576,7 +578,7 @@ func TestAPITokens(t *testing.T) {
 		t.Fatalf("someone else's token: %d", r.Code)
 	}
 	agent.header.Set("Authorization", "Bearer "+secret2)
-	if r := agent.do("GET", "/mcp", nil); r.Code != http.StatusNotFound {
+	if r := agent.do("GET", "/mcp", nil); r.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("second token: %d", r.Code)
 	}
 	if r := bob.do("DELETE", "/api/tokens/"+id2, nil); r.Code != http.StatusNoContent {

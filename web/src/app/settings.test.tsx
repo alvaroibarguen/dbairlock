@@ -25,6 +25,9 @@ const settings: Settings = {
     'policy.preview_max_age_minutes': 5,
     'limits.statement_timeout_ms': 10000,
     'limits.lock_timeout_ms': 3000,
+    'limits.mcp_calls_per_minute': 60,
+    'limits.mcp_previews_per_hour': 30,
+    'limits.mcp_submissions_per_hour': 20,
     'notify.enabled': false,
   },
   secrets: {

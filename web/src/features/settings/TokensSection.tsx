@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, TriangleAlert } from 'lucide-react'
 import { type ReactNode, type SyntheticEvent, useState } from 'react'
+import { Link } from 'react-router'
 import {
   type ApiToken,
   createToken,
@@ -11,6 +12,7 @@ import {
   type TokenExpiryDays,
   tokensQuery,
 } from '@/api'
+import { claudeCodeCommand, genericConfig } from '@/api/mcp'
 import {
   Button,
   CodeBlock,
@@ -42,23 +44,6 @@ const expiryOptions = [
   { value: '365', label: '1 year' },
   { value: 'never', label: 'No expiry' },
 ] as const satisfies readonly { value: Expiry; label: string }[]
-
-/** The ready-to-paste MCP client configuration for a new token. */
-function mcpConfig(created: TokenCreated): string {
-  return JSON.stringify(
-    {
-      mcpServers: {
-        dbairlock: {
-          type: 'http',
-          url: created.mcp_url,
-          headers: { Authorization: `Bearer ${created.secret}` },
-        },
-      },
-    },
-    null,
-    2,
-  )
-}
 
 /** Settings → API tokens: personal access tokens for agents. */
 export function TokensSection({ title, canSeeAll }: { title: ReactNode; canSeeAll: boolean }) {
@@ -261,10 +246,21 @@ function CreateTokenDialog() {
             <CodeBlock copyLabel="Copy token">{created.secret}</CodeBlock>
           </div>
           <div className="flex flex-col gap-1.5">
-            <span className="text-base font-medium text-text">MCP client configuration</span>
-            <CodeBlock copyLabel="Copy configuration">{mcpConfig(created)}</CodeBlock>
+            <span className="text-base font-medium text-text">Claude Code</span>
+            <CodeBlock copyLabel="Copy command">
+              {claudeCodeCommand(created.mcp_url, created.secret)}
+            </CodeBlock>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-base font-medium text-text">Other MCP clients</span>
+            <CodeBlock copyLabel="Copy configuration">
+              {genericConfig(created.mcp_url, created.secret)}
+            </CodeBlock>
             <span className="text-xs text-mute">
-              Paste it into your agent&apos;s MCP settings, for example .mcp.json.
+              Paste it into your agent&apos;s MCP settings, for example .mcp.json.{' '}
+              <Link className="text-blue underline" to="/agents">
+                More about connecting agents
+              </Link>
             </span>
           </div>
         </div>

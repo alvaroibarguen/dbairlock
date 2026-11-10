@@ -365,7 +365,8 @@ export const settingsGroups: SettingsGroup[] = [
   {
     id: 'limits',
     title: 'Limits',
-    description: 'Timeouts applied to every statement dbairlock runs on a target.',
+    description:
+      'Timeouts applied to every statement dbairlock runs on a target, and how often each agent token may call the MCP server.',
     fields: [
       {
         kind: 'int',
@@ -383,6 +384,33 @@ export const settingsGroups: SettingsGroup[] = [
         min: 100,
         max: 60000,
         unit: 'ms',
+      },
+      {
+        kind: 'int',
+        key: 'limits.mcp_calls_per_minute',
+        label: 'Agent calls',
+        help: 'MCP tool calls each API token may make.',
+        min: 1,
+        max: 1000,
+        unit: 'per minute',
+      },
+      {
+        kind: 'int',
+        key: 'limits.mcp_previews_per_hour',
+        label: 'Agent previews',
+        help: 'Each preview is a dry run on the target database, with brief row locks.',
+        min: 1,
+        max: 1000,
+        unit: 'per hour',
+      },
+      {
+        kind: 'int',
+        key: 'limits.mcp_submissions_per_hour',
+        label: 'Agent submissions',
+        help: 'Changes each API token may submit.',
+        min: 1,
+        max: 1000,
+        unit: 'per hour',
       },
     ],
   },

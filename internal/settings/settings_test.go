@@ -120,10 +120,11 @@ func TestRegistryIsConsistent(t *testing.T) {
 		Get(s, GoogleClientID) != "" || Get(s, DefaultRequiredApprovals) != 1 || Get(s, DefaultMaxRows) != 100 ||
 		Get(s, DefaultApprovalTTLHours) != 72 || !Get(s, DefaultStoreRowImages) || Get(s, PreviewMaxAgeMinutes) != 5 ||
 		Get(s, StatementTimeoutMS) != 10000 || Get(s, LockTimeoutMS) != 3000 ||
-		Get(s, OIDCIssuer) != GoogleIssuer || len(Get(s, TrustedProxies)) != 0 {
+		Get(s, OIDCIssuer) != GoogleIssuer || len(Get(s, TrustedProxies)) != 0 ||
+		Get(s, MCPCallsPerMinute) != 60 || Get(s, MCPPreviewsPerHour) != 30 || Get(s, MCPSubmissionsPerHour) != 20 {
 		t.Fatalf("defaults = %v", s.Values())
 	}
-	if len(s.Values()) != len(Definitions()) || len(seen) != 16 {
+	if len(s.Values()) != len(Definitions()) || len(seen) != 19 {
 		t.Fatalf("registry has %d settings", len(seen))
 	}
 	if pub := s.PublicValues(); !reflect.DeepEqual(pub, map[string]any{"instance.name": "dbairlock"}) {

@@ -58,6 +58,10 @@ var (
 
 	StatementTimeoutMS = Key[int]{"limits.statement_timeout_ms"}
 	LockTimeoutMS      = Key[int]{"limits.lock_timeout_ms"}
+	// Per API token limits of the MCP server.
+	MCPCallsPerMinute     = Key[int]{"limits.mcp_calls_per_minute"}
+	MCPPreviewsPerHour    = Key[int]{"limits.mcp_previews_per_hour"}
+	MCPSubmissionsPerHour = Key[int]{"limits.mcp_submissions_per_hour"}
 
 	NotifyEnabled = Key[bool]{"notify.enabled"}
 )
@@ -110,6 +114,11 @@ var definitions = []Definition{
 	{Key: StatementTimeoutMS.name, Type: TypeInt, Default: 10000, Min: 100, Max: 300000},
 	// 100 ms to 1 minute: waiting longer for a lock blocks production traffic.
 	{Key: LockTimeoutMS.name, Type: TypeInt, Default: 3000, Min: 100, Max: 60000},
+	// Every MCP tool call, then the dry runs (each a real transaction on the
+	// target) and the submissions among them.
+	{Key: MCPCallsPerMinute.name, Type: TypeInt, Default: 60, Min: 1, Max: 1000},
+	{Key: MCPPreviewsPerHour.name, Type: TypeInt, Default: 30, Min: 1, Max: 1000},
+	{Key: MCPSubmissionsPerHour.name, Type: TypeInt, Default: 20, Min: 1, Max: 1000},
 
 	{Key: NotifyEnabled.name, Type: TypeBool, Default: false},
 }
