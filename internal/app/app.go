@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"strings"
 	"time"
 
 	"github.com/alvaroibarguen/dbairlock/internal/audit"
@@ -74,6 +75,7 @@ type App struct {
 	executor *executor.Executor
 	notify   *notify.Service
 	handler  http.Handler
+	routes   []registeredRoute
 }
 
 // New builds an App.
@@ -157,7 +159,7 @@ func build(ctx context.Context, opts Options, st *store.Store) (*App, error) {
 		Notify: mods.notify,
 	})
 
-	mux := http.NewServeMux()
+	mux := &routeMux{mux: http.NewServeMux()}
 	api.Register(mux)
 	// Agents reach the MCP server with API tokens (PLAN 4.1).
 	mcpSrv, err := mcpserver.New(mcpserver.Options{
@@ -170,8 +172,11 @@ func build(ctx context.Context, opts Options, st *store.Store) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	mux.Handle("/mcp", httpx.BodyLimit(mcpserver.MaxBodyBytes)(mods.identity.RequireBearer(mcpSrv.Handler())))
-	mux.Handle("/", httpx.SPA(opts.WebUI))
+	// Routes outside api/openapi.yaml declare their access level here.
+	mux.handle("/mcp", httpapi.Access{Level: httpapi.LevelToken},
+		httpx.BodyLimit(mcpserver.MaxBodyBytes)(mods.identity.RequireBearer(mcpSrv.Handler())))
+	// The dashboard's static files; every piece of data comes from the API.
+	mux.handle("/", httpapi.Access{Level: httpapi.LevelPublic}, httpx.SPA(opts.WebUI))
 	set := mods.settings
 
 	// Mutating requests from another origin are rejected (PLAN 5.8).
@@ -183,12 +188,17 @@ func build(ctx context.Context, opts Options, st *store.Store) (*App, error) {
 	trusted := func() []netip.Prefix {
 		return settings.ParsePrefixes(settings.Get(set, settings.TrustedProxies))
 	}
+	https := func() bool {
+		return strings.HasPrefix(strings.ToLower(settings.Get(set, settings.InstancePublicURL)), "https://")
+	}
+	// Security headers come first so every response carries them, including
+	// panics, oversized bodies and cross-origin rejections (phase 11).
 	handler := httpx.Chain(csrf.Handler(httpapi.SetupGate(mods.setup)(mux)),
+		httpx.SecurityHeaders(https),
 		httpx.RequestID(opts.IDs, opts.Logger),
 		httpx.ClientIP(trusted),
 		httpx.AccessLog(opts.Clock),
 		httpx.Recover(),
-		httpx.SecurityHeaders(),
 		httpx.BodyLimit(httpx.DefaultMaxBodyBytes),
 	)
 
@@ -196,8 +206,37 @@ func build(ctx context.Context, opts Options, st *store.Store) (*App, error) {
 		opts: opts, log: opts.Logger, store: st, secrets: sec, settings: set,
 		identity: mods.identity, setup: mods.setup, targets: mods.targets,
 		changes: mods.changes, executor: mods.executor, notify: mods.notify, handler: handler,
+		routes: mux.routes,
 	}, nil
 }
+
+// routeMux is the root mux. It records every pattern registered on it, so
+// the route access test can walk the complete route list: the generated API
+// routes (whose access is declared in httpapi's operationAccess) and the
+// routes registered here with handle, which declare theirs in place.
+type routeMux struct {
+	mux    *http.ServeMux
+	routes []registeredRoute
+}
+
+type registeredRoute struct {
+	pattern string
+	access  *httpapi.Access // nil for generated API routes
+}
+
+// HandleFunc is how the generated API code registers its routes.
+func (m *routeMux) HandleFunc(pattern string, h func(http.ResponseWriter, *http.Request)) {
+	m.routes = append(m.routes, registeredRoute{pattern: pattern})
+	m.mux.HandleFunc(pattern, h)
+}
+
+// handle registers a route outside the OpenAPI contract with its access level.
+func (m *routeMux) handle(pattern string, access httpapi.Access, h http.Handler) {
+	m.routes = append(m.routes, registeredRoute{pattern: pattern, access: &access})
+	m.mux.Handle(pattern, h)
+}
+
+func (m *routeMux) ServeHTTP(w http.ResponseWriter, r *http.Request) { m.mux.ServeHTTP(w, r) }
 
 type modules struct {
 	settings *settings.Service

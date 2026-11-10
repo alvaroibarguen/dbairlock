@@ -72,6 +72,15 @@ const theme = EditorView.theme({
   '.cm-lint-marker-error': { content: 'none' },
 })
 
+/**
+ * CodeMirror keeps its styles in one <style> element, which the server's
+ * Content-Security-Policy allows only with the per-page nonce the server
+ * puts in <meta name="csp-nonce"> (internal/platform/httpx/spa.go). Absent
+ * under the Vite dev server and in unit tests, where no policy applies.
+ */
+const styleNonce = document.querySelector<HTMLMetaElement>('meta[name="csp-nonce"]')?.content ?? ''
+const cspNonce = styleNonce ? [EditorView.cspNonce.of(styleNonce)] : []
+
 /** The span a server error points at: from its offset to the end of the word. */
 function diagnosticRange(text: string, position: number): { from: number; to: number } {
   if (position < 0 || text.length === 0) return { from: 0, to: text.length }
@@ -99,6 +108,7 @@ export default function SqlEditorImpl({
   const describedBy = aria['aria-describedby']
   const extensions = useMemo(
     () => [
+      ...cspNonce,
       sql(sqlConfig(dialect, schema, defaultNamespace)),
       syntaxHighlighting(editorHighlight),
       theme,

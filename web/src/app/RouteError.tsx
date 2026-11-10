@@ -1,9 +1,10 @@
 import { isRouteErrorResponse, Link, useRouteError } from 'react-router'
 import { isApiError } from '@/api'
-import { Button, EmptyState, ErrorState, PageHeader, Pane } from '@/ui'
+import { Button, EmptyState, ErrorState, PageHeader, Pane, useDocumentTitle } from '@/ui'
 
 /** Rendered when a route throws while loading or rendering. */
 export function RouteError() {
+  useDocumentTitle('Error')
   const error = useRouteError()
   let message = 'An unexpected error occurred.'
   let code: string | undefined
@@ -27,6 +28,7 @@ export function RouteError() {
 }
 
 export function NotFoundPage() {
+  useDocumentTitle('Not found')
   return (
     <Pane className="h-full">
       <PageHeader as="h1" title="Not found" />

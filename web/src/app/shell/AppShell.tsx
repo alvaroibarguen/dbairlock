@@ -1,11 +1,35 @@
 import { useQuery } from '@tanstack/react-query'
 import { Menu as MenuIcon } from 'lucide-react'
-import { useState } from 'react'
-import { Link, Navigate, Outlet } from 'react-router'
+import { useEffect, useRef, useState } from 'react'
+import { Link, Navigate, Outlet, useLocation } from 'react-router'
 import { meQuery, metaQuery } from '@/api'
 import { Button, Drawer, Logo, MEDIUM, useMediaQuery } from '@/ui'
 import { NavList, Rail } from './Rail'
 import { UserMenu } from './UserMenu'
+
+/**
+ * After a navigation, if the focused element went away with the old screen
+ * (a queue row is re-rendered when a change opens; on a phone the detail
+ * replaces the queue), put focus back on the selected list row when the new
+ * screen shows one, or else on the content, instead of leaving keyboard
+ * users at the top of the document. Runs after the new screen has rendered.
+ */
+function useKeepFocus() {
+  const { pathname } = useLocation()
+  const first = useRef(true)
+  useEffect(() => {
+    if (first.current) {
+      first.current = false
+      return
+    }
+    const active = document.activeElement
+    if (active !== null && active !== document.body) return
+    const main = document.getElementById('main')
+    const row = main?.querySelector<HTMLElement>('[data-row][aria-current="page"]')
+    if (row) row.focus()
+    else main?.focus({ preventScroll: true })
+  }, [pathname])
+}
 
 const skipLink =
   'sr-only z-50 rounded-md bg-raise px-3 py-2 text-text focus:not-sr-only focus:fixed focus:top-2 focus:left-2'
@@ -17,6 +41,7 @@ const skipLink =
 export function AppShell() {
   const medium = useMediaQuery(MEDIUM, true)
   const [navOpen, setNavOpen] = useState(false)
+  useKeepFocus()
   const meta = useQuery(metaQuery())
   // Loading the signed-in user is the route guard: a 401 sends the browser
   // to sign in (see the API client), remembering where it was.

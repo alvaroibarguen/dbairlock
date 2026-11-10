@@ -12,6 +12,7 @@ import {
   Pane,
   PaneGrid,
   Skeleton,
+  useDocumentTitle,
   useMediaQuery,
 } from '@/ui'
 import { ConnectionDetail } from './ConnectionDetail'
@@ -28,6 +29,7 @@ export function ConnectionsPage() {
   const { id } = useParams()
   const isNew = useMatch('/connections/new') !== null
   const selected = isNew ? undefined : id
+  useDocumentTitle(isNew ? 'Add a connection' : 'Connections')
   const medium = useMediaQuery(MEDIUM, true)
   const navigate = useNavigate()
 
@@ -193,6 +195,7 @@ export function ConnectionsPage() {
   }
   return (
     <PaneGrid className={cn('min-h-0 flex-1 grid-cols-1')}>
+      {detail && <h1 className="sr-only">Connections</h1>}
       {detail ? detailPane : listPane}
     </PaneGrid>
   )

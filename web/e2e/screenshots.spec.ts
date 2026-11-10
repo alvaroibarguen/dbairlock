@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './csp.ts'
 import { MEMBER_STATE } from './state.ts'
 import { db, reachable, SAMPLE_POSTGRES } from './targets.ts'
 

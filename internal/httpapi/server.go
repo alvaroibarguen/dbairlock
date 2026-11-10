@@ -57,7 +57,7 @@ func New(deps Deps) *Server {
 }
 
 // Register mounts every API route on mux.
-func (s *Server) Register(mux *http.ServeMux) {
+func (s *Server) Register(mux gen.ServeMux) {
 	strict := gen.NewStrictHandlerWithOptions(s, []gen.StrictMiddlewareFunc{s.authenticate}, gen.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  requestError,
 		ResponseErrorHandlerFunc: responseError,

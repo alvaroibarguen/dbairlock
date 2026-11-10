@@ -1,4 +1,4 @@
-import { expect, type Page, test } from '@playwright/test'
+import { expect, type Page, test } from './csp.ts'
 import { reachable, SAMPLE_MYSQL, SAMPLE_POSTGRES } from './targets.ts'
 
 // These run signed in as the admin created by setup.spec.ts, against the

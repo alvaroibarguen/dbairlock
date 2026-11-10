@@ -26,9 +26,9 @@ Dark is the default theme; light is a full first-class theme. The system setting
 | `--seam` | `#30343b` | `#dfe2e7` | 1 px seams and borders |
 | `--text` | `#e6e8eb` | `#16181c` | primary text |
 | `--dim` | `#a3a9b2` | `#4b5260` | secondary text |
-| `--mute` | `#8a919b` | `#6b7280` | labels, metadata (must still pass 4.5:1 on panel) |
-| `--green` | `#7ee0a1` | `#17803d` | fresh, approved, executed, primary action, "after" values |
-| `--amber` | `#f2a65a` | `#b45309` | pending review, warnings |
+| `--mute` | `#9299a3` | `#646b77` | labels, metadata (must still pass 4.5:1 on panel, bg and raise) |
+| `--green` | `#7ee0a1` | `#147838` | fresh, approved, executed, primary action, "after" values |
+| `--amber` | `#f2a65a` | `#a94d08` | pending review, warnings |
 | `--red` | `#ff7b97` | `#c81e45` | destructive actions, failed, rejected, "before" values |
 | `--blue` | `#8ab4ff` | `#2457c5` | SQL keywords, links, info |
 | `--violet` | `#c3a6ff` | `#7a3fd1` | **agents only**: the AGENT badge and agent-authored markers; SQL functions |

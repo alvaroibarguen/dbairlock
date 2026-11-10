@@ -1,7 +1,9 @@
 package identity
 
 import (
+	"math"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/alvaroibarguen/dbairlock/internal/platform/httpx"
@@ -11,6 +13,10 @@ import (
 // which check failed.
 var errBearer = httpx.NewError(http.StatusUnauthorized, "unauthorized",
 	"A valid API token is required: send it as \"Authorization: Bearer dbal_pat_...\".")
+
+// errBearerLimited answers a client address that sent too many bad tokens.
+var errBearerLimited = httpx.NewError(http.StatusTooManyRequests, "rate_limited",
+	"Too many requests with an invalid API token. Wait a moment, then check the token.")
 
 // RequireBearer authenticates API-token requests (the /mcp endpoint). It
 // rejects a missing, unknown, revoked or expired token and a token whose
@@ -24,17 +30,25 @@ func (s *Service) RequireBearer(next http.Handler) http.Handler {
 			httpx.WriteError(w, r, errBearer)
 			return
 		}
+		ip := httpx.ClientIPFrom(r.Context())
+		if d := s.tokenBackoff.Wait(ip); d > 0 {
+			w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(d.Seconds()))))
+			httpx.WriteError(w, r, errBearerLimited)
+			return
+		}
 		p, err := s.AuthenticateToken(r.Context(), strings.TrimSpace(token))
 		if err != nil {
 			w.Header().Set("WWW-Authenticate", `Bearer realm="dbairlock", error="invalid_token"`)
 			if err == ErrUnauthenticated {
+				s.tokenBackoff.Fail(ip)
 				httpx.WriteError(w, r, errBearer)
 			} else {
 				httpx.WriteError(w, r, err)
 			}
 			return
 		}
-		ctx := WithPrincipal(r.Context(), p, httpx.ClientIPFrom(r.Context()))
+		s.tokenBackoff.Reset(ip)
+		ctx := WithPrincipal(r.Context(), p, ip)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

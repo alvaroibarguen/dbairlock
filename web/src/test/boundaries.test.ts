@@ -14,7 +14,9 @@ async function boundaryErrors(filePath: string, code: string): Promise<string[]>
     .map((m) => m.message)
 }
 
-describe('module boundaries', () => {
+// The first type-aware lint builds the TypeScript program, which takes
+// seconds on a loaded machine (make test runs the Go suite alongside).
+describe('module boundaries', { timeout: 60_000 }, () => {
   it('forbids ui/ from importing features/ or api/', async () => {
     const errors = await boundaryErrors(
       'src/ui/Button.tsx',

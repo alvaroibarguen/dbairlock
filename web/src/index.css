@@ -93,6 +93,15 @@
     background: color-mix(in oklab, var(--blue) 30%, transparent);
   }
 
+  /* Base UI's scrollbar-hiding rule, which it would otherwise insert as an
+     inline <style> that the Content-Security-Policy blocks (ui/StrictStyles). */
+  .base-ui-disable-scrollbar {
+    scrollbar-width: none;
+  }
+  .base-ui-disable-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
   code,
   kbd,
   samp,

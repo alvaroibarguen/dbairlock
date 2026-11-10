@@ -129,6 +129,7 @@ export function UsersSection({ title }: { title: ReactNode }) {
 function UserRow({ user, isSelf }: { user: User; isSelf: boolean }) {
   const queryClient = useQueryClient()
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [demoteOpen, setDemoteOpen] = useState(false)
   const done = async () => {
     await queryClient.invalidateQueries({ queryKey: queryKeys.users() })
     if (isSelf) await queryClient.invalidateQueries({ queryKey: queryKeys.me() })
@@ -136,6 +137,7 @@ function UserRow({ user, isSelf }: { user: User; isSelf: boolean }) {
   const role = useMutation({
     mutationFn: (next: Role) => setUserRole(user.id, next),
     onSuccess: async (u) => {
+      setDemoteOpen(false)
       await done()
       toast.success(`${u.email} is now ${u.role === 'admin' ? 'an admin' : 'a member'}.`)
     },
@@ -175,16 +177,44 @@ function UserRow({ user, isSelf }: { user: User; isSelf: boolean }) {
         {removed ? (
           <Badge>Removed</Badge>
         ) : (
-          <Select
-            aria-label={`Role of ${user.email}`}
-            className="h-7 w-32 min-w-0"
-            options={roleOptions}
-            value={user.role}
-            disabled={role.isPending}
-            onValueChange={(next) => {
-              if (next !== user.role) role.mutate(next)
-            }}
-          />
+          <>
+            <Select
+              aria-label={`Role of ${user.email}`}
+              className="h-7 w-32 min-w-0"
+              options={roleOptions}
+              value={user.role}
+              disabled={role.isPending}
+              onValueChange={(next) => {
+                if (next === user.role) return
+                // Taking admin rights away is confirmed first; granting them is not.
+                if (next === 'member') setDemoteOpen(true)
+                else role.mutate(next)
+              }}
+            />
+            <Dialog
+              open={demoteOpen}
+              onOpenChange={setDemoteOpen}
+              title={isSelf ? 'Make yourself a member?' : `Make ${user.email} a member?`}
+              description={
+                isSelf
+                  ? 'From now on you cannot change settings, users or connections, or act on other people’s changes. Only another admin can undo this.'
+                  : 'From now on they cannot change settings, users or connections, or act on other people’s changes.'
+              }
+              footer={
+                <>
+                  <DialogClose render={<Button>Keep as admin</Button>} />
+                  <Button
+                    variant="destructive"
+                    className="ml-auto"
+                    loading={role.isPending}
+                    onClick={() => role.mutate('member')}
+                  >
+                    Make member
+                  </Button>
+                </>
+              }
+            />
+          </>
         )}
       </Td>
       <Td>

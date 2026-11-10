@@ -170,9 +170,17 @@ func (r *runner) query(sql string, args ...string) (*pgconn.Result, error) {
 // setup pins the session for this transaction: the run label, the search
 // path (exactly the default schema; pg_catalog is still searched first
 // implicitly), timeouts, and the settings that make text output canonical.
+//
+// standard_conforming_strings is the one setting that changes how the
+// server tokenizes statement text: with it off, a backslash in '...' is an
+// escape, so 'x\' WHERE ... --' would be a string to the server but a
+// string followed by a WHERE clause to the validator's parser, which
+// always assumes it on. A database or role may default it to off, so it is
+// pinned on before any reviewed text runs.
 func (r *runner) setup(run connector.RunInfo) error {
 	ms := func(d time.Duration) string { return strconv.FormatInt(d.Milliseconds(), 10) }
 	_, err := r.query(`SELECT
+		pg_catalog.set_config('standard_conforming_strings', 'on', true),
 		pg_catalog.set_config('application_name', $1::text, true),
 		pg_catalog.set_config('search_path', $2::text, true),
 		pg_catalog.set_config('statement_timeout', $3::text, true),
@@ -363,6 +371,15 @@ func (r *runner) statement(i int, st connector.Statement, exp *connector.Expecta
 		}
 		if res.RowsAffected == 0 {
 			return res, connector.ErrNoRows
+		}
+		// The before image is selected with the WHERE text the validator
+		// extracted; the statement must change exactly those rows, or the
+		// preview would show other rows than the ones that change. (An
+		// execution needs no such check: its fingerprint and count are
+		// compared with this dry run's.)
+		if before != nil && res.RowsAffected != int64(len(before.Rows)) {
+			return res, fmt.Errorf("the statement changed %d rows but its WHERE clause matched %d, so the preview would not show what changes (a trigger or rule may be skipping or adding rows)",
+				res.RowsAffected, len(before.Rows))
 		}
 	}
 	if returning {

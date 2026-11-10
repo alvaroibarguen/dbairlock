@@ -59,9 +59,16 @@ func pairFrom(ctx context.Context) httpPair {
 // authenticate runs before every operation. It makes the request and
 // response available to handlers that set cookies, and, if the request
 // carries a valid session cookie, puts the principal and its audit actor in
-// the context. Handlers then authorize with requireUser or authorize.
-func (s *Server) authenticate(f gen.StrictHandlerFunc, _ string) gen.StrictHandlerFunc {
+// the context. It then enforces the operation's declared access level
+// (access.go), refusing operations that declare none; handlers authorize
+// again with requireUser or authorize, against the specific resource.
+func (s *Server) authenticate(f gen.StrictHandlerFunc, operationID string) gen.StrictHandlerFunc {
+	access, declared := OperationAccess(operationID)
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request, req any) (any, error) {
+		if !declared || access.Level == LevelToken {
+			logx.FromContext(ctx).ErrorContext(ctx, "operation has no declared access level", slog.String("operation", operationID))
+			return nil, identity.ErrForbidden
+		}
 		ctx = context.WithValue(ctx, httpKey{}, httpPair{w: w, r: r})
 		if s.deps.Identity != nil {
 			if token := s.readCookie(r, cookieSession); token != "" {
@@ -74,6 +81,15 @@ func (s *Server) authenticate(f gen.StrictHandlerFunc, _ string) gen.StrictHandl
 				default:
 					return nil, err
 				}
+			}
+		}
+		if access.Level == LevelUser {
+			p, err := requireUser(ctx)
+			if err == nil && access.Action != "" {
+				err = identity.Can(p, access.Action, identity.Instance)
+			}
+			if err != nil {
+				return nil, err
 			}
 		}
 		return f(ctx, w, r, req)

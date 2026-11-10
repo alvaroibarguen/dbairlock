@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { cn } from './cn'
 import type { SqlSegment } from './sqlHighlight'
+import { useScrollFocus } from './useScrollFocus'
 
 export interface SqlBlockProps {
   sql: string
@@ -27,9 +28,11 @@ export function SqlBlock({ sql, dialect, className, ...aria }: SqlBlockProps) {
     }
   }, [sql, dialect])
 
+  const scrollRef = useScrollFocus()
   const highlighted = lines?.sql === sql ? lines.lines : null
   return (
     <pre
+      ref={scrollRef}
       aria-label={aria['aria-label']}
       className={cn(
         'overflow-x-auto rounded-md border border-seam bg-bg px-4 py-3.5 font-mono text-base leading-[1.7] whitespace-pre text-text tabular',

@@ -43,8 +43,13 @@ function AvatarButton({
         className,
       )}
     >
-      <span className="grid size-7 place-items-center rounded-full bg-raise font-mono text-2xs font-medium text-dim">
-        {label ?? <UserRound aria-hidden="true" className="size-4" />}
+      {/* The initials are an avatar picture, drawn by CSS so they stay out of the button's name. */}
+      <span
+        aria-hidden="true"
+        data-initials={label}
+        className="grid size-7 place-items-center rounded-full bg-raise font-mono text-2xs font-medium text-dim before:content-[attr(data-initials)]"
+      >
+        {label === undefined && <UserRound className="size-4" />}
       </span>
     </button>
   )
@@ -63,7 +68,9 @@ export function UserMenu({ side = 'right' }: { side?: 'right' | 'bottom' }) {
     try {
       await (everywhere ? signOutEverywhere() : signOut())
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Sign-out failed.')
+      toast.error(
+        error instanceof Error ? error.message : 'You could not be signed out. Try again.',
+      )
       return
     }
     queryClient.clear()

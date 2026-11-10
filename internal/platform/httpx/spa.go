@@ -1,11 +1,16 @@
 package httpx
 
 import (
+	"bytes"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -14,6 +19,7 @@ import (
 const (
 	cacheImmutable = "public, max-age=31536000, immutable"
 	cacheNone      = "no-cache"
+	cacheIndex     = "no-store" // the page carries a per-response CSP nonce
 )
 
 // notBuiltPage is served when the embedded file system has no index.html,
@@ -119,17 +125,54 @@ func serveIndex(w http.ResponseWriter, r *http.Request, fsys fs.FS) {
 		return
 	}
 	defer func() { _ = f.Close() }()
-	info, err := f.Stat()
+	page, err := io.ReadAll(f)
 	if err != nil {
 		WriteError(w, r, err)
 		return
 	}
-	rs, ok := f.(io.ReadSeeker)
-	if !ok {
-		WriteError(w, r, errors.New("spa: index.html is not seekable"))
+	nonce, err := newNonce()
+	if err != nil {
+		WriteError(w, r, err)
 		return
 	}
-	w.Header().Set("Cache-Control", cacheNone)
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	http.ServeContent(w, r, "index.html", info.ModTime(), rs)
+	page = withStyleNonce(page, nonce)
+	// Each response carries its own nonce, so the page is never revalidated
+	// or stored: a cached copy would hold a nonce the new policy rejects.
+	h := w.Header()
+	h.Set("Content-Security-Policy", ContentSecurityPolicyWithStyleNonce(nonce))
+	h.Set("Cache-Control", cacheIndex)
+	h.Set("Content-Type", "text/html; charset=utf-8")
+	h.Set("Content-Length", strconv.Itoa(len(page)))
+	if r.Method == http.MethodHead {
+		return
+	}
+	_, _ = w.Write(page)
+}
+
+// cspNonceMeta is where the page finds its style nonce (web/src/ui/SqlEditorImpl.tsx).
+const cspNonceMeta = `<meta name="csp-nonce" content="%s">`
+
+// withStyleNonce inserts the nonce meta tag at the start of <head>. A page
+// without <head> is served unchanged (the editor's styles are then blocked,
+// which the end-to-end tests notice).
+func withStyleNonce(page []byte, nonce string) []byte {
+	const head = "<head>"
+	i := bytes.Index(page, []byte(head))
+	if i < 0 {
+		return page
+	}
+	i += len(head)
+	out := make([]byte, 0, len(page)+len(cspNonceMeta)+len(nonce))
+	out = append(out, page[:i]...)
+	out = fmt.Appendf(out, cspNonceMeta, nonce)
+	return append(out, page[i:]...)
+}
+
+// newNonce returns 128 random bits, base64 encoded.
+func newNonce() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("spa: nonce: %w", err)
+	}
+	return base64.StdEncoding.EncodeToString(b), nil
 }

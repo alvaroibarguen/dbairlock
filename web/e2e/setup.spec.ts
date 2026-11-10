@@ -1,4 +1,5 @@
-import { expect, type Page, test } from '@playwright/test'
+import { expectAccessible } from './axe.ts'
+import { expect, type Page, test } from './csp.ts'
 import { CLIENT_ID, CLIENT_SECRET } from './fake-oidc.ts'
 import { ADMIN_STATE, MEMBER_STATE } from './state.ts'
 
@@ -26,9 +27,17 @@ test('setup wizard, sign out, sign in, create and revoke a token', async ({ page
 
   // Step 1: a wrong code is refused, the code from the log is accepted.
   const codeInput = page.getByLabel('Setup code')
+  await expect(codeInput).toBeVisible()
+  await expectAccessible(page, 'setup code step')
+  // The wizard also fits a phone.
+  await page.setViewportSize({ width: 375, height: 812 })
+  await expectAccessible(page, 'setup code step at 375px')
+  expect(await page.evaluate('document.documentElement.scrollWidth')).toBeLessThanOrEqual(375)
+  await page.setViewportSize({ width: 1280, height: 800 })
   await codeInput.fill('AAAAA-BBBBB-CCCCC-DDDDD')
   await page.getByRole('button', { name: 'Continue' }).click()
   await expect(page.getByText('That code is not valid. Check it and try again.')).toBeVisible()
+  await expectAccessible(page, 'setup code step with an error')
   await codeInput.fill(code)
   await page.getByRole('button', { name: 'Continue' }).click()
 
@@ -47,6 +56,7 @@ test('setup wizard, sign out, sign in, create and revoke a token', async ({ page
   })
   expect(put.status()).toBe(200)
   await expect(page.getByText('http://127.0.0.1:18080/api/auth/google/callback')).toBeVisible()
+  await expectAccessible(page, 'setup sign-in settings step')
   await page.getByLabel('Google client ID').fill(CLIENT_ID)
   await page
     .getByRole('group', { name: 'Google client secret' })
@@ -57,6 +67,8 @@ test('setup wizard, sign out, sign in, create and revoke a token', async ({ page
   await page.getByRole('button', { name: 'Save and continue' }).click()
 
   // Step 3: a real sign-in makes the first admin and ends setup.
+  await expect(page.getByRole('button', { name: 'Sign in with Google to finish' })).toBeVisible()
+  await expectAccessible(page, 'setup finish step')
   await page.getByRole('button', { name: 'Sign in with Google to finish' }).click()
   await chooseAccount(page, 'ada@example.com')
   await expect(page).toHaveURL(/\/changes$/)

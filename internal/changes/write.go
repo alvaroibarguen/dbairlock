@@ -776,7 +776,10 @@ func (s *Service) RefreshPreview(ctx context.Context, p identity.Principal, ref 
 			return fmt.Errorf("changes: read change: %w", err)
 		}
 		if cur.LastRefreshAt.Valid {
-			if wait := time.UnixMilli(cur.LastRefreshAt.Int64).Add(RefreshInterval).Sub(now); wait > 0 {
+			// A wait longer than the interval means the clock went back;
+			// the refresh is allowed rather than blocked until it catches
+			// up (a stale preview could not be approved meanwhile).
+			if wait := time.UnixMilli(cur.LastRefreshAt.Int64).Add(RefreshInterval).Sub(now); wait > 0 && wait <= RefreshInterval {
 				return &TooSoonError{RetryAfter: wait}
 			}
 		}

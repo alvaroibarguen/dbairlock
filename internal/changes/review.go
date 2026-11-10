@@ -163,6 +163,11 @@ func checkApprovable(cur changesdb.ChangeRequest, in ReviewInput, now time.Time,
 		return ErrPreviewStale
 	case now.Sub(time.UnixMilli(cur.PreviewedAt.Int64)) > maxAge:
 		return ErrPreviewStale
+	case now.Before(time.UnixMilli(cur.PreviewedAt.Int64)):
+		// The clock went back since the preview: its age is unknown, so
+		// it is not fresh (otherwise it would count as fresh until the
+		// clock caught up, however old it really is).
+		return ErrPreviewStale
 	case in.SQLHash != cur.SqlHash:
 		return ErrSQLChanged
 	case in.PreviewHash != cur.PreviewHash:

@@ -12,7 +12,16 @@ import {
   signInErrorMessage,
   verifySetupCode,
 } from '@/api'
-import { Button, CenteredPanel, cn, FormField, Input, Skeleton } from '@/ui'
+import {
+  Button,
+  CenteredPanel,
+  cn,
+  ErrorState,
+  FormField,
+  Input,
+  Skeleton,
+  useDocumentTitle,
+} from '@/ui'
 import { SignInSettingsForm } from './SignInSettingsForm'
 
 type Step = 'code' | 'settings' | 'finish'
@@ -29,6 +38,7 @@ const setupSteps: { id: Step; label: string }[] = [
  * only the sign-in settings.
  */
 export function SetupPage() {
+  useDocumentTitle('Set up')
   const [params] = useSearchParams()
   const error = params.get('error')
   const meta = useQuery(metaQuery())
@@ -42,6 +52,19 @@ export function SetupPage() {
           <Skeleton className="w-3/4" />
           <Skeleton className="h-8 w-full" />
         </div>
+      </CenteredPanel>
+    )
+  }
+
+  if (meta.isError) {
+    return (
+      <CenteredPanel title="Set up dbairlock" wide>
+        <ErrorState
+          title="The server did not answer."
+          message={meta.error.message}
+          code={isApiError(meta.error) ? meta.error.code : undefined}
+          action={<Button onClick={() => void meta.refetch()}>Retry</Button>}
+        />
       </CenteredPanel>
     )
   }
@@ -70,7 +93,7 @@ export function SetupPage() {
     )
   }
 
-  if (meta.data?.setupState === 'ready') {
+  if (meta.data.setupState === 'ready') {
     return (
       <CenteredPanel title="Set up dbairlock">
         {banner}
@@ -147,7 +170,7 @@ function ErrorBanner({ code }: { code: string }) {
       <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
       <div className="flex flex-col gap-1">
         <span>{signInErrorMessage(code)}</span>
-        <span className="font-mono text-xs opacity-80">{code}</span>
+        <span className="font-mono text-xs">{code}</span>
       </div>
     </div>
   )
