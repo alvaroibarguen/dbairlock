@@ -1,7 +1,7 @@
 # Security notes
 
 This file records the security properties dbairlock relies on and their
-limits. Later phases add sections for secrets, sign-in and web security.
+limits. Later phases add sections for sign-in and web security.
 
 ## Audit log
 
@@ -36,6 +36,48 @@ verifies. Detecting that requires an anchor outside the database, such as
 keeping a copy of a recent `hash` value elsewhere (for example in your log
 pipeline or alongside backups) and checking that it is still present.
 
-Audit payloads never contain secret values (enforced in `audit.Record` from
-Phase 3), and string values longer than 8 KB are truncated with a
-`...[truncated: N bytes]` marker.
+Audit payloads never contain secret values: `audit.Record` walks every
+payload and rejects one that holds a `secrets.Value` anywhere. String values
+longer than 8 KB are truncated with a `...[truncated: N bytes]` marker.
+
+## Secrets
+
+Secrets are target database passwords, the Google client secret and the
+notification webhook URL. They are write-only: the dashboard and API can set,
+replace and clear a secret and see whether it is set, by whom and when, but
+nothing returns the value.
+
+- **Encryption.** AES-256-GCM under the master key, with a random 12-byte
+  nonce per write. The additional data binds each ciphertext to its row (id,
+  kind and owner), so a ciphertext copied to another row does not decrypt.
+- **No fingerprints.** Nothing derived from a value (length, hash, last
+  characters) is stored or shown; for short passwords any of these leaks
+  information.
+- **Three independent guards** keep values from leaking, so a leak needs three
+  separate mistakes:
+  1. *Interfaces.* `secrets.Writer` can set, clear and describe; only
+     `secrets.Opener` decrypts, and only the modules that use secrets
+     (targets, identity, notify) are given one. The linter and an
+     architecture test enforce this; transports never hold an Opener.
+  2. *Contract.* Secret fields are `writeOnly` in `api/openapi.yaml`, and a
+     contract test fails if one appears in any response schema. A test walks
+     every API route after setting secrets and checks that no response, log
+     line or audit payload contains a value.
+  3. *Type.* `secrets.Value` prints, marshals and logs as `[redacted]` in
+     every format. Its bytes come out only through `Reveal`, which a lint
+     rule allows only in targets, identity and notify.
+- **Memory.** Decrypted values are kept only for the duration of the call
+  that uses them and never cached. Go cannot guarantee that memory is zeroed,
+  so dbairlock makes no such claim.
+- **Auditing.** Setting, replacing and clearing a secret are audited with the
+  secret's reference, never the value. Decrypting a secret for use is not
+  audited (it happens on every connection); it is logged at debug level with
+  the reference only.
+- **The master key** protects every secret. Anyone holding both `master.key`
+  and the database can decrypt them, so keep their backups apart. See
+  [operations.md](operations.md#master-key) for start-up checks and rotation.
+
+## Cross-site requests
+
+Mutating API requests from another origin are rejected with
+`http.CrossOriginProtection` (403, code `cross_origin`).

@@ -22,11 +22,21 @@ type Readiness interface {
 	Ready(ctx context.Context) error
 }
 
+// Access authorizes a request. Until the identity module arrives (Phase 4)
+// the composition root supplies a stub.
+type Access interface {
+	// RequireAdmin returns a context carrying the admin's audit.Actor, or an
+	// *httpx.Error (unauthorized or forbidden).
+	RequireAdmin(ctx context.Context) (context.Context, error)
+}
+
 // Deps are the modules the REST API calls into.
 type Deps struct {
 	Version   string
 	Setup     SetupStatus
 	Readiness Readiness
+	Access    Access
+	Settings  Settings
 }
 
 // Server implements gen.StrictServerInterface.

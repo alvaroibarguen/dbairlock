@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"regexp"
 
 	"github.com/alvaroibarguen/dbairlock/internal/audit/auditdb"
@@ -145,13 +146,83 @@ func preparePayload(p any) (string, error) {
 	return string(out), nil
 }
 
-// checkPayload enforces payload hygiene before anything is serialized.
-//
-// TODO(phase-3): reject a payload that contains a secrets.Value anywhere
-// (walk structs, maps, slices and pointers with reflect). audit may not import
-// internal/secrets (depguard rule 5), so detect it through an interface that
-// secrets.Value implements, e.g. a marker method declared here, and return an
-// error naming the field. Add a test that a nested secrets.Value is rejected.
-func checkPayload(any) error {
+// SecretMarker is implemented by types that hold a secret value and so must
+// never appear in an audit payload. secrets.Value implements it; audit cannot
+// import internal/secrets (depguard rule 5), so the marker lives here.
+type SecretMarker interface {
+	SecretMarker()
+}
+
+// ErrSecretInPayload means an event payload contained a secret value.
+var ErrSecretInPayload = errors.New("audit: payload contains a secret value")
+
+var secretMarkerType = reflect.TypeFor[SecretMarker]()
+
+// maxPayloadDepth bounds the payload walk. Payloads are small, flat records;
+// anything deeper is a mistake.
+const maxPayloadDepth = 32
+
+// checkPayload enforces payload hygiene before anything is serialized: it
+// walks the payload (structs including unexported fields, maps, slices,
+// arrays, pointers and interfaces) and rejects it if any value anywhere is a
+// secret, naming the offending path.
+func checkPayload(p any) error {
+	if p == nil {
+		return nil
+	}
+	return walkPayload(reflect.ValueOf(p), "payload", 0, map[uintptr]bool{})
+}
+
+func walkPayload(v reflect.Value, path string, depth int, seen map[uintptr]bool) error {
+	if !v.IsValid() {
+		return nil
+	}
+	if depth > maxPayloadDepth {
+		return fmt.Errorf("audit: payload is nested deeper than %d levels at %s", maxPayloadDepth, path)
+	}
+	t := v.Type()
+	if t.Implements(secretMarkerType) || reflect.PointerTo(t).Implements(secretMarkerType) {
+		return fmt.Errorf("%w at %s", ErrSecretInPayload, path)
+	}
+	switch v.Kind() {
+	case reflect.Pointer:
+		if v.IsNil() || seen[v.Pointer()] {
+			return nil
+		}
+		seen[v.Pointer()] = true
+		return walkPayload(v.Elem(), path, depth+1, seen)
+	case reflect.Interface:
+		if v.IsNil() {
+			return nil
+		}
+		return walkPayload(v.Elem(), path, depth+1, seen)
+	case reflect.Struct:
+		for i := range v.NumField() {
+			if err := walkPayload(v.Field(i), path+"."+t.Field(i).Name, depth+1, seen); err != nil {
+				return err
+			}
+		}
+	case reflect.Map:
+		iter := v.MapRange()
+		for iter.Next() {
+			key := fmt.Sprint(iter.Key())
+			if err := walkPayload(iter.Key(), path+"["+key+"](key)", depth+1, seen); err != nil {
+				return err
+			}
+			if err := walkPayload(iter.Value(), path+"["+key+"]", depth+1, seen); err != nil {
+				return err
+			}
+		}
+	case reflect.Slice, reflect.Array:
+		if t.Elem().Kind() == reflect.Uint8 {
+			return nil // bytes cannot hold a marker type
+		}
+		for i := range v.Len() {
+			if err := walkPayload(v.Index(i), fmt.Sprintf("%s[%d]", path, i), depth+1, seen); err != nil {
+				return err
+			}
+		}
+	default:
+	}
 	return nil
 }

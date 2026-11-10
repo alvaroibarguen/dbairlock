@@ -64,6 +64,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Instance settings
+         * @description Every registered setting with its current value, plus the status of
+         *     the settings-related secrets. Secret values are never returned. Admin
+         *     only.
+         */
+        get: operations["getSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change settings
+         * @description Applies every change in the body, or none of them. A setting that is
+         *     omitted is unchanged. For a secret: omitted means unchanged, a string
+         *     replaces it, and `null` clears it. An invalid value fails the whole
+         *     request with 422 and one entry per invalid field. Admin only.
+         */
+        patch: operations["updateSettings"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -80,6 +109,91 @@ export interface components {
             code: string;
             /** @description Human-readable message, safe to show to the user. */
             message: string;
+            /** @description Present on validation errors (`validation_failed`), one entry per invalid field. */
+            fields?: components["schemas"]["FieldError"][];
+        };
+        FieldError: {
+            /** @description The invalid field, for example `auth.session_hours`. */
+            field: string;
+            /** @description Why it is invalid, safe to show to the user. */
+            message: string;
+        };
+        /**
+         * @description Whether a secret is set, and by whom and when. Responses carry this
+         *     instead of a secret; nothing derived from the value (no length, hash
+         *     or preview) is ever included.
+         */
+        SecretStatus: {
+            is_set: boolean;
+            /** @description Who last set the secret. Present when `is_set` is true. */
+            set_by?: string;
+            /**
+             * Format: date-time
+             * @description When the secret was last set. Present when `is_set` is true.
+             */
+            set_at?: string;
+        };
+        Settings: {
+            values: components["schemas"]["SettingValues"];
+            secrets: components["schemas"]["SettingsSecretStatus"];
+        };
+        SettingsUpdate: {
+            values?: components["schemas"]["SettingValuesPatch"];
+            secrets?: components["schemas"]["SettingsSecretsPatch"];
+        };
+        SettingsSecretStatus: {
+            "auth.google.client_secret": components["schemas"]["SecretStatus"];
+            "notify.webhook_url": components["schemas"]["SecretStatus"];
+        };
+        /**
+         * @description Secret updates: omit a field to leave it unchanged, send a string to
+         *     replace it, or send `null` to clear it.
+         */
+        SettingsSecretsPatch: {
+            /** @description The Google OAuth client secret. */
+            "auth.google.client_secret"?: string | null;
+            /** @description The webhook URL notifications are posted to. A secret because chat webhook URLs embed a credential. */
+            "notify.webhook_url"?: string | null;
+        };
+        /** @description Every registered setting. Bounds mirror the registry in internal/settings (a contract test keeps them equal). */
+        SettingValues: {
+            /** @description Shown in the dashboard and on the sign-in page. */
+            "instance.name": string;
+            /** @description The URL people use to reach dbairlock; empty until setup captures it. */
+            "instance.public_url": string;
+            "auth.google.client_id": string;
+            /** @description Google Workspace domains whose accounts may sign in. */
+            "auth.allowed_domains": string[];
+            "auth.session_hours": number;
+            "policy.default_required_approvals": number;
+            "policy.default_max_rows": number;
+            "policy.default_approval_ttl_hours": number;
+            "policy.default_store_row_images": boolean;
+            "policy.default_auto_execute": boolean;
+            "policy.preview_max_age_minutes": number;
+            "limits.statement_timeout_ms": number;
+            "limits.lock_timeout_ms": number;
+            "notify.enabled": boolean;
+        };
+        /** @description The settings to change; omitted settings are unchanged. */
+        SettingValuesPatch: {
+            /** @description Shown in the dashboard and on the sign-in page. */
+            "instance.name"?: string;
+            /** @description The URL people use to reach dbairlock; empty until setup captures it. */
+            "instance.public_url"?: string;
+            "auth.google.client_id"?: string;
+            /** @description Google Workspace domains whose accounts may sign in. */
+            "auth.allowed_domains"?: string[];
+            "auth.session_hours"?: number;
+            "policy.default_required_approvals"?: number;
+            "policy.default_max_rows"?: number;
+            "policy.default_approval_ttl_hours"?: number;
+            "policy.default_store_row_images"?: boolean;
+            "policy.default_auto_execute"?: boolean;
+            "policy.preview_max_age_minutes"?: number;
+            "limits.statement_timeout_ms"?: number;
+            "limits.lock_timeout_ms"?: number;
+            "notify.enabled"?: boolean;
         };
         Health: {
             /** @enum {string} */
@@ -177,6 +291,53 @@ export interface operations {
                     "application/json": components["schemas"]["Meta"];
                 };
             };
+            default: components["responses"]["Error"];
+        };
+    };
+    getSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Settings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description The settings after the update. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Settings"];
+                };
+            };
+            422: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

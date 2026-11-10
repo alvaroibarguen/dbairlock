@@ -10,7 +10,7 @@ Re-verified on 2026-11-09 with `go list -m -f '{{.Version}}' <module>@latest`, `
 | Node | 26.13.0 LTS | Node 26 no longer ships corepack |
 | pnpm | 12.18.0 | Installed with `npm install -g pnpm@latest` into the per-user Node prefix |
 | gcc | 13.3.0 | Needed by `pg_query_go` (cgo) |
-| Docker | Docker Desktop, WSL integration | Required from Phase 5 |
+| Docker | 29.7.2 (Docker Desktop, WSL integration), Compose v5.5.1 | Required from Phase 5 |
 
 ## Go tools (`tool` directive in `go.mod`, run with `go tool <name>`)
 
@@ -38,6 +38,9 @@ Re-verified on 2026-11-09 with `go list -m -f '{{.Version}}' <module>@latest`, `
 | `golang.org/x/time` | v0.16.0 |
 | `github.com/google/uuid` | v1.6.0 |
 | `github.com/testcontainers/testcontainers-go` | v0.45.0 |
+| `github.com/oapi-codegen/runtime` (used by the generated server) | v1.8.0 |
+| `github.com/oapi-codegen/nullable` (omitted vs `null` in PATCH bodies) | v1.2.0 |
+| `github.com/getkin/kin-openapi` (contract tests read `api/openapi.yaml`) | v0.153.0 |
 
 ## npm packages
 

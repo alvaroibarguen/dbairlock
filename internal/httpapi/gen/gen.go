@@ -11,6 +11,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
+
+	"github.com/oapi-codegen/nullable"
+	"github.com/oapi-codegen/runtime"
 )
 
 // Defines values for HealthStatus.
@@ -58,7 +62,19 @@ type ErrorBody struct {
 	// Examples: not_found
 	Code string `json:"code"`
 
+	// Fields Present on validation errors (`validation_failed`), one entry per invalid field.
+	Fields *[]FieldError `json:"fields,omitempty"`
+
 	// Message Human-readable message, safe to show to the user.
+	Message string `json:"message"`
+}
+
+// FieldError defines model for FieldError.
+type FieldError struct {
+	// Field The invalid field, for example `auth.session_hours`.
+	Field string `json:"field"`
+
+	// Message Why it is invalid, safe to show to the user.
 	Message string `json:"message"`
 }
 
@@ -82,15 +98,124 @@ type Meta struct {
 	Version string `json:"version"`
 }
 
+// SecretStatus Whether a secret is set, and by whom and when. Responses carry this
+// instead of a secret; nothing derived from the value (no length, hash
+// or preview) is ever included.
+type SecretStatus struct {
+	IsSet bool `json:"is_set"`
+
+	// SetAt When the secret was last set. Present when `is_set` is true.
+	SetAt *time.Time `json:"set_at,omitempty"`
+
+	// SetBy Who last set the secret. Present when `is_set` is true.
+	SetBy *string `json:"set_by,omitempty"`
+}
+
+// SettingValues Every registered setting. Bounds mirror the registry in internal/settings (a contract test keeps them equal).
+type SettingValues struct {
+	// AuthAllowedDomains Google Workspace domains whose accounts may sign in.
+	AuthAllowedDomains []string `json:"auth.allowed_domains"`
+	AuthGoogleClientId string   `json:"auth.google.client_id"`
+	AuthSessionHours   int      `json:"auth.session_hours"`
+
+	// InstanceName Shown in the dashboard and on the sign-in page.
+	InstanceName string `json:"instance.name"`
+
+	// InstancePublicUrl The URL people use to reach dbairlock; empty until setup captures it.
+	InstancePublicUrl              string `json:"instance.public_url"`
+	LimitsLockTimeoutMs            int    `json:"limits.lock_timeout_ms"`
+	LimitsStatementTimeoutMs       int    `json:"limits.statement_timeout_ms"`
+	NotifyEnabled                  bool   `json:"notify.enabled"`
+	PolicyDefaultApprovalTtlHours  int    `json:"policy.default_approval_ttl_hours"`
+	PolicyDefaultAutoExecute       bool   `json:"policy.default_auto_execute"`
+	PolicyDefaultMaxRows           int    `json:"policy.default_max_rows"`
+	PolicyDefaultRequiredApprovals int    `json:"policy.default_required_approvals"`
+	PolicyDefaultStoreRowImages    bool   `json:"policy.default_store_row_images"`
+	PolicyPreviewMaxAgeMinutes     int    `json:"policy.preview_max_age_minutes"`
+}
+
+// SettingValuesPatch The settings to change; omitted settings are unchanged.
+type SettingValuesPatch struct {
+	// AuthAllowedDomains Google Workspace domains whose accounts may sign in.
+	AuthAllowedDomains *[]string `json:"auth.allowed_domains,omitempty"`
+	AuthGoogleClientId *string   `json:"auth.google.client_id,omitempty"`
+	AuthSessionHours   *int      `json:"auth.session_hours,omitempty"`
+
+	// InstanceName Shown in the dashboard and on the sign-in page.
+	InstanceName *string `json:"instance.name,omitempty"`
+
+	// InstancePublicUrl The URL people use to reach dbairlock; empty until setup captures it.
+	InstancePublicUrl              *string `json:"instance.public_url,omitempty"`
+	LimitsLockTimeoutMs            *int    `json:"limits.lock_timeout_ms,omitempty"`
+	LimitsStatementTimeoutMs       *int    `json:"limits.statement_timeout_ms,omitempty"`
+	NotifyEnabled                  *bool   `json:"notify.enabled,omitempty"`
+	PolicyDefaultApprovalTtlHours  *int    `json:"policy.default_approval_ttl_hours,omitempty"`
+	PolicyDefaultAutoExecute       *bool   `json:"policy.default_auto_execute,omitempty"`
+	PolicyDefaultMaxRows           *int    `json:"policy.default_max_rows,omitempty"`
+	PolicyDefaultRequiredApprovals *int    `json:"policy.default_required_approvals,omitempty"`
+	PolicyDefaultStoreRowImages    *bool   `json:"policy.default_store_row_images,omitempty"`
+	PolicyPreviewMaxAgeMinutes     *int    `json:"policy.preview_max_age_minutes,omitempty"`
+}
+
+// Settings defines model for Settings.
+type Settings struct {
+	Secrets SettingsSecretStatus `json:"secrets"`
+
+	// Values Every registered setting. Bounds mirror the registry in internal/settings (a contract test keeps them equal).
+	Values SettingValues `json:"values"`
+}
+
+// SettingsSecretStatus defines model for SettingsSecretStatus.
+type SettingsSecretStatus struct {
+	// AuthGoogleClientSecret Whether a secret is set, and by whom and when. Responses carry this
+	// instead of a secret; nothing derived from the value (no length, hash
+	// or preview) is ever included.
+	AuthGoogleClientSecret SecretStatus `json:"auth.google.client_secret"`
+
+	// NotifyWebhookUrl Whether a secret is set, and by whom and when. Responses carry this
+	// instead of a secret; nothing derived from the value (no length, hash
+	// or preview) is ever included.
+	NotifyWebhookUrl SecretStatus `json:"notify.webhook_url"`
+}
+
+// SettingsSecretsPatch Secret updates: omit a field to leave it unchanged, send a string to
+// replace it, or send `null` to clear it.
+type SettingsSecretsPatch struct {
+	// AuthGoogleClientSecret The Google OAuth client secret.
+	AuthGoogleClientSecret nullable.Nullable[string] `json:"auth.google.client_secret,omitempty"`
+
+	// NotifyWebhookUrl The webhook URL notifications are posted to. A secret because chat webhook URLs embed a credential.
+	NotifyWebhookUrl nullable.Nullable[string] `json:"notify.webhook_url,omitempty"`
+}
+
+// SettingsUpdate defines model for SettingsUpdate.
+type SettingsUpdate struct {
+	// Secrets Secret updates: omit a field to leave it unchanged, send a string to
+	// replace it, or send `null` to clear it.
+	Secrets *SettingsSecretsPatch `json:"secrets,omitempty"`
+
+	// Values The settings to change; omitted settings are unchanged.
+	Values *SettingValuesPatch `json:"values,omitempty"`
+}
+
 // SetupState `setup_required` while the first-run wizard has not been completed;
 // `ready` once an administrator has finished setup.
 type SetupState string
+
+// UpdateSettingsJSONRequestBody defines body for UpdateSettings for application/json ContentType.
+type UpdateSettingsJSONRequestBody = SettingsUpdate
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// GetMeta Instance metadata
 	// (GET /api/meta)
 	GetMeta(w http.ResponseWriter, r *http.Request)
+	// GetSettings Instance settings
+	// (GET /api/settings)
+	GetSettings(w http.ResponseWriter, r *http.Request)
+	// UpdateSettings Change settings
+	// (PATCH /api/settings)
+	UpdateSettings(w http.ResponseWriter, r *http.Request)
 	// GetHealthz Liveness probe
 	// (GET /healthz)
 	GetHealthz(w http.ResponseWriter, r *http.Request)
@@ -113,6 +238,34 @@ func (siw *ServerInterfaceWrapper) GetMeta(w http.ResponseWriter, r *http.Reques
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMeta(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateSettings operation middleware
+func (siw *ServerInterfaceWrapper) UpdateSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateSettings(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -273,6 +426,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/healthz", wrapper.GetHealthz)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/readyz", wrapper.GetReadyz)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/meta", wrapper.GetMeta)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/settings", wrapper.GetSettings)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/api/settings", wrapper.UpdateSettings)
 
 	return m
 }
@@ -306,6 +461,97 @@ type GetMetadefaultJSONResponse struct {
 }
 
 func (response GetMetadefaultJSONResponse) VisitGetMetaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSettingsRequestObject struct {
+}
+
+type GetSettingsResponseObject interface {
+	VisitGetSettingsResponse(w http.ResponseWriter) error
+}
+
+type GetSettings200JSONResponse Settings
+
+func (response GetSettings200JSONResponse) VisitGetSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSettingsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetSettingsdefaultJSONResponse) VisitGetSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateSettingsRequestObject struct {
+	Body *UpdateSettingsJSONRequestBody
+}
+
+type UpdateSettingsResponseObject interface {
+	VisitUpdateSettingsResponse(w http.ResponseWriter) error
+}
+
+type UpdateSettings200JSONResponse Settings
+
+func (response UpdateSettings200JSONResponse) VisitUpdateSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateSettings422JSONResponse struct{ ErrorJSONResponse }
+
+func (response UpdateSettings422JSONResponse) VisitUpdateSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateSettingsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response UpdateSettingsdefaultJSONResponse) VisitUpdateSettingsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -378,6 +624,12 @@ type StrictServerInterface interface {
 	// GetMeta Instance metadata
 	// (GET /api/meta)
 	GetMeta(ctx context.Context, request GetMetaRequestObject) (GetMetaResponseObject, error)
+	// GetSettings Instance settings
+	// (GET /api/settings)
+	GetSettings(ctx context.Context, request GetSettingsRequestObject) (GetSettingsResponseObject, error)
+	// UpdateSettings Change settings
+	// (PATCH /api/settings)
+	UpdateSettings(ctx context.Context, request UpdateSettingsRequestObject) (UpdateSettingsResponseObject, error)
 	// GetHealthz Liveness probe
 	// (GET /healthz)
 	GetHealthz(ctx context.Context, request GetHealthzRequestObject) (GetHealthzResponseObject, error)
@@ -442,6 +694,61 @@ func (sh *strictHandler) GetMeta(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetMetaResponseObject); ok {
 		if err := validResponse.VisitGetMetaResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSettings operation middleware
+func (sh *strictHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
+	var request GetSettingsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSettings(ctx, request.(GetSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSettingsResponseObject); ok {
+		if err := validResponse.VisitGetSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateSettings operation middleware
+func (sh *strictHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
+	var request UpdateSettingsRequestObject
+
+	var body UpdateSettingsJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateSettings(ctx, request.(UpdateSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateSettingsResponseObject); ok {
+		if err := validResponse.VisitUpdateSettingsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

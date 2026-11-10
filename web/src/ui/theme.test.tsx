@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MenuRadioGroup, Menu } from './Menu'
@@ -50,7 +50,13 @@ describe('theme', () => {
     expect(document.documentElement.dataset.theme).toBe('light')
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('light')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Open' }))
+    // Choosing a radio item keeps the menu open. Close it, wait until it is
+    // closed, then reopen: clicking the trigger while it is open would close
+    // it, and the check below would race the closing popup.
+    const trigger = screen.getByRole('button', { name: 'Open' })
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(trigger).toHaveAttribute('aria-expanded', 'false'))
+    await userEvent.click(trigger)
     expect(await screen.findByRole('menuitemradio', { name: 'Light' })).toHaveAttribute(
       'aria-checked',
       'true',

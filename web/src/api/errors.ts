@@ -1,6 +1,7 @@
 import type { components } from './schema'
 
 export type ErrorEnvelope = components['schemas']['Error']
+export type FieldError = components['schemas']['FieldError']
 
 /** Error codes produced by the client itself rather than the server. */
 export type ClientErrorCode = 'network_error' | 'invalid_response'
@@ -13,12 +14,15 @@ export type ClientErrorCode = 'network_error' | 'invalid_response'
 export class ApiError extends Error {
   readonly status: number
   readonly code: string
+  /** One entry per invalid field on a `validation_failed` error; empty otherwise. */
+  readonly fields: readonly FieldError[]
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message: string, fields: readonly FieldError[] = []) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
+    this.fields = fields
   }
 
   get isUnauthorized(): boolean {
@@ -41,6 +45,15 @@ function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
   )
 }
 
+function isFieldError(value: unknown): value is FieldError {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { field?: unknown }).field === 'string' &&
+    typeof (value as { message?: unknown }).message === 'string'
+  )
+}
+
 /** Builds an ApiError from a failed response, reading the error envelope when present. */
 export async function apiErrorFromResponse(response: Response): Promise<ApiError> {
   let body: unknown
@@ -50,7 +63,8 @@ export async function apiErrorFromResponse(response: Response): Promise<ApiError
     body = undefined
   }
   if (isErrorEnvelope(body)) {
-    return new ApiError(response.status, body.error.code, body.error.message)
+    const fields = Array.isArray(body.error.fields) ? body.error.fields.filter(isFieldError) : []
+    return new ApiError(response.status, body.error.code, body.error.message, fields)
   }
   return new ApiError(
     response.status,

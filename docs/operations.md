@@ -8,7 +8,8 @@
 |---|---|
 | `dbairlock.db` | SQLite database (WAL mode), mode 0600 |
 | `dbairlock.db-wal`, `dbairlock.db-shm` | SQLite write-ahead log and index; part of the live database |
-| `master.key` | Encryption key for stored secrets (from Phase 3), mode 0600 |
+| `master.key` | Encryption key for stored secrets: exactly 32 bytes, mode 0600 |
+| `master.key.old` | The previous key, kept after `rotate-key` until the next successful start |
 
 The directory is created with mode 0700. Migrations run automatically at
 startup. dbairlock refuses to start if the database was migrated by a newer
@@ -46,3 +47,32 @@ decrypt them.
 
 After restoring a backup, run `dbairlock audit verify --data-dir DIR` to check
 the audit log's hash chain.
+
+## Master key
+
+On first start dbairlock creates `master.key` (32 random bytes, mode 0600)
+and stores a check value encrypted with it in the database. Every later start
+decrypts that check value and **refuses to start** when:
+
+- `master.key` is not exactly 32 bytes, or grants any permission to group or
+  other (fix with `chmod 600`). If you mount the key from a Docker or
+  Kubernetes secret, set the mount mode to `0400` or `0600` and make it owned
+  by the user dbairlock runs as;
+- `master.key` is missing although the database already holds secrets
+  (restore the key from your backup; dbairlock will not create a new one);
+- the key does not belong to this database.
+
+### Rotating the key
+
+```sh
+# stop the server first: a running server keeps the old key in memory
+dbairlock rotate-key --data-dir /data
+```
+
+`rotate-key` generates a new key, re-encrypts every secret in one transaction,
+and installs the new `master.key` atomically. The previous key is kept as
+`master.key.old` until the next successful start, then removed. If the command
+is interrupted, the next start sorts it out: before the transaction commits
+the old key stays in use; after it commits, the new key (left in
+`master.key.new`) is installed automatically. Back up the new `master.key`
+after rotating.

@@ -18,6 +18,14 @@ type Error struct {
 	Status  int
 	Code    string
 	Message string
+	// Fields lists invalid fields on a validation error.
+	Fields []FieldError
+}
+
+// FieldError names one invalid field and why, safe to show to a person.
+type FieldError struct {
+	Field   string `json:"field"`
+	Message string `json:"message"`
 }
 
 // Error implements the error interface.
@@ -28,8 +36,15 @@ func NewError(status int, code, message string) *Error {
 	return &Error{Status: status, Code: code, Message: message}
 }
 
+// NewValidationError returns a 422 validation_failed error listing fields.
+func NewValidationError(message string, fields []FieldError) *Error {
+	return &Error{Status: http.StatusUnprocessableEntity, Code: "validation_failed", Message: message, Fields: fields}
+}
+
 // Common errors.
 var (
+	ErrUnauthorized     = NewError(http.StatusUnauthorized, "unauthorized", "Sign in to continue.")
+	ErrForbidden        = NewError(http.StatusForbidden, "forbidden", "You do not have permission to do this.")
 	ErrNotFound         = NewError(http.StatusNotFound, "not_found", "The requested resource was not found.")
 	ErrMethodNotAllowed = NewError(http.StatusMethodNotAllowed, "method_not_allowed", "This method is not allowed on this resource.")
 	ErrRequestTooLarge  = NewError(http.StatusRequestEntityTooLarge, "request_too_large", "The request body is too large.")
@@ -42,8 +57,9 @@ type envelope struct {
 }
 
 type envelopeBody struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code    string       `json:"code"`
+	Message string       `json:"message"`
+	Fields  []FieldError `json:"fields,omitempty"`
 }
 
 // WriteError renders err as the JSON error envelope. An *Error (possibly
@@ -60,7 +76,7 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 		)
 		he = ErrInternal
 	}
-	WriteJSON(w, he.Status, envelope{Error: envelopeBody{Code: he.Code, Message: he.Message}})
+	WriteJSON(w, he.Status, envelope{Error: envelopeBody{Code: he.Code, Message: he.Message, Fields: he.Fields}})
 }
 
 // WriteJSON writes v as a JSON response with the given status.

@@ -451,3 +451,61 @@ func TestReaderFiltersAndPaging(t *testing.T) {
 		return en.Actor.UserID == "u-bob" && en.SubjectID == "c-0"
 	})
 }
+
+// fakeSecret stands in for secrets.Value, which this package cannot import.
+type fakeSecret struct{ b []byte }
+
+func (fakeSecret) SecretMarker() {}
+
+type ptrSecret struct{}
+
+func (*ptrSecret) SecretMarker() {}
+
+type keySecret string
+
+func (keySecret) SecretMarker() {}
+
+func TestRecordRejectsSecretsAnywhereInPayload(t *testing.T) {
+	e := newEnv(t)
+	s := fakeSecret{b: []byte("hunter2")}
+	type deep struct {
+		hidden any
+	}
+	payloads := map[string]any{
+		"top level":        s,
+		"pointer":          &s,
+		"map value":        map[string]any{"password": s},
+		"map key":          map[keySecret]int{"k": 1},
+		"slice":            []any{"x", s},
+		"array":            [1]fakeSecret{s},
+		"nested struct":    struct{ A struct{ B []map[string]any } }{A: struct{ B []map[string]any }{B: []map[string]any{{"k": &s}}}},
+		"unexported field": deep{hidden: s},
+		"pointer receiver": map[string]ptrSecret{"k": {}},
+	}
+	for name, p := range payloads {
+		ctx := actorCtx()
+		err := e.store.Tx(ctx, func(tx *store.Tx) error {
+			return e.rec.Record(ctx, tx, audit.Event{Action: audit.SettingChanged, Payload: p})
+		})
+		if !errors.Is(err, audit.ErrSecretInPayload) {
+			t.Errorf("%s: err = %v", name, err)
+		}
+		if err != nil && strings.Contains(err.Error(), "hunter2") {
+			t.Errorf("%s: error leaks the value: %v", name, err)
+		}
+	}
+	if n := e.count(t); n != 0 {
+		t.Fatalf("%d events written", n)
+	}
+
+	// Ordinary payloads, including cycles and nil values, still record.
+	type node struct{ Next *node }
+	n := &node{}
+	n.Next = n
+	e.record(actorCtx(), t, audit.Event{Action: audit.SettingChanged, Payload: map[string]any{"a": nil, "b": []string{"x"}, "c": (*fakeSecret)(nil) == nil}})
+	if err := e.store.Tx(actorCtx(), func(tx *store.Tx) error {
+		return e.rec.Record(actorCtx(), tx, audit.Event{Action: audit.SettingChanged, Payload: struct{ N *node }{N: n}})
+	}); errors.Is(err, audit.ErrSecretInPayload) {
+		t.Fatalf("cyclic payload: %v", err)
+	}
+}

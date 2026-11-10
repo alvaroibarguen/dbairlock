@@ -20,3 +20,30 @@ type AuditEvent struct {
 	PrevHash    []byte
 	Hash        []byte
 }
+
+type Secret struct {
+	ID         string
+	Kind       string
+	OwnerType  string
+	OwnerID    string
+	Ciphertext []byte
+	Nonce      []byte
+	KeyVersion int64
+	SetBy      string
+	SetAt      int64
+}
+
+type SecretKeyCheck struct {
+	ID         int64
+	Ciphertext []byte
+	Nonce      []byte
+	KeyVersion int64
+	UpdatedAt  int64
+}
+
+type Setting struct {
+	Key       string
+	Value     string
+	UpdatedBy string
+	UpdatedAt int64
+}

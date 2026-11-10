@@ -67,6 +67,10 @@ linters:
           msg: configuration comes from the dashboard or a process flag, never the environment
         - pattern: ^(fmt\.Print(|f|ln)|print|println)$
           msg: use the injected *slog.Logger
+        # Secrets are write-only (PLAN 5.2): only the modules that use a
+        # secret may reveal it, at the moment of use. See the exclusion below.
+        - pattern: ^secrets\.Value\.Reveal$
+          msg: only targets, identity and notify may reveal a secret (PLAN 4.2 rule 5)
 
     depguard:
       rules:
@@ -219,6 +223,10 @@ linters:
       - path: internal/platform/clock/
         linters: [forbidigo]
         text: time\.
+      # The modules allowed to reveal a secret, and the secrets package itself.
+      - path: internal/(targets|identity|notify|secrets)/
+        linters: [forbidigo]
+        text: may reveal a secret
       - path: _test\.go
         linters: [gosec]
 

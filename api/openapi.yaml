@@ -54,6 +54,50 @@ paths:
                 $ref: "#/components/schemas/Meta"
         default:
           $ref: "#/components/responses/Error"
+  /api/settings:
+    get:
+      operationId: getSettings
+      summary: Instance settings
+      description: |
+        Every registered setting with its current value, plus the status of
+        the settings-related secrets. Secret values are never returned. Admin
+        only.
+      tags: [settings]
+      responses:
+        "200":
+          description: Current settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateSettings
+      summary: Change settings
+      description: |
+        Applies every change in the body, or none of them. A setting that is
+        omitted is unchanged. For a secret: omitted means unchanged, a string
+        replaces it, and `null` clears it. An invalid value fails the whole
+        request with 422 and one entry per invalid field. Admin only.
+      tags: [settings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsUpdate"
+      responses:
+        "200":
+          description: The settings after the update.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+        "422":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
 components:
   responses:
     Error:
@@ -83,6 +127,165 @@ components:
         message:
           type: string
           description: Human-readable message, safe to show to the user.
+        fields:
+          type: array
+          description: Present on validation errors (`validation_failed`), one entry per invalid field.
+          items:
+            $ref: "#/components/schemas/FieldError"
+    FieldError:
+      type: object
+      required: [field, message]
+      additionalProperties: false
+      properties:
+        field:
+          type: string
+          description: The invalid field, for example `auth.session_hours`.
+        message:
+          type: string
+          description: Why it is invalid, safe to show to the user.
+    SecretStatus:
+      type: object
+      description: |
+        Whether a secret is set, and by whom and when. Responses carry this
+        instead of a secret; nothing derived from the value (no length, hash
+        or preview) is ever included.
+      required: [is_set]
+      additionalProperties: false
+      properties:
+        is_set:
+          type: boolean
+        set_by:
+          type: string
+          description: Who last set the secret. Present when `is_set` is true.
+        set_at:
+          type: string
+          format: date-time
+          description: When the secret was last set. Present when `is_set` is true.
+    Settings:
+      type: object
+      required: [values, secrets]
+      additionalProperties: false
+      properties:
+        values:
+          $ref: "#/components/schemas/SettingValues"
+        secrets:
+          $ref: "#/components/schemas/SettingsSecretStatus"
+    SettingsUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        values:
+          $ref: "#/components/schemas/SettingValuesPatch"
+        secrets:
+          $ref: "#/components/schemas/SettingsSecretsPatch"
+    SettingsSecretStatus:
+      type: object
+      required: [auth.google.client_secret, notify.webhook_url]
+      additionalProperties: false
+      properties:
+        auth.google.client_secret:
+          $ref: "#/components/schemas/SecretStatus"
+        notify.webhook_url:
+          $ref: "#/components/schemas/SecretStatus"
+    SettingsSecretsPatch:
+      type: object
+      description: |
+        Secret updates: omit a field to leave it unchanged, send a string to
+        replace it, or send `null` to clear it.
+      additionalProperties: false
+      properties:
+        auth.google.client_secret:
+          type: [string, "null"]
+          writeOnly: true
+          x-dbairlock-secret: true
+          minLength: 1
+          maxLength: 4096
+          description: The Google OAuth client secret.
+        notify.webhook_url:
+          type: [string, "null"]
+          writeOnly: true
+          x-dbairlock-secret: true
+          minLength: 1
+          maxLength: 4096
+          description: The webhook URL notifications are posted to. A secret because chat webhook URLs embed a credential.
+    SettingValues:
+      type: object
+      description: Every registered setting. Bounds mirror the registry in internal/settings (a contract test keeps them equal).
+      required:
+        - instance.name
+        - instance.public_url
+        - auth.google.client_id
+        - auth.allowed_domains
+        - auth.session_hours
+        - policy.default_required_approvals
+        - policy.default_max_rows
+        - policy.default_approval_ttl_hours
+        - policy.default_store_row_images
+        - policy.default_auto_execute
+        - policy.preview_max_age_minutes
+        - limits.statement_timeout_ms
+        - limits.lock_timeout_ms
+        - notify.enabled
+      additionalProperties: false
+      properties: &settingValueProperties
+        instance.name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: Shown in the dashboard and on the sign-in page.
+        instance.public_url:
+          type: string
+          maxLength: 2048
+          description: The URL people use to reach dbairlock; empty until setup captures it.
+        auth.google.client_id:
+          type: string
+          maxLength: 255
+        auth.allowed_domains:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 253
+          description: Google Workspace domains whose accounts may sign in.
+        auth.session_hours:
+          type: integer
+          minimum: 1
+          maximum: 720
+        policy.default_required_approvals:
+          type: integer
+          minimum: 1
+          maximum: 5
+        policy.default_max_rows:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        policy.default_approval_ttl_hours:
+          type: integer
+          minimum: 1
+          maximum: 720
+        policy.default_store_row_images:
+          type: boolean
+        policy.default_auto_execute:
+          type: boolean
+        policy.preview_max_age_minutes:
+          type: integer
+          minimum: 1
+          maximum: 60
+        limits.statement_timeout_ms:
+          type: integer
+          minimum: 100
+          maximum: 300000
+        limits.lock_timeout_ms:
+          type: integer
+          minimum: 100
+          maximum: 60000
+        notify.enabled:
+          type: boolean
+    SettingValuesPatch:
+      type: object
+      description: The settings to change; omitted settings are unchanged.
+      additionalProperties: false
+      properties: *settingValueProperties
     Health:
       type: object
       required: [status]

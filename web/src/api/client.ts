@@ -43,10 +43,14 @@ export const errorMiddleware: Middleware = {
 /** Creates a typed client for the dbairlock REST API. The app uses the shared `api`. */
 export function createApiClient(options: { baseUrl?: string; fetch?: typeof fetch } = {}) {
   const client = createClient<paths>({
-    baseUrl: options.baseUrl ?? '',
+    // Same origin. Spelled out because a Request outside a browser (tests)
+    // cannot resolve a relative URL.
+    baseUrl: options.baseUrl ?? window.location.origin,
     credentials: 'same-origin',
     headers: { Accept: 'application/json' },
-    ...(options.fetch ? { fetch: options.fetch } : {}),
+    // Look fetch up on each call rather than once at start-up, so a fetch
+    // installed later (tests, instrumentation) is used.
+    fetch: options.fetch ?? ((input: Request) => globalThis.fetch(input)),
   })
   client.use(errorMiddleware)
   return client

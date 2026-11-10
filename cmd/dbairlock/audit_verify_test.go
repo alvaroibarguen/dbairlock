@@ -33,7 +33,8 @@ func TestAuditVerifyExitCodes(t *testing.T) {
 		t.Fatalf("bare audit: %d", code)
 	}
 
-	// A freshly created database has an empty, intact chain.
+	// A freshly created database has an intact chain (one event: the master
+	// key was initialized).
 	a, err := app.New(app.Options{DataDir: dir, Listen: "127.0.0.1:0", Logger: logx.Discard()})
 	if err != nil {
 		t.Fatal(err)
@@ -53,10 +54,42 @@ func TestAuditVerifyExitCodes(t *testing.T) {
 	defer func() { _ = db.Close() }()
 	if _, err := db.ExecContext(context.Background(),
 		`INSERT INTO audit_events (seq, id, occurred_at, via, action, payload, prev_hash, hash)
-		 VALUES (1, 'forged', 0, 'system', 'setting.changed', '{}', zeroblob(32), zeroblob(32))`); err != nil {
+		 VALUES (2, 'forged', 0, 'system', 'setting.changed', '{}', zeroblob(32), zeroblob(32))`); err != nil {
 		t.Fatal(err)
 	}
-	if code, out := verify("--data-dir", dir); code != exitVerifyBroken || !strings.Contains(out, "seq 1") {
+	if code, out := verify("--data-dir", dir); code != exitVerifyBroken || !strings.Contains(out, "seq 2") {
 		t.Fatalf("tampered database: %d %q", code, out)
 	}
+}
+
+func TestRotateKeyCommand(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "data")
+	rotate := func(args ...string) (int, string) {
+		t.Helper()
+		var out, errOut bytes.Buffer
+		code := run(append([]string{"rotate-key"}, args...), &out, &errOut)
+		return code, out.String() + errOut.String()
+	}
+	if code, out := rotate("--data-dir", dir); code != 1 || !strings.Contains(out, "not found") {
+		t.Fatalf("missing database: %d %q", code, out)
+	}
+	if code, _ := rotate("--data-dir", dir, "extra"); code != exitUsage {
+		t.Fatalf("extra args: %d", code)
+	}
+	a, err := app.New(app.Options{DataDir: dir, Listen: "127.0.0.1:0", Logger: logx.Discard()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if code, out := rotate("--data-dir", dir); code != 0 || !strings.Contains(out, "version 2") {
+		t.Fatalf("rotate: %d %q", code, out)
+	}
+	// The instance starts with the rotated key.
+	a, err = app.New(app.Options{DataDir: dir, Listen: "127.0.0.1:0", Logger: logx.Discard()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = a.Close()
 }

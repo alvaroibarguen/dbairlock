@@ -7,3 +7,6 @@ generate:
 output: gen.go
 output-options:
   skip-prune: false
+  # Nullable fields become nullable.Nullable[T], which tells an omitted field
+  # (unchanged) apart from an explicit null (clear a secret).
+  nullable-type: true

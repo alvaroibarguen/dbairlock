@@ -25,9 +25,10 @@ const usage = `Usage: dbairlock [command] [flags]
 Commands:
   serve          run the server (default)
   audit verify   check the audit log's hash chain
+  rotate-key     replace the master key and re-encrypt every secret (stop the server first)
   version        print the version and exit
 
-Run "dbairlock serve -h" or "dbairlock audit verify -h" for flags.
+Run "dbairlock <command> -h" for flags.
 `
 
 // Exit codes of "dbairlock audit verify".
@@ -56,6 +57,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return exitUsage
 		}
 		return auditVerify(args[1:], stdout, stderr)
+	case "rotate-key":
+		return rotateKey(args, stdout, stderr)
 	case "version":
 		if len(args) > 0 {
 			_, _ = fmt.Fprintf(stderr, "version takes no arguments\n")
@@ -162,6 +165,34 @@ func auditVerify(args []string, stdout, stderr io.Writer) int {
 	}
 	_, _ = fmt.Fprintf(stdout, "audit log intact: %d events verified\n", res.Checked)
 	return exitVerifyOK
+}
+
+func rotateKey(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("rotate-key", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	dataDir := fs.String("data-dir", "./data", "directory that holds the database and master.key")
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			_, _ = fmt.Fprintf(stderr, "\nStop the server before rotating: a running server keeps the old key in memory.\n"+
+				"The previous key is kept as master.key.old until the next successful start.\n")
+			return 0
+		}
+		return exitUsage
+	}
+	if fs.NArg() > 0 {
+		_, _ = fmt.Fprintf(stderr, "unexpected arguments: %v\n", fs.Args())
+		return exitUsage
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	res, err := app.RotateKey(ctx, *dataDir, logx.New(stderr, false))
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "rotate-key: %v\n", err)
+		return 1
+	}
+	_, _ = fmt.Fprintf(stdout, "master key rotated to version %d: %d secrets re-encrypted; the previous key is kept as master.key.old until the next successful start\n",
+		res.KeyVersion, res.Secrets)
+	return 0
 }
 
 // resolveVersion returns the version set at link time, or the module version

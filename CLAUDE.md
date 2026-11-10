@@ -24,10 +24,10 @@ A self-hosted service where engineers and AI agents submit row-level SQL changes
 
 ## Progress
 
-- [x] Phase 0: Tooling (Docker: enable WSL integration in Docker Desktop; still pending)
+- [x] Phase 0: Tooling
 - [x] Phase 1: Skeleton
 - [x] Phase 2: Store and audit
-- [ ] Phase 3: Secrets and settings
+- [x] Phase 3: Secrets and settings (admin routes act as a dev admin in `--dev` only until Phase 4 adds sign-in)
 - [ ] Phase 4: Setup and identity
 - [ ] Phase 5: Connector contract and Postgres
 - [ ] Phase 6: MySQL connector

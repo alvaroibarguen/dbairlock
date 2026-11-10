@@ -10,3 +10,19 @@ sql:
         package: auditdb
         out: internal/audit/auditdb
         emit_empty_slices: true
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/secrets/queries.sql
+    gen:
+      go:
+        package: secretsdb
+        out: internal/secrets/secretsdb
+        emit_empty_slices: true
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/settings/queries.sql
+    gen:
+      go:
+        package: settingsdb
+        out: internal/settings/settingsdb
+        emit_empty_slices: true

@@ -18,6 +18,8 @@ import (
 	"github.com/alvaroibarguen/dbairlock/internal/platform/clock"
 	"github.com/alvaroibarguen/dbairlock/internal/platform/httpx"
 	"github.com/alvaroibarguen/dbairlock/internal/platform/ids"
+	"github.com/alvaroibarguen/dbairlock/internal/secrets"
+	"github.com/alvaroibarguen/dbairlock/internal/settings"
 	"github.com/alvaroibarguen/dbairlock/internal/store"
 	"github.com/alvaroibarguen/dbairlock/internal/webui"
 )
@@ -43,10 +45,12 @@ type Options struct {
 
 // App is a fully wired dbairlock instance.
 type App struct {
-	opts    Options
-	log     *slog.Logger
-	store   *store.Store
-	handler http.Handler
+	opts     Options
+	log      *slog.Logger
+	store    *store.Store
+	secrets  *secrets.Service
+	settings *settings.Service
+	handler  http.Handler
 }
 
 // New builds an App.
@@ -76,24 +80,64 @@ func New(opts Options) (*App, error) {
 		opts.Logger.Warn("DEV MODE: not for production use")
 	}
 
+	ctx := context.Background()
 	// Opening the store creates the data directory (0700), the database, and
 	// applies migrations. It refuses a database newer than this binary.
-	st, err := store.Open(context.Background(), opts.DataDir)
+	st, err := store.Open(ctx, opts.DataDir)
 	if err != nil {
 		return nil, fmt.Errorf("app: %w", err)
+	}
+	a, err := build(ctx, opts, st)
+	if err != nil {
+		_ = st.Close()
+		return nil, fmt.Errorf("app: %w", err)
+	}
+	return a, nil
+}
+
+func build(ctx context.Context, opts Options, st *store.Store) (*App, error) {
+	recorder := audit.NewRecorder(opts.Clock, opts.IDs)
+
+	// Loading the secret store reads or creates master.key and refuses to
+	// start if it does not belong to this database.
+	sec, err := secrets.Load(ctx, secrets.Options{
+		DataDir: opts.DataDir, Store: st, Audit: recorder,
+		Clock: opts.Clock, IDs: opts.IDs, Logger: opts.Logger,
+	})
+	if err != nil {
+		return nil, err
+	}
+	// Transports and settings get the write-only side of the secret store.
+	// Only targets, identity and notify will be given a secrets.Opener.
+	var secretWriter secrets.Writer = sec
+
+	set, err := settings.New(ctx, settings.Options{
+		Store: st, Audit: recorder, Secrets: secretWriter,
+		Clock: opts.Clock, Logger: opts.Logger,
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	api := httpapi.New(httpapi.Deps{
 		Version:   opts.Version,
 		Setup:     setupStub{},
 		Readiness: st,
+		Access:    accessStub{dev: opts.Dev},
+		Settings:  set,
 	})
 
 	mux := http.NewServeMux()
 	api.Register(mux)
 	mux.Handle("/", httpx.SPA(opts.WebUI))
 
-	handler := httpx.Chain(mux,
+	// Mutating requests from another origin are rejected (PLAN 5.8).
+	csrf := http.NewCrossOriginProtection()
+	csrf.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		httpx.WriteError(w, r, httpx.NewError(http.StatusForbidden, "cross_origin", "Cross-origin requests are not allowed."))
+	}))
+
+	handler := httpx.Chain(csrf.Handler(mux),
 		httpx.RequestID(opts.IDs, opts.Logger),
 		httpx.AccessLog(opts.Clock),
 		httpx.Recover(),
@@ -101,7 +145,7 @@ func New(opts Options) (*App, error) {
 		httpx.BodyLimit(httpx.DefaultMaxBodyBytes),
 	)
 
-	return &App{opts: opts, log: opts.Logger, store: st, handler: handler}, nil
+	return &App{opts: opts, log: opts.Logger, store: st, secrets: sec, settings: set, handler: handler}, nil
 }
 
 // Close releases the store. Call it once the server has stopped.
@@ -215,7 +259,45 @@ func loopbackOnly(listen string) (string, bool) {
 	return net.JoinHostPort("127.0.0.1", port), true
 }
 
+// RotateResult is the outcome of RotateKey.
+type RotateResult = secrets.RotateResult
+
+// RotateKey replaces the master key of the instance in dataDir and
+// re-encrypts every secret (see secrets.Rotate). The server must be stopped.
+func RotateKey(ctx context.Context, dataDir string, logger *slog.Logger) (RotateResult, error) {
+	st, err := store.OpenExisting(ctx, dataDir)
+	if err != nil {
+		return RotateResult{}, err
+	}
+	defer func() { _ = st.Close() }()
+	c, g := clock.Real{}, ids.UUIDv7{}
+	return secrets.Rotate(audit.WithActor(ctx, audit.Actor{Via: audit.ViaCLI}), secrets.Options{
+		DataDir: dataDir, Store: st, Audit: audit.NewRecorder(c, g),
+		Clock: c, IDs: g, Logger: logger,
+	})
+}
+
 // setupStub stands in for the setup module until Phase 4.
 type setupStub struct{}
 
 func (setupStub) SetupRequired(context.Context) (bool, error) { return false, nil }
+
+// devAdmin is the actor of every admin request in --dev mode until the
+// identity module (Phase 4) provides real sign-in.
+var devAdmin = audit.Actor{UserID: "dev-admin", Email: "admin@dev.localhost", Via: audit.ViaWeb}
+
+// errNoSignIn is returned for admin routes outside --dev mode until Phase 4.
+var errNoSignIn = httpx.NewError(http.StatusUnauthorized, "unauthorized",
+	"Sign-in is not available yet. Start dbairlock with --dev to manage settings.")
+
+// accessStub stands in for identity's RequireAdmin until Phase 4. In --dev
+// mode (loopback only) every request acts as devAdmin; otherwise admin routes
+// are refused.
+type accessStub struct{ dev bool }
+
+func (a accessStub) RequireAdmin(ctx context.Context) (context.Context, error) {
+	if !a.dev {
+		return ctx, errNoSignIn
+	}
+	return audit.WithActor(ctx, devAdmin), nil
+}

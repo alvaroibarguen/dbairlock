@@ -48,6 +48,20 @@ func ActorFrom(ctx context.Context) (Actor, bool) {
 	return a, ok
 }
 
+// Label is a short human-readable name for the actor, stored as "set by" or
+// "updated by" next to records it changed: the email if known, otherwise the
+// user id, otherwise the channel ("cli", "system").
+func (a Actor) Label() string {
+	switch {
+	case a.Email != "":
+		return a.Email
+	case a.UserID != "":
+		return a.UserID
+	default:
+		return string(a.Via)
+	}
+}
+
 func (a Actor) validate() error {
 	switch a.Via {
 	case ViaWeb, ViaMCP:
