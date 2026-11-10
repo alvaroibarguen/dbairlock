@@ -1,0 +1,110 @@
+openapi: 3.1.0
+info:
+  title: dbairlock
+  version: 0.1.0
+  description: |
+    REST API for the dbairlock dashboard. This file is the contract: Go server
+    stubs (internal/httpapi/gen) and TypeScript types (web/src/api/schema.d.ts)
+    are generated from it with `make generate`. Every error response uses the
+    shared Error envelope.
+  license:
+    name: MIT
+    identifier: MIT
+paths:
+  /healthz:
+    get:
+      operationId: getHealthz
+      summary: Liveness probe
+      description: Returns 200 while the process is running and able to serve HTTP.
+      tags: [system]
+      responses:
+        "200":
+          description: The process is alive.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /readyz:
+    get:
+      operationId: getReadyz
+      summary: Readiness probe
+      description: Returns 200 when the instance is ready to serve traffic, 503 otherwise.
+      tags: [system]
+      responses:
+        "200":
+          description: The instance is ready.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        "503":
+          $ref: "#/components/responses/Error"
+  /api/meta:
+    get:
+      operationId: getMeta
+      summary: Instance metadata
+      description: Public metadata the dashboard needs before sign-in.
+      tags: [system]
+      responses:
+        "200":
+          description: Instance metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meta"
+        default:
+          $ref: "#/components/responses/Error"
+components:
+  responses:
+    Error:
+      description: An error. The body is always the shared error envelope.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Error:
+      type: object
+      description: The error envelope returned by every failing request.
+      required: [error]
+      additionalProperties: false
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorBody"
+    ErrorBody:
+      type: object
+      required: [code, message]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable error code, for example `not_found`.
+          examples: [not_found]
+        message:
+          type: string
+          description: Human-readable message, safe to show to the user.
+    Health:
+      type: object
+      required: [status]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [ok]
+    SetupState:
+      type: string
+      description: |
+        `setup_required` while the first-run wizard has not been completed;
+        `ready` once an administrator has finished setup.
+      enum: [setup_required, ready]
+    Meta:
+      type: object
+      required: [version, setupState]
+      additionalProperties: false
+      properties:
+        version:
+          type: string
+          description: Version of the running binary.
+          examples: [v0.1.0]
+        setupState:
+          $ref: "#/components/schemas/SetupState"

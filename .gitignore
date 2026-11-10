@@ -5,6 +5,13 @@
 *.out
 coverage.*
 
+# Dashboard build output copied in by `make build`; only the placeholder is committed
+/internal/webui/dist/*
+!/internal/webui/dist/.keep
+
+# Local data directory used by `make dev`
+/data/
+
 # Frontend
 web/node_modules/
 web/dist/

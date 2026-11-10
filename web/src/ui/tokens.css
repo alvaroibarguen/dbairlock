@@ -1,0 +1,83 @@
+/*
+ * Graphite Console design tokens. The single source of colour for the app;
+ * the values are exactly those in DESIGN.md. Tailwind reads them through
+ * @theme in src/index.css.
+ *
+ * Theme selection: <html data-theme="dark|light"> forces a theme. Without the
+ * attribute (or with data-theme="system") the operating system decides.
+ */
+
+@font-face {
+  font-family: 'Geist';
+  src: url('@geist-fonts/geist-sans/Geist-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('@geist-fonts/geist-mono/GeistMono-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #16181c;
+  --panel: #22252b;
+  --raise: #2a2e35;
+  --seam: #30343b;
+  --text: #e6e8eb;
+  --dim: #a3a9b2;
+  --mute: #8a919b;
+  --green: #7ee0a1;
+  --amber: #f2a65a;
+  --red: #ff7b97;
+  --blue: #8ab4ff;
+  --violet: #c3a6ff;
+  /* Text on a solid green (primary) surface. */
+  --on-green: #0f1a13;
+  /* The one soft shadow allowed, on floating overlays only. */
+  --overlay-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    color-scheme: light;
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --raise: #eef0f3;
+    --seam: #dfe2e7;
+    --text: #16181c;
+    --dim: #4b5260;
+    --mute: #6b7280;
+    --green: #17803d;
+    --amber: #b45309;
+    --red: #c81e45;
+    --blue: #2457c5;
+    --violet: #7a3fd1;
+    --on-green: #ffffff;
+    --overlay-shadow: 0 8px 24px rgb(16 24 40 / 0.12);
+  }
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f4f5f7;
+  --panel: #ffffff;
+  --raise: #eef0f3;
+  --seam: #dfe2e7;
+  --text: #16181c;
+  --dim: #4b5260;
+  --mute: #6b7280;
+  --green: #17803d;
+  --amber: #b45309;
+  --red: #c81e45;
+  --blue: #2457c5;
+  --violet: #7a3fd1;
+  --on-green: #ffffff;
+  --overlay-shadow: 0 8px 24px rgb(16 24 40 / 0.12);
+}

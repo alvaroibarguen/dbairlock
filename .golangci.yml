@@ -1,0 +1,232 @@
+# golangci-lint v2 configuration. Run with `make lint` (go tool golangci-lint run ./...).
+#
+# The depguard rules encode the import rules of PLAN.md section 4.2. They are
+# written for every planned package, including those that do not exist yet,
+# so later phases cannot forget them. Do not loosen them to make code compile:
+# declare an interface in the consuming package and let internal/app wire it.
+version: "2"
+
+run:
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - depguard
+    - errcheck
+    - forbidigo
+    - gosec
+    - govet
+    - ineffassign
+    - revive
+    - sqlclosecheck
+    - staticcheck
+    - unused
+
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment # readability over struct packing
+        - shadow # `err` shadowing is idiomatic
+
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+        - name: increment-decrement
+        - name: var-naming
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unused-parameter
+        - name: unreachable-code
+        - name: redefines-builtin-id
+
+    forbidigo:
+      analyze-types: true
+      forbid:
+        # Time is injected (platform/clock); only that package reads the wall clock.
+        - pattern: ^time\.(Now|Since|Until)$
+          msg: inject a clock.Clock instead (internal/platform/clock)
+        # Ground rule 7: no environment variables. Also covered by internal/archtest.
+        - pattern: ^os\.(Getenv|LookupEnv|Environ|ExpandEnv)$
+          msg: configuration comes from the dashboard or a process flag, never the environment
+        - pattern: ^(fmt\.Print(|f|ln)|print|println)$
+          msg: use the injected *slog.Logger
+
+    depguard:
+      rules:
+        # Rule 1: platform/* has no domain knowledge. It may use other
+        # platform packages, nothing else from internal/. webui is a leaf too.
+        platform:
+          list-mode: lax
+          files:
+            - "**/internal/platform/**"
+            - "**/internal/webui/**"
+          allow:
+            - github.com/alvaroibarguen/dbairlock/internal/platform/
+          deny:
+            - pkg: github.com/alvaroibarguen/dbairlock/
+              desc: platform packages import nothing from internal/ outside platform (PLAN 4.2 rule 1)
+
+        # Rule 2: domain modules never import a transport or the composition root.
+        domain:
+          list-mode: lax
+          files:
+            - "**/internal/store/**"
+            - "**/internal/audit/**"
+            - "**/internal/secrets/**"
+            - "**/internal/settings/**"
+            - "**/internal/identity/**"
+            - "**/internal/setup/**"
+            - "**/internal/connector/**"
+            - "**/internal/targets/**"
+            - "**/internal/changes/**"
+            - "**/internal/executor/**"
+            - "**/internal/notify/**"
+          deny:
+            - pkg: github.com/alvaroibarguen/dbairlock/internal/httpapi
+              desc: domain modules never import transports (PLAN 4.2 rule 2)
+            - pkg: github.com/alvaroibarguen/dbairlock/internal/mcpserver
+              desc: domain modules never import transports (PLAN 4.2 rule 2)
+            - pkg: github.com/alvaroibarguen/dbairlock/internal/app
+              desc: only cmd/ imports the composition root (PLAN 4.2 rule 2)
+
+        # Rule 3: only app imports concrete connectors. Test files are exempt
+        # so integration tests can drive a real connector.
+        concrete-connectors:
+          list-mode: lax
+          files:
+            - "$all"
+            - "!$test"
+            - "!**/internal/app/**"
+            - "!**/internal/connector/postgres/**"
+            - "!**/internal/connector/mysql/**"
+          deny:
+            - pkg: github.com/alvaroibarguen/dbairlock/internal/connector/postgres
+              desc: only internal/app imports concrete connectors; use the connector contract and registry (PLAN 4.2 rule 3)
+            - pkg: github.com/alvaroibarguen/dbairlock/internal/connector/mysql
+              desc: only internal/app imports concrete connectors; use the connector contract and registry (PLAN 4.2 rule 3)
+
+        # Rule 4: connector packages import only connector and platform/*.
+        # This list covers every connector, including future ones and the
+        # conformance suite. Postgres and MySQL have their own lists below so
+        # they can use their own subpackages.
+        connectors:
+          list-mode: lax
+          files:
+            - "**/internal/connector/*/**"
+            - "!**/internal/connector/postgres/**"
+            - "!**/internal/connector/mysql/**"
+          allow:
+            - github.com/alvaroibarguen/dbairlock/internal/connector$
+            - github.com/alvaroibarguen/dbairlock/internal/connector/connectortest
+            - github.com/alvaroibarguen/dbairlock/internal/platform/
+          deny:
+            - pkg: github.com/alvaroibarguen/dbairlock/
+              desc: connectors import only connector and platform/*; never the store, secrets or audit (PLAN 4.2 rule 4)
+        connector-postgres:
+          list-mode: lax
+          files:
+            - "**/internal/connector/postgres/**"
+          allow:
+            - github.com/alvaroibarguen/dbairlock/internal/connector$
+            - github.com/alvaroibarguen/dbairlock/internal/connector/connectortest
+            - github.com/alvaroibarguen/dbairlock/internal/connector/postgres
+            - github.com/alvaroibarguen/dbairlock/internal/platform/
+          deny:
+            - pkg: github.com/alvaroibarguen/dbairlock/
+              desc: connectors import only connector and platform/*; never the store, secrets or audit (PLAN 4.2 rule 4)
+        connector-mysql:
+          list-mode: lax
+          files:
+            - "**/internal/connector/mysql/**"
+          allow:
+            - github.com/alvaroibarguen/dbairlock/internal/connector$
+            - github.com/alvaroibarguen/dbairlock/internal/connector/connectortest
+            - github.com/alvaroibarguen/dbairlock/internal/connector/mysql
+            - github.com/alvaroibarguen/dbairlock/internal/platform/
+          deny:
+            - pkg: github.com/alvaroibarguen/dbairlock/
+              desc: connectors import only connector and platform/*; never the store, secrets or audit (PLAN 4.2 rule 4)
+
+        # Rule 5 (package level): secrets are reachable only from the modules
+        # that set or open them. The type-level part (only targets, identity
+        # and notify hold a secrets.Opener) is checked by internal/archtest.
+        secrets:
+          list-mode: lax
+          files:
+            - "**/internal/store/**"
+            - "**/internal/audit/**"
+            - "**/internal/changes/**"
+            - "**/internal/executor/**"
+          deny:
+            - pkg: github.com/alvaroibarguen/dbairlock/internal/secrets
+              desc: only targets, identity and notify open secrets; transports and setup may only write them (PLAN 4.2 rule 5)
+
+        # Transports do not depend on each other.
+        transports:
+          list-mode: lax
+          files:
+            - "**/internal/httpapi/**"
+          deny:
+            - pkg: github.com/alvaroibarguen/dbairlock/internal/mcpserver
+              desc: transports are independent; share behaviour through a domain module
+            - pkg: github.com/alvaroibarguen/dbairlock/internal/app
+              desc: only cmd/ imports the composition root
+        transports-mcp:
+          list-mode: lax
+          files:
+            - "**/internal/mcpserver/**"
+          deny:
+            - pkg: github.com/alvaroibarguen/dbairlock/internal/httpapi
+              desc: transports are independent; share behaviour through a domain module
+            - pkg: github.com/alvaroibarguen/dbairlock/internal/app
+              desc: only cmd/ imports the composition root
+
+        # cmd/ parses flags and dispatches; everything else goes through app.
+        cmd:
+          list-mode: lax
+          files:
+            - "**/cmd/**"
+          allow:
+            - github.com/alvaroibarguen/dbairlock/internal/app$
+            - github.com/alvaroibarguen/dbairlock/internal/platform/
+          deny:
+            - pkg: github.com/alvaroibarguen/dbairlock/
+              desc: cmd/ only parses flags; wire modules in internal/app
+
+  exclusions:
+    generated: strict
+    presets:
+      - std-error-handling
+    rules:
+      # The clock is the one place allowed to read the wall clock.
+      - path: internal/platform/clock/
+        linters: [forbidigo]
+        text: time\.
+      - path: _test\.go
+        linters: [gosec]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/alvaroibarguen/dbairlock

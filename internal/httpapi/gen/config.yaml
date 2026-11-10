@@ -1,0 +1,9 @@
+# oapi-codegen configuration. Run through `make generate`; do not edit gen.go by hand.
+package: gen
+generate:
+  std-http-server: true
+  strict-server: true
+  models: true
+output: gen.go
+output-options:
+  skip-prune: false

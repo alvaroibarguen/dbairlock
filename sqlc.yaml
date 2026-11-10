@@ -1,0 +1,12 @@
+# sqlc configuration: one output package per module, all reading the one
+# ordered migration folder as their schema. Run with `make generate`.
+version: "2"
+sql:
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/audit/queries.sql
+    gen:
+      go:
+        package: auditdb
+        out: internal/audit/auditdb
+        emit_empty_slices: true

@@ -14,6 +14,8 @@ A self-hosted service where engineers and AI agents submit row-level SQL changes
 - **Fail closed.** Unparseable SQL is rejected. An execution with an uncertain outcome is marked failed and never retried.
 - **Audit in the same transaction** as every state change.
 - **Do not push, publish images, or create remote repos** unless the owner asks.
+- **Follow [DESIGN.md](DESIGN.md)** (Graphite Console) for every screen, and [PRODUCT.md](PRODUCT.md) for product truth.
+- **Edit files with editor tools**, not shell scripts (no `python3 - <<EOF`, `sed -i` or `cat > file`).
 
 ## Settled
 
@@ -23,8 +25,8 @@ A self-hosted service where engineers and AI agents submit row-level SQL changes
 ## Progress
 
 - [x] Phase 0: Tooling (Docker: enable WSL integration in Docker Desktop; still pending)
-- [ ] Phase 1: Skeleton
-- [ ] Phase 2: Store and audit
+- [x] Phase 1: Skeleton
+- [x] Phase 2: Store and audit
 - [ ] Phase 3: Secrets and settings
 - [ ] Phase 4: Setup and identity
 - [ ] Phase 5: Connector contract and Postgres
