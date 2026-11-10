@@ -20,6 +20,7 @@ import {
   Button,
   cn,
   ErrorState,
+  PageHeader,
   Skeleton,
   SqlBlock,
   StatusBadge,
@@ -52,7 +53,7 @@ function ago(fromMs: number, nowMs: number): string {
 }
 
 function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : 'Something went wrong.'
+  return err instanceof Error ? err.message : 'The request did not complete. Try again.'
 }
 
 /** Whether focus is in a text field, where Ctrl/Cmd+Enter belongs to the field. */
@@ -86,21 +87,35 @@ export function ChangeDetail({ id, back }: { id: string; back?: ReactNode }) {
   if (query.isError) {
     const notFound = isApiError(query.error) && query.error.status === 404
     return (
-      <ErrorState
-        className="flex-1 justify-center"
-        title={notFound ? 'There is no such change.' : 'The change could not be loaded.'}
-        message={notFound ? undefined : query.error.message}
-        code={isApiError(query.error) ? query.error.code : undefined}
-        action={
-          notFound ? (
-            <Button render={<Link to="/changes" />} nativeButton={false}>
-              Back to the queue
-            </Button>
-          ) : (
-            <Button onClick={() => void query.refetch()}>Retry</Button>
-          )
-        }
-      />
+      <>
+        {/* On a phone this is the whole screen: keep the way back and a page heading. */}
+        {back && (
+          <PageHeader
+            as="h1"
+            title={
+              <span className="flex items-center gap-2">
+                {back}
+                <span>Change</span>
+              </span>
+            }
+          />
+        )}
+        <ErrorState
+          className="flex-1 justify-center"
+          title={notFound ? 'There is no such change.' : 'The change could not be loaded.'}
+          message={notFound ? undefined : query.error.message}
+          code={isApiError(query.error) ? query.error.code : undefined}
+          action={
+            notFound ? (
+              <Button render={<Link to="/changes" />} nativeButton={false}>
+                Back to the queue
+              </Button>
+            ) : (
+              <Button onClick={() => void query.refetch()}>Retry</Button>
+            )
+          }
+        />
+      </>
     )
   }
   return <Loaded id={id} change={query.data} receivedAt={query.dataUpdatedAt} back={back} />
@@ -281,7 +296,7 @@ function Loaded({
           <span>{changeRef(change.number)}</span>
           <span aria-hidden="true">/</span>
           <span className="truncate">{change.connection.name}</span>
-          <span className="text-mute/80">{connector.name}</span>
+          <span>{connector.name}</span>
         </div>
         <h1
           id="detail-title"

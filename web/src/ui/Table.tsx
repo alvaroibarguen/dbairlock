@@ -1,13 +1,17 @@
 import type { ComponentProps } from 'react'
 import { cn } from './cn'
+import { useScrollFocus } from './useScrollFocus'
 
 /**
  * Presentational table parts. Data cells are mono with tabular figures;
  * rows are 32px. Pair with TanStack Table in features for sorting and paging.
  */
 export function Table({ className, ...props }: ComponentProps<'table'>) {
+  const scrollRef = useScrollFocus()
   return (
-    <div className="w-full overflow-x-auto">
+    // relative: screen-reader-only text in cells is absolutely positioned
+    // and would otherwise escape the scroll box and widen the page.
+    <div ref={scrollRef} className="relative w-full overflow-x-auto">
       <table
         {...props}
         className={cn('w-full border-collapse font-mono text-sm tabular', className)}

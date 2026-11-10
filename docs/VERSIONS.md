@@ -100,6 +100,7 @@ Installed in `web/` with `pnpm add <pkg>@latest` on 2026-11-09. pnpm 12 refuses 
 | `@testing-library/user-event` | 14.6.8 |
 | `@testing-library/jest-dom` | 7.0.1 |
 | `@playwright/test` | 1.65.0 |
+| `@axe-core/playwright` (axe-core 4.14; accessibility checks in `web/e2e/axe.ts`, added 2026-11-10 in Phase 11) | 4.14.0 |
 | eslint | 10.14.0 |
 | `@eslint/js` | 10.0.1 |
 | typescript-eslint | 8.72.1 |

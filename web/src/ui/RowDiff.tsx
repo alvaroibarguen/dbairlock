@@ -1,6 +1,7 @@
 import { ChevronsLeftRight, ChevronsRightLeft } from 'lucide-react'
 import { type ReactNode, useState } from 'react'
 import { cn } from './cn'
+import { useScrollFocus } from './useScrollFocus'
 
 /** A cell value as the server sends it (see the Cell schema). Always shown as text. */
 export type CellValue = unknown
@@ -120,6 +121,7 @@ interface Line {
  * new ones. The key column stays in view while the table scrolls sideways.
  */
 export function RowDiff({ kind, image, previous, caption, className }: RowDiffProps) {
+  const scrollRef = useScrollFocus()
   const cols = image.columns
   const keyIdx = image.primary_key.map((k) => cols.indexOf(k)).filter((i) => i >= 0)
   const order = [...keyIdx, ...cols.map((_, i) => i).filter((i) => !keyIdx.includes(i))]
@@ -181,7 +183,7 @@ export function RowDiff({ kind, image, previous, caption, className }: RowDiffPr
       {kind === 'update' && !image.has_primary_key && (
         <Note>Without a primary key the rows after the change cannot be shown.</Note>
       )}
-      <div className="min-w-0 overflow-x-auto">
+      <div ref={scrollRef} className="relative min-w-0 overflow-x-auto">
         <table className="w-full border-collapse font-mono text-sm tabular">
           <caption className="sr-only">{caption}</caption>
           <thead>

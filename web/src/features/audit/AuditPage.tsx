@@ -29,6 +29,7 @@ import {
   Th,
   THead,
   Tr,
+  useDocumentTitle,
   useMediaQuery,
 } from '@/ui'
 import { actionLabel, actionLabels, actionPrefixes } from './actionLabels'
@@ -79,6 +80,7 @@ function positiveInt(v: string | null): number | undefined {
 
 /** /audit: the hash-chained audit log, filterable, newest first. */
 export function AuditPage() {
+  useDocumentTitle('Audit log')
   const [params, setParams] = useSearchParams()
   const medium = useMediaQuery(MEDIUM, true)
   const [showFilters, setShowFilters] = useState(false)
@@ -426,9 +428,9 @@ function EventList({
     <ul aria-label="Audit events" className="flex flex-col">
       {events.map((e) => (
         <li key={e.seq} className="border-b border-seam">
+          {/* Named by its visible text, so speech input can say what it sees. */}
           <button
             type="button"
-            aria-label={`${actionLabel(e.action)}, event ${e.seq}: show details`}
             aria-current={e.seq === selected || undefined}
             onClick={() => onOpen(e.seq)}
             className={cn(

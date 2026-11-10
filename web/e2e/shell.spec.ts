@@ -4,7 +4,11 @@ import { expect, test } from '@playwright/test'
 
 test('loads the app shell on /changes', async ({ page }) => {
   await page.goto('/changes')
-  await expect(page).toHaveTitle('dbairlock')
+  // Each page names the tab after itself.
+  await expect(page).toHaveTitle('Changes · dbairlock')
+  await page.goto('/settings/api-tokens')
+  await expect(page).toHaveTitle('API tokens · Settings · dbairlock')
+  await page.goto('/changes')
   await expect(page.getByRole('button', { name: /^Needs my review/ })).toHaveAttribute(
     'aria-pressed',
     'true',

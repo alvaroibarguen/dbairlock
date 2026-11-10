@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import type { ReactElement, ReactNode } from 'react'
 import { cn } from './cn'
 import { backdropClass } from './Dialog'
+import { useReturnFocus } from './useReturnFocus'
 
 export interface DrawerProps {
   open?: boolean
@@ -34,6 +35,7 @@ export function Drawer({
   children,
   className,
 }: DrawerProps) {
+  const finalFocus = useReturnFocus(open, trigger !== undefined)
   return (
     <BaseDrawer.Root
       open={open}
@@ -46,6 +48,7 @@ export function Drawer({
         <BaseDrawer.Backdrop className={backdropClass} />
         <BaseDrawer.Viewport className="fixed inset-0 z-50">
           <BaseDrawer.Popup
+            finalFocus={finalFocus}
             className={cn(
               'fixed top-0 bottom-0 flex w-[320px] max-w-[calc(100vw-3rem)] flex-col border-seam bg-raise text-text shadow-overlay outline-none',
               '[translate:var(--drawer-swipe-movement-x)_0] transition-[translate] duration-160 ease-out data-swiping:duration-0',

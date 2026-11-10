@@ -1,11 +1,12 @@
 import { KeyRound } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
-import { Button, CodeBlock, PageHeader, Pane } from '@/ui'
+import { Button, CodeBlock, PageHeader, Pane, useDocumentTitle } from '@/ui'
 import { claudeCodeCommand, genericConfig, mcpUrl, TOKEN_PLACEHOLDER } from '@/api/mcp'
 
 /** /agents: how to connect an AI agent to dbairlock over MCP. */
 export function ConnectAgentPage() {
+  useDocumentTitle('Connect an agent')
   const url = mcpUrl(window.location.origin)
   return (
     <Pane className="h-full">

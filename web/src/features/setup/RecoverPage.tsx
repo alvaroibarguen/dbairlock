@@ -3,7 +3,7 @@ import { TriangleAlert } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { isApiError, queryKeys, verifyRecoveryCode } from '@/api'
-import { Button, CenteredPanel, Skeleton } from '@/ui'
+import { Button, CenteredPanel, Skeleton, useDocumentTitle } from '@/ui'
 
 /** Reads the one-time code from the link's fragment, which never reaches a server log. */
 function codeFromHash(): string {
@@ -16,6 +16,7 @@ function codeFromHash(): string {
  * shows only the sign-in settings.
  */
 export function RecoverPage() {
+  useDocumentTitle('Recover sign-in')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [code] = useState(codeFromHash)

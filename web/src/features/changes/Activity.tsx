@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { type Change, type ChangeEvent, changeEventsQuery } from '@/api'
-import { Badge, cn, Skeleton } from '@/ui'
+import { Badge, Button, cn, Skeleton } from '@/ui'
 import { PersonTag } from './AuthorTag'
 import { dateTime, rows } from './format'
 
@@ -150,7 +150,19 @@ function describe(e: ChangeEvent): string {
 export function Timeline({ id }: { id: string }) {
   const events = useQuery(changeEventsQuery(id))
   if (events.isPending) return <Skeleton className="h-16 w-full" />
-  if (events.isError) return <p className="text-base text-red">{events.error.message}</p>
+  if (events.isError) {
+    return (
+      <div role="alert" className="flex flex-wrap items-center gap-3">
+        <p className="text-base text-red">
+          The activity could not be loaded: {events.error.message}
+        </p>
+        <Button size="sm" onClick={() => void events.refetch()}>
+          Retry
+        </Button>
+      </div>
+    )
+  }
+  if (events.data.length === 0) return <p className="text-base text-dim">No activity yet.</p>
   return (
     <ol className="flex flex-col">
       {events.data.map((e) => {

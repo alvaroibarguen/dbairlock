@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import type { ReactElement, ReactNode } from 'react'
 import { cn } from './cn'
 import { overlaySurface } from './overlay-styles'
+import { useReturnFocus } from './useReturnFocus'
 
 export interface DialogProps {
   open?: boolean
@@ -33,6 +34,8 @@ export function Dialog({
   children,
   className,
 }: DialogProps) {
+  const finalFocus = useReturnFocus(open, trigger !== undefined)
+
   return (
     <BaseDialog.Root
       open={open}
@@ -43,6 +46,7 @@ export function Dialog({
       <BaseDialog.Portal>
         <BaseDialog.Backdrop className={backdropClass} />
         <BaseDialog.Popup
+          finalFocus={finalFocus}
           className={cn(
             overlaySurface,
             'fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[480px] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden outline-none',

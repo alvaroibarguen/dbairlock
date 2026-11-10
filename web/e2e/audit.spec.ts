@@ -15,9 +15,12 @@ test('the audit log filters by URL, pages and opens an event', async ({ page }) 
   await expect(table).toBeVisible()
   // Setup is in the log, and the filter keeps only setup events.
   await page.goto('/audit?action=setup.')
-  await expect(table.getByRole('button', { name: /Setup completed, event \d+/ })).toBeVisible()
+  // The table names each button "<action>, event <n>"; the phone list is
+  // named by its visible text, "<action> #<n> <time> ...".
+  await expect(table.getByRole('button', { name: /Setup completed(, event | #)\d+/ })).toBeVisible()
   for (const button of await table.getByRole('button').all()) {
-    expect(await button.getAttribute('aria-label')).toMatch(/^Setup|^Recovery/)
+    const name = (await button.getAttribute('aria-label')) ?? (await button.textContent())
+    expect(name).toMatch(/^Setup|^Recovery/)
   }
   // The filter survives a reload: the view is a link.
   await page.reload()
@@ -25,7 +28,7 @@ test('the audit log filters by URL, pages and opens an event', async ({ page }) 
   await expect(table.getByRole('button', { name: /Setup completed/ })).toBeVisible()
 
   // The event drawer shows the payload and the hashes.
-  await table.getByRole('button', { name: /Setup completed, event \d+/ }).click()
+  await table.getByRole('button', { name: /Setup completed(, event | #)\d+/ }).click()
   await expect(page).toHaveURL(/event=\d+/)
   const drawer = page.getByRole('dialog')
   await expect(drawer.getByRole('heading', { name: 'Setup completed' })).toBeVisible()
@@ -60,7 +63,7 @@ test('Verify now checks the hash chain from Settings', async ({ page }) => {
   // The check is itself in the audit log.
   await page.goto('/audit?action=audit.verified')
   await expect(
-    page.getByRole('button', { name: /Audit log verified, event \d+/ }).first(),
+    page.getByRole('button', { name: /Audit log verified(, event | #)\d+/ }).first(),
   ).toBeVisible()
 })
 

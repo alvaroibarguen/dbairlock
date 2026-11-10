@@ -32,17 +32,19 @@ export function CenteredPanel({
   )
 }
 
-/** The dbairlock mark: a green outlined square with "ab" in mono. */
+/**
+ * The dbairlock mark: a green outlined square with "ab" in mono. The letters
+ * are drawn by CSS, not text, so they never become part of the name of the
+ * link that holds the mark ("dbairlock home").
+ */
 export function Logo({ className }: { className?: string }) {
   return (
     <span
       aria-hidden="true"
       className={cn(
-        'grid size-7 shrink-0 place-items-center rounded-[7px] border-[1.5px] border-green font-mono text-xs font-semibold text-green',
+        "grid size-7 shrink-0 place-items-center rounded-[7px] border-[1.5px] border-green font-mono text-xs font-semibold text-green before:content-['ab']",
         className,
       )}
-    >
-      ab
-    </span>
+    />
   )
 }
