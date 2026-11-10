@@ -379,6 +379,7 @@ function Loaded({
         label={
           change.statements.length === 1 ? 'Statement' : `Statements (${change.statements.length})`
         }
+        aside={change.statements.length > 1 ? 'run in this order · one transaction' : undefined}
       >
         <div className="flex flex-col gap-3">
           {change.statements.map((s) => (

@@ -471,6 +471,12 @@ function Editor({
                 Add statement
               </Button>
             </div>
+            {draft.statements.length > 1 && (
+              <p className="text-xs text-mute">
+                The statements run top to bottom in one transaction, so a later statement sees the
+                earlier ones. Use the arrows to reorder.
+              </p>
+            )}
             {fieldErrors.statements && <p className="text-xs text-red">{fieldErrors.statements}</p>}
           </div>
 
