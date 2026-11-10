@@ -47,7 +47,7 @@ Modules depend on interfaces, never on each other's concrete types.
 | `connector/postgres`, `connector/mysql` | One self-contained package per database product: driver, parser and validation, schema introspection, privilege check, dry run and execution |
 | `connector/connectortest` | The conformance suite every connector must pass |
 | `targets` | Connections (configured target databases): pools, passwords, policy, schema cache, connection tests |
-| `changes` | Change requests, reviews, previews and the state machine |
+| `changes` | Change requests, reviews, previews and the state machine; sequences of changes across connections (`changes/sequence.go`), which move on or stop inside the transaction of their step's event |
 | `executor` | Background loop that claims approved changes and runs them |
 | `notify` | Outbound webhook notifications through a transactional outbox |
 | `httpapi` | REST transport only, no business logic |

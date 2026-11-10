@@ -177,6 +177,22 @@ Postgres and MySQL containers.
 | Statements are validated again with the current policy | `TestSafetyRevalidatedAtExecution` |
 | A failed change is terminal | `TestChangeDrift` ("a failed change is terminal"); `TestSafetyDoubleExecution/restart ...` (execute and retry refused) |
 
+### Sequences (migration 00009)
+
+A sequence runs 2 to 10 changes in order across connections. Each step is a
+change with every rule above; the sequence adds ordering, never a bypass.
+Each step is atomic on its own database, and the sequence as a whole is
+not: steps already run are not undone when a later step stops.
+
+| Rule | Tests |
+|---|---|
+| Only the current step can be reviewed or previewed; later steps wait with no preview and cannot be submitted by hand | `app/sequences_test.go` `TestSequenceStateMachine/gated review, advance and complete` |
+| The next step is dry-run after the previous one executed, and needs a fresh preview and the normal approvals; a failed preview blocks approval | same, plus `/a step depends on the one before`, `/the next step's preview fails`, `/the database is unreachable when the next step is previewed`; `TestSequenceAcrossDatabases/completes` (Postgres, MySQL, Postgres) |
+| A step that fails, is rejected, expires or is cancelled (by the author, an admin, or the author's removal) stops the sequence in the same transaction; other open steps are cancelled; executed steps stay applied | `TestSequenceStateMachine/stops when ...` (six cases); `TestSequenceAcrossDatabases/a failure stops it and earlier steps stay applied`; `changes/sequence_test.go` `TestStopCodes` |
+| Every step is validated at submission (dialect, one table, a real `WHERE`); step 1 is dry-run; nothing is created on a problem; retries return the running sequence | `TestSequenceStateMachine/submission checks every step and creates nothing on a problem` |
+| Agents submit and follow sequences but never approve or see rows, and see only their owner's | `TestSequenceStateMachine/agents submit and follow but never see rows or approve`; `TestMCP/sequences`; `TestSecretLeak` |
+| Sequence events are audited in the step's transaction; the chain verifies | every sequence test verifies the chain on cleanup |
+
 ### Audit (5.7)
 
 | Rule | Tests |

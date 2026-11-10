@@ -28,7 +28,7 @@ Review is for exact rows, not for code: the reviewer sees the before and after i
 
 - Self-hosted inside the company VPC as one container with one volume, reached over VPN or an internal load balancer.
 - Configured entirely in the browser: a first-run wizard sets up Google sign-in, and everything else lives in Settings.
-- Core loop: write SQL in the editor (dialect highlighting, schema autocomplete, inline server validation), get a preview, submit, review in the queue, execute, audit.
+- Core loop: write SQL in the editor (dialect highlighting, schema autocomplete, inline server validation), get a preview, submit, review in the queue, execute, audit. When one change must run only after another, possibly on another database, the author adds steps and submits a sequence.
 - Targets: Postgres and MySQL connections, each with its own review policy.
 
 ## Capabilities and Constraints
@@ -37,6 +37,7 @@ Review is for exact rows, not for code: the reviewer sees the before and after i
 - Two roles in v1: admin and member. The author can never review their own change.
 - Secrets are write-only: the UI shows whether a secret is set, by whom and when, but never its value.
 - Change statuses: draft, pending_review, approved, executing, executed, failed, rejected, expired, cancelled.
+- **Sequences** are 2 to 10 changes ("steps") that run in order, on the same or different connections (Postgres and MySQL mixed). Each step is atomic on its own database; the sequence as a whole is not, and the product says so wherever a sequence appears. Only the current step is reviewed: later steps wait, unpreviewed, and each is dry-run and submitted for review when the step before it has executed, with the normal approval rules and freshness window. If a step fails, is rejected, expires or is cancelled, the sequence stops: later steps are cancelled and steps already run stay applied (nothing is rolled back). Sequence statuses: running, completed, stopped. Sequences share the change number space (sequence #12, steps #13, #14).
 - SQL, titles and reasons are always rendered as plain text; agent-written content is never interpreted as HTML or markdown.
 - Row previews are visible to every signed-in user in v1 (accepted risk, disclosed on the add-connection form).
 

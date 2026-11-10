@@ -51,7 +51,7 @@ never its value.
 | `notify.enabled` | off | Notifications | Whether events are queued for the webhook. |
 | `notify.webhook_url` | not set | Notifications | Secret: chat webhook URLs embed a credential. |
 | `notify.format` | `generic` | Notifications | `generic` (one flat JSON object) or `slack` (Slack incoming webhook body). |
-| `notify.events` | all five | Notifications | Which of change submitted, approved, rejected, executed and failed are sent. |
+| `notify.events` | all seven | Notifications | Which of change submitted, approved, rejected, executed and failed, and sequence completed and stopped, are sent. Each step of a sequence notifies like a change. |
 
 ## Connection fields
 

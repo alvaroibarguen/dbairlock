@@ -131,9 +131,26 @@ the MCP authorization specification (revision 2026-07-28):
 | `find_tables` | Tables and columns whose names contain a word, across all connections. |
 | `preview_change` | Validates statements and dry-runs them in a rolled-back transaction. Reports each statement's kind, table and affected row count, or what is wrong and where. Saves nothing. |
 | `submit_change` | Creates and submits a change in one call. Returns its number, the affected row counts and the review URL. |
-| `get_change` | Status, reviews and comments, approvals, and how execution went. |
-| `list_changes` | The token owner's changes. |
-| `cancel_change` | Cancels one of the token owner's changes that has not run. |
+| `get_change` | Status, reviews and comments, approvals, and how execution went. For a step of a sequence, also the sequence and step. |
+| `list_changes` | The token owner's changes. A sequence is listed once, as its current step, with `sequence`, `step` and `steps`. |
+| `cancel_change` | Cancels one of the token owner's changes that has not run. Cancelling a step of a sequence stops the sequence. |
+| `submit_sequence` | Submits 2 to 10 steps that run in order, each a change on its own connection (Postgres and MySQL mixed). Every step's SQL is validated now; only step 1 is dry-run and goes to review now. Returns the sequence number, each step's change number and the review URL. |
+| `get_sequence` | Every step's number and status, which step is open, and, if it stopped, why and which steps were applied. |
+| `cancel_sequence` | Stops one of the token owner's running sequences: the open step and every later step are cancelled. |
+
+### Sequences
+
+Use a sequence when a change must run only after another one has run, for
+example copy a customer to the billing database, then mark it moved in the
+application database. Each step is atomic on its own database; **the
+sequence as a whole is not**. Steps are reviewed one at a time: when a step
+has executed, the next one is dry-run against the data as it is then and
+goes to review with the usual rules (a person other than the token's owner
+approves, the preview must be fresh). If a step fails, is rejected, expires
+or is cancelled, the sequence stops, the later steps are cancelled, and the
+steps that already ran stay applied. Nothing is rolled back across
+databases, so write each step so that stopping after it leaves the data in a
+state a person can finish by hand.
 
 ## What agents cannot do
 
@@ -147,9 +164,9 @@ events. "The token's owner" below means that person too.
 - **See row data.** Agents get row counts, never row images or cell values,
   and database error messages (which can quote values) are reduced to their
   error code. A person reviewing the change sees the rows in the dashboard.
-- **See other people's changes.** `get_change`, `list_changes` and
-  `cancel_change` work only on changes the token's owner authored, even when
-  the owner is an admin.
+- **See other people's changes.** `get_change`, `list_changes`,
+  `cancel_change`, `get_sequence` and `cancel_sequence` work only on changes
+  and sequences the token's owner authored, even when the owner is an admin.
 - **Run anything but row changes.** Only single-table `INSERT`, `UPDATE` and
   `DELETE` are accepted, and `UPDATE` and `DELETE` need a `WHERE` clause.
 
@@ -163,10 +180,11 @@ limits and the audit log.
 
 - Calling `submit_change` again with the same SQL while that change is open
   returns the same change with `already_existed: true`, so retrying after a
-  timeout never creates a duplicate.
+  timeout never creates a duplicate. `submit_sequence` does the same for a
+  running sequence with the same steps (connections and SQL, in order).
 - Each token may make 60 tool calls per minute, 30 `preview_change` calls per
   hour (each one is a real dry run with brief row locks on the database) and
-  20 `submit_change` calls per hour. Admins change these in
+  20 `submit_change` and `submit_sequence` calls per hour (together). Admins change these in
   **Settings → Limits**. A call over a limit returns an error saying when to
   try again.
   An agent signed in with OAuth has the same limits, counted per sign-in
