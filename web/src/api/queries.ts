@@ -289,6 +289,132 @@ export async function testConnection(id: string): Promise<ConnectionTestResult> 
   return requireData(data)
 }
 
+export type Change = components['schemas']['Change']
+export type ChangeSummary = components['schemas']['ChangeSummary']
+export type ChangeStatement = components['schemas']['ChangeStatement']
+export type ChangeReview = components['schemas']['ChangeReview']
+export type ChangeExecution = components['schemas']['ChangeExecution']
+export type ChangeIssue = components['schemas']['ChangeIssue']
+export type ChangePreview = components['schemas']['ChangePreview']
+export type ChangeEvent = components['schemas']['ChangeEvent']
+export type RowPreview = components['schemas']['RowPreview']
+export type PreviewRefresh = components['schemas']['PreviewRefresh']
+export type ChangeCreate = components['schemas']['ChangeCreate']
+export type ChangeUpdate = components['schemas']['ChangeUpdate']
+export type ChangeView = 'needs_my_review' | 'mine' | 'all'
+export type StatementIssue = components['schemas']['StatementIssue']
+
+/** Lists and the open change are polled every 5 seconds while the tab is visible. */
+const LIVE_INTERVAL = 5_000
+
+/** One page of changes for a queue tab, newest first. */
+export const changesQuery = (view: ChangeView) =>
+  queryOptions({
+    queryKey: queryKeys.changes.list({ view }),
+    queryFn: async ({ signal }) => {
+      const { data } = await api.GET('/api/changes', {
+        signal,
+        params: { query: { view, limit: 100 } },
+      })
+      return requireData(data)
+    },
+    refetchInterval: LIVE_INTERVAL,
+  })
+
+/** One change, by id or number, with previews, reviews and executions. */
+export const changeQuery = (id: string) =>
+  queryOptions({
+    queryKey: queryKeys.changes.detail(id),
+    queryFn: async ({ signal }) => {
+      const { data } = await api.GET('/api/changes/{id}', { signal, params: { path: { id } } })
+      return requireData(data)
+    },
+    refetchInterval: LIVE_INTERVAL,
+  })
+
+/** The timeline of a change: its audit events, oldest first. */
+export const changeEventsQuery = (id: string) =>
+  queryOptions({
+    queryKey: [...queryKeys.changes.detail(id), 'events'] as const,
+    queryFn: async ({ signal }) => {
+      const { data } = await api.GET('/api/changes/{id}/events', {
+        signal,
+        params: { path: { id } },
+      })
+      return requireData(data).events
+    },
+    refetchInterval: LIVE_INTERVAL,
+  })
+
+/** Creates a draft, or creates and submits a change when `submit` is set. */
+export async function createChange(body: ChangeCreate): Promise<Change> {
+  const { data } = await api.POST('/api/changes', { body })
+  return requireData(data)
+}
+
+/** Validates and dry-runs statements without saving anything. */
+export async function previewChange(connectionId: string, statements: string[]) {
+  const { data } = await api.POST('/api/changes/preview', {
+    body: { connection_id: connectionId, statements },
+  })
+  return requireData(data)
+}
+
+export async function updateChange(id: string, body: ChangeUpdate): Promise<Change> {
+  const { data } = await api.PATCH('/api/changes/{id}', { params: { path: { id } }, body })
+  return requireData(data)
+}
+
+export async function submitChange(id: string, revision: number): Promise<Change> {
+  const { data } = await api.POST('/api/changes/{id}/submit', {
+    params: { path: { id } },
+    body: { revision },
+  })
+  return requireData(data)
+}
+
+export async function cancelChange(id: string, reason?: string): Promise<Change> {
+  const { data } = await api.POST('/api/changes/{id}/cancel', {
+    params: { path: { id } },
+    body: reason ? { reason } : {},
+  })
+  return requireData(data)
+}
+
+export async function refreshChangePreview(id: string): Promise<PreviewRefresh> {
+  const { data } = await api.POST('/api/changes/{id}/refresh-preview', {
+    params: { path: { id } },
+  })
+  return requireData(data)
+}
+
+/** Approves with the hashes the reviewer is looking at. Never retried automatically. */
+export async function approveChange(change: Change): Promise<Change> {
+  const { data } = await api.POST('/api/changes/{id}/reviews', {
+    params: { path: { id: change.id } },
+    body: { decision: 'approve', sql_hash: change.sql_hash, preview_hash: change.preview_hash },
+  })
+  return requireData(data)
+}
+
+export async function rejectChange(id: string, comment: string): Promise<Change> {
+  const { data } = await api.POST('/api/changes/{id}/reviews', {
+    params: { path: { id } },
+    body: { decision: 'reject', comment },
+  })
+  return requireData(data)
+}
+
+export async function executeChange(id: string): Promise<Change> {
+  const { data } = await api.POST('/api/changes/{id}/execute', { params: { path: { id } } })
+  return requireData(data)
+}
+
+export async function retryChange(id: string): Promise<Change> {
+  const { data } = await api.POST('/api/changes/{id}/retry', { params: { path: { id } } })
+  return requireData(data)
+}
+
 function requireData<T>(data: T | undefined): T {
   if (data === undefined) {
     throw new ApiError(0, 'invalid_response', 'The server returned an empty response.')

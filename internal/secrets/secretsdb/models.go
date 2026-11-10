@@ -37,6 +37,60 @@ type AuditEvent struct {
 	Hash        []byte
 }
 
+type ChangeCounter struct {
+	ID   int64
+	Last int64
+}
+
+type ChangeRequest struct {
+	ID                 string
+	Number             int64
+	ConnectionID       string
+	AuthorID           string
+	Via                string
+	ApiTokenID         string
+	AgentName          string
+	Title              string
+	Reason             string
+	Status             string
+	StatusCode         string
+	StatusDetail       string
+	StatusMessage      string
+	SqlHash            string
+	PreviewHash        string
+	PreviewedAt        sql.NullInt64
+	PreviewError       string
+	PreviewChanged     int64
+	Revision           int64
+	Attempts           int64
+	NextAttemptAt      sql.NullInt64
+	LastAttemptError   string
+	ExecuteRequestedAt sql.NullInt64
+	LastRefreshAt      sql.NullInt64
+	CreatedAt          int64
+	UpdatedAt          int64
+	SubmittedAt        sql.NullInt64
+	DecidedAt          sql.NullInt64
+	ExecutedAt         sql.NullInt64
+	ExpiresAt          sql.NullInt64
+}
+
+type ChangeStatement struct {
+	ChangeID            string
+	Revision            int64
+	Position            int64
+	SqlText             string
+	Kind                string
+	SchemaName          string
+	TableName           string
+	ExpectedRows        sql.NullInt64
+	ExpectedFingerprint string
+	HasPrimaryKey       int64
+	Error               sql.NullString
+	Preview             sql.NullString
+	PreviousPreview     sql.NullString
+}
+
 type Connection struct {
 	ID                string
 	Name              string
@@ -55,6 +109,33 @@ type Connection struct {
 	ArchivedAt        sql.NullInt64
 	ArchivedBy        string
 	LastTest          sql.NullString
+}
+
+type Execution struct {
+	ID               string
+	ChangeID         string
+	Attempt          int64
+	StartedAt        int64
+	FinishedAt       sql.NullInt64
+	Outcome          string
+	ErrorCode        string
+	ErrorMessage     string
+	Detail           sql.NullString
+	StatementResults sql.NullString
+}
+
+type Review struct {
+	ID          string
+	ChangeID    string
+	ReviewerID  string
+	Decision    string
+	Comment     string
+	SqlHash     string
+	PreviewHash string
+	Revision    int64
+	CreatedAt   int64
+	VoidedAt    sql.NullInt64
+	VoidReason  string
 }
 
 type Secret struct {

@@ -7,7 +7,30 @@ type Action string
 
 // Actions. Later phases add their own here.
 const (
-	ChangeSubmitted Action = "change.submitted"
+	// Changes (subject "change"). Payloads carry SQL, hashes and counts,
+	// never row images.
+	ChangeCreated          Action = "change.created"
+	ChangeEdited           Action = "change.edited"
+	ChangeSubmitted        Action = "change.submitted"
+	ChangePreviewRefreshed Action = "change.preview_refreshed"
+	ChangeReviewed         Action = "change.reviewed"
+	ChangeApproved         Action = "change.approved"
+	ChangeRejected         Action = "change.rejected"
+	ChangeCancelled        Action = "change.cancelled"
+	ChangeExpired          Action = "change.expired"
+	// ChangeReturnedToReview: an approved change fell below its required
+	// approvals before execution began (an approving reviewer was removed).
+	ChangeReturnedToReview Action = "change.returned_to_review"
+	ChangeApprovalsVoided  Action = "change.approvals_voided"
+	ChangeExecuteRequested Action = "change.execute_requested"
+	ChangeRetryRequested   Action = "change.retry_requested"
+
+	// Executions (subject "change").
+	ExecutionStarted     Action = "execution.started"
+	ExecutionSucceeded   Action = "execution.succeeded"
+	ExecutionFailed      Action = "execution.failed"
+	ExecutionDeferred    Action = "execution.deferred"
+	ExecutionInterrupted Action = "execution.interrupted"
 
 	// Secrets. Payloads carry the secret's reference, never its value.
 	SecretSet      Action = "secret.set"

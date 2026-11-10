@@ -2,6 +2,7 @@ import type { components } from './schema'
 
 export type ErrorEnvelope = components['schemas']['Error']
 export type FieldError = components['schemas']['FieldError']
+export type ErrorDetails = components['schemas']['ErrorDetails']
 
 /** Error codes produced by the client itself rather than the server. */
 export type ClientErrorCode = 'network_error' | 'invalid_response'
@@ -16,13 +17,22 @@ export class ApiError extends Error {
   readonly code: string
   /** One entry per invalid field on a `validation_failed` error; empty otherwise. */
   readonly fields: readonly FieldError[]
+  /** Structured detail some errors carry, for example every statement's problem. */
+  readonly details: ErrorDetails | undefined
 
-  constructor(status: number, code: string, message: string, fields: readonly FieldError[] = []) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    fields: readonly FieldError[] = [],
+    details?: ErrorDetails,
+  ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
     this.fields = fields
+    this.details = details
   }
 
   get isUnauthorized(): boolean {
@@ -79,6 +89,12 @@ export function signInErrorMessage(code: string): string {
   return signInErrors[code] ?? 'The sign-in could not be verified, so it was refused. Try again.'
 }
 
+/** The envelope's details, kept only if the server sent an object. */
+function details(body: ErrorEnvelope): ErrorDetails | undefined {
+  const d: unknown = body.error.details
+  return typeof d === 'object' && d !== null ? body.error.details : undefined
+}
+
 /** Builds an ApiError from a failed response, reading the error envelope when present. */
 export async function apiErrorFromResponse(response: Response): Promise<ApiError> {
   let body: unknown
@@ -89,7 +105,7 @@ export async function apiErrorFromResponse(response: Response): Promise<ApiError
   }
   if (isErrorEnvelope(body)) {
     const fields = Array.isArray(body.error.fields) ? body.error.fields.filter(isFieldError) : []
-    return new ApiError(response.status, body.error.code, body.error.message, fields)
+    return new ApiError(response.status, body.error.code, body.error.message, fields, details(body))
   }
   return new ApiError(
     response.status,

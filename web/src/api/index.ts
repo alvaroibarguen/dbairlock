@@ -6,10 +6,23 @@ export {
   SIGN_IN_PATH,
 } from './client'
 export { ApiError, isApiError, signInErrorMessage } from './errors'
-export type { FieldError } from './errors'
+export type { ErrorDetails, FieldError } from './errors'
 export {
+  approveChange,
   archiveConnection,
   can,
+  cancelChange,
+  changeEventsQuery,
+  changeQuery,
+  changesQuery,
+  createChange,
+  executeChange,
+  previewChange,
+  refreshChangePreview,
+  rejectChange,
+  retryChange,
+  submitChange,
+  updateChange,
   connectionQuery,
   connectionSchemaQuery,
   connectionsQuery,
@@ -43,6 +56,20 @@ export {
 } from './queries'
 export type {
   ApiToken,
+  Change,
+  ChangeCreate,
+  ChangeEvent,
+  ChangeExecution,
+  ChangeIssue,
+  ChangePreview,
+  ChangeReview,
+  ChangeStatement,
+  ChangeSummary,
+  ChangeUpdate,
+  ChangeView,
+  PreviewRefresh,
+  RowPreview,
+  StatementIssue,
   Connection,
   ConnectionCreate,
   ConnectionPolicy,

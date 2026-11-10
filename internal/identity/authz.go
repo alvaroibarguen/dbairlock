@@ -11,18 +11,22 @@ type Action string
 
 // Actions.
 const (
-	ActionChangeSubmit   Action = "change.submit"
-	ActionChangeReview   Action = "change.review"
-	ActionDatabaseManage Action = "database.manage"
-	ActionSettingsManage Action = "settings.manage"
-	ActionUserManage     Action = "user.manage"
-	ActionAuditRead      Action = "audit.read"
+	ActionChangeSubmit Action = "change.submit"
+	ActionChangeReview Action = "change.review"
+	// ActionChangeAdminister covers acting on other people's changes:
+	// cancelling them, triggering their execution, retrying a waiting one
+	// now. It never allows approving anything (admins have no bypass).
+	ActionChangeAdminister Action = "change.administer"
+	ActionDatabaseManage   Action = "database.manage"
+	ActionSettingsManage   Action = "settings.manage"
+	ActionUserManage       Action = "user.manage"
+	ActionAuditRead        Action = "audit.read"
 )
 
 // Actions returns every action in a stable order.
 func Actions() []Action {
 	return []Action{
-		ActionChangeSubmit, ActionChangeReview, ActionDatabaseManage,
+		ActionChangeSubmit, ActionChangeReview, ActionChangeAdminister, ActionDatabaseManage,
 		ActionSettingsManage, ActionUserManage, ActionAuditRead,
 	}
 }

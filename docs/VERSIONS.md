@@ -85,10 +85,17 @@ Installed in `web/` with `pnpm add <pkg>@latest` on 2026-11-09. pnpm 12 refuses 
 | globals | 17.14.0 |
 | prettier | 3.9.10 |
 | prettier-plugin-tailwindcss | 0.8.1 |
+| `@uiw/react-codemirror` (SQL editor, phase 7) | 4.25.12 |
+| `@codemirror/view` | 6.43.15 |
+| `@codemirror/state` | 6.7.6 |
+| `@codemirror/language` | 6.13.1 |
+| `@codemirror/autocomplete` | 6.20.4 |
+| `@codemirror/lint` | 6.9.7 |
+| `@lezer/highlight` | 1.2.5 |
 | `@types/node` | 26.6.6 |
 | `@types/react`, `@types/react-dom` | 19.3.0 |
 
-Added later (not yet installed): codemirror, `@uiw/react-codemirror` (phase 7).
+The `codemirror` meta-package is not installed: `@uiw/react-codemirror` brings its own basic setup, and the editor imports the `@codemirror/*` packages it uses directly.
 
 ## Supported target databases
 

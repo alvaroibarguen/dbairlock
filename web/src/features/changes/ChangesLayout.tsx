@@ -21,6 +21,8 @@ export interface ChangesLayoutProps {
   rowsActions?: ReactNode
   /** Page heading for assistive tech; the panes carry the visible labels. */
   title?: string
+  /** Which pane a phone shows: the queue, or the selected change. */
+  mobileFocus?: 'queue' | 'detail'
 }
 
 const ROWS_TITLE = 'Affected rows · before / after'
@@ -37,6 +39,7 @@ export function ChangesLayout({
   rows,
   rowsActions,
   title = 'Changes',
+  mobileFocus = 'queue',
 }: ChangesLayoutProps) {
   const wide = useMediaQuery(WIDE, true)
   const medium = useMediaQuery(MEDIUM, true)
@@ -128,10 +131,10 @@ export function ChangesLayout({
     )
   }
 
+  // Below 768px the queue and the detail are separate screens.
   return (
-    <PaneGrid className="flex-1 grid-cols-1 grid-rows-[auto_1fr]">
-      {queuePane}
-      {detailWithRows}
+    <PaneGrid className="flex-1 grid-cols-1">
+      {mobileFocus === 'detail' ? detailWithRows : queuePane}
     </PaneGrid>
   )
 }

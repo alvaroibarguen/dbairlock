@@ -20,6 +20,9 @@ type Error struct {
 	Message string
 	// Fields lists invalid fields on a validation error.
 	Fields []FieldError
+	// Details is optional structured detail, rendered as "details". It must
+	// be safe to show to the caller.
+	Details any
 }
 
 // FieldError names one invalid field and why, safe to show to a person.
@@ -60,6 +63,7 @@ type envelopeBody struct {
 	Code    string       `json:"code"`
 	Message string       `json:"message"`
 	Fields  []FieldError `json:"fields,omitempty"`
+	Details any          `json:"details,omitempty"`
 }
 
 // WriteError renders err as the JSON error envelope. An *Error (possibly
@@ -76,7 +80,7 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 		)
 		he = ErrInternal
 	}
-	WriteJSON(w, he.Status, envelope{Error: envelopeBody{Code: he.Code, Message: he.Message, Fields: he.Fields}})
+	WriteJSON(w, he.Status, envelope{Error: envelopeBody{Code: he.Code, Message: he.Message, Fields: he.Fields, Details: he.Details}})
 }
 
 // WriteJSON writes v as a JSON response with the given status.

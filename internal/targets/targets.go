@@ -205,6 +205,10 @@ func New(opts Options) (*Service, error) {
 // Connectors returns every registered connector, sorted by id.
 func (s *Service) Connectors() []connector.Connector { return s.opts.Connectors.List() }
 
+// Connector returns the registered connector with id, for validating
+// statements against it.
+func (s *Service) Connector(id string) (connector.Connector, bool) { return s.opts.Connectors.Get(id) }
+
 // passwordRef is where a connection's password lives in the secret store.
 func passwordRef(id string) secrets.Ref {
 	return secrets.Ref{Kind: secrets.KindTargetPassword, OwnerType: "connection", OwnerID: id}

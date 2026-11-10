@@ -620,6 +620,248 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Changes
+         * @description Changes, newest first, without row images. `view` picks a tab:
+         *     `needs_my_review` (in review, not authored by the caller and not yet
+         *     approved by them for the current SQL and preview), `mine` (authored
+         *     by the caller) or `all`. Continue with `before` = the previous page's
+         *     `next_before`. Any signed-in user.
+         */
+        get: operations["listChanges"];
+        put?: never;
+        /**
+         * Create a change
+         * @description Without `submit` the change is saved as a draft, even when statements
+         *     are invalid or the dry run fails (the problems are stored and shown).
+         *     With `submit` it is created and submitted in one step: statements
+         *     must pass validation and the dry run, or nothing is created (422
+         *     `statements_invalid`, or 502 `target_unavailable`). If the caller
+         *     already has an open change with identical SQL on the connection, that
+         *     change is returned (200) with `already_existed` and nothing is
+         *     created.
+         */
+        post: operations["createChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/changes/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview statements
+         * @description Validates the statements and, when all are valid, dry-runs them in
+         *     one transaction that is always rolled back. Saves nothing. Every
+         *     statement's outcome is reported. Any signed-in user.
+         */
+        post: operations["previewChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/changes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One change
+         * @description The change with its statements, previews (row images), reviews and
+         *     executions. `id` is the change's id or its number. `server_time`
+         *     lets the dashboard count the preview's age on the server's clock.
+         *     Any signed-in user.
+         */
+        get: operations["getChange"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit a change
+         * @description The author edits a draft or a change in review. `revision` is the
+         *     revision the edit is based on (409 `revision_conflict` if it moved).
+         *     New statements get a new SQL hash and a new dry run, so earlier
+         *     approvals no longer count. A change in review must keep passing
+         *     validation and the dry run (422 `statements_invalid`).
+         */
+        patch: operations["updateChange"];
+        trace?: never;
+    };
+    "/api/changes/{id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit a draft for review
+         * @description Dry-runs the draft again and sends it for review. If the author
+         *     already has an open change with identical SQL on the connection, that
+         *     change is returned with `already_existed` and the draft stays a
+         *     draft.
+         */
+        post: operations["submitChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/changes/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a change
+         * @description The author or an admin cancels a draft, a change in review or an approved change.
+         */
+        post: operations["cancelChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/changes/{id}/refresh-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update the preview
+         * @description Re-runs the dry run of a change in review for its current SQL. When
+         *     the affected rows or the values being overwritten differ from the
+         *     previous preview, earlier approvals stop counting
+         *     (`data_changed`). A failed dry run is stored and blocks approval.
+         *     At most one update per change every 10 seconds (429). Any signed-in
+         *     user.
+         */
+        post: operations["refreshChangePreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/changes/{id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve or reject a change
+         * @description An approval carries the `sql_hash` and `preview_hash` the reviewer is
+         *     looking at and needs a preview from the last
+         *     `policy.preview_max_age_minutes` (409 `preview_stale`,
+         *     `preview_failed`, `preview_changed` or `sql_changed`). A rejection
+         *     needs a comment. The author cannot review (403 `self_review`).
+         */
+        post: operations["reviewChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/changes/{id}/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Execute an approved change now
+         * @description For connections that do not run approved changes automatically. The
+         *     author or an admin.
+         */
+        post: operations["executeChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/changes/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try a waiting change now
+         * @description Clears the wait of an approved change whose database could not be
+         *     reached, so the executor tries again at once. Admin only.
+         */
+        post: operations["retryChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/changes/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The timeline of a change
+         * @description The change's audit events, oldest first. Any signed-in user.
+         */
+        get: operations["listChangeEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -662,7 +904,7 @@ export interface components {
          * @description An action the user may take (see identity.Can).
          * @enum {string}
          */
-        Permission: "change.submit" | "change.review" | "database.manage" | "settings.manage" | "user.manage" | "audit.read";
+        Permission: "change.submit" | "change.review" | "change.administer" | "database.manage" | "settings.manage" | "user.manage" | "audit.read";
         User: {
             id: string;
             email: string;
@@ -739,6 +981,28 @@ export interface components {
             message: string;
             /** @description Present on validation errors (`validation_failed`), one entry per invalid field. */
             fields?: components["schemas"]["FieldError"][];
+            details?: components["schemas"]["ErrorDetails"];
+        };
+        /**
+         * @description Structured detail for some errors. `statements_invalid` carries every
+         *     statement's problem (with its byte offset in the statement, for the
+         *     editor) and the run's `problem`; `duplicate` carries the existing
+         *     change.
+         */
+        ErrorDetails: {
+            statements?: components["schemas"]["StatementIssue"][];
+            problem?: components["schemas"]["ChangeIssue"];
+            change_id?: string;
+            /** Format: int64 */
+            change_number?: number;
+        };
+        StatementIssue: {
+            /** @description Zero-based index of the statement. */
+            statement: number;
+            code: string;
+            message: string;
+            /** @description Byte offset into the statement the message refers to, or -1. */
+            position: number;
         };
         FieldError: {
             /** @description The invalid field, for example `auth.session_hours`. */
@@ -999,6 +1263,311 @@ export interface components {
         };
         Schema: {
             namespaces: components["schemas"]["SchemaNamespace"][];
+        };
+        /** @enum {string} */
+        ChangeStatus: "draft" | "pending_review" | "approved" | "executing" | "executed" | "failed" | "rejected" | "expired" | "cancelled";
+        /** @enum {string} */
+        StatementKind: "insert" | "update" | "delete";
+        ChangePerson: {
+            id: string;
+            email: string;
+            name: string;
+            removed: boolean;
+        };
+        ChangeConnection: {
+            id: string;
+            name: string;
+            connector: string;
+        };
+        /** @description Why a statement or a dry run failed. Plain text. */
+        ChangeIssue: {
+            code: string;
+            message: string;
+            /** @description Byte offset into the statement the message refers to, or -1. */
+            position: number;
+        };
+        /**
+         * @description A cell value: null, a boolean, a number, a string, a JSON array or
+         *     object, or `{type, value, size, truncated}` for binary data and
+         *     values truncated for display. Always rendered as plain text.
+         */
+        Cell: unknown;
+        /**
+         * @description What a dry run (or execution) found for one statement. `before` and
+         *     `after` are present only when `row_images` is true; rows follow
+         *     `columns`.
+         */
+        RowPreview: {
+            /** Format: int64 */
+            rows_affected: number;
+            fingerprint?: string;
+            has_primary_key: boolean;
+            primary_key: string[];
+            columns: string[];
+            before?: components["schemas"]["Cell"][][];
+            after?: components["schemas"]["Cell"][][];
+            truncated: boolean;
+            row_images: boolean;
+            session?: {
+                [key: string]: string;
+            };
+        };
+        ChangeStatement: {
+            position: number;
+            sql: string;
+            kind?: components["schemas"]["StatementKind"];
+            schema: string;
+            table: string;
+            /** Format: int64 */
+            expected_rows?: number;
+            fingerprint?: string;
+            has_primary_key: boolean;
+            issue?: components["schemas"]["ChangeIssue"];
+            preview?: components["schemas"]["RowPreview"];
+            previous_preview?: components["schemas"]["RowPreview"];
+        };
+        ChangeReview: {
+            id: string;
+            reviewer: components["schemas"]["ChangePerson"];
+            /** @enum {string} */
+            decision: "approve" | "reject";
+            comment: string;
+            sql_hash: string;
+            preview_hash: string;
+            revision: number;
+            /** Format: date-time */
+            created_at: string;
+            /** @description True for an approval that counts towards the required number now. */
+            counts: boolean;
+            /**
+             * @description Why an approval no longer counts.
+             * @enum {string}
+             */
+            outdated?: "sql_changed" | "preview_changed" | "reviewer_removed";
+        };
+        ChangeDrift: {
+            /** @enum {string} */
+            kind: "rows" | "count";
+            statement: number;
+            expected: string;
+            actual: string;
+        };
+        ExecutionResult: {
+            position: number;
+            schema: string;
+            table: string;
+            preview: components["schemas"]["RowPreview"];
+        };
+        ChangeExecution: {
+            id: string;
+            attempt: number;
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            finished_at?: string;
+            /** @enum {string} */
+            outcome: "running" | "executed" | "failed" | "not_started" | "interrupted";
+            error_code?: string;
+            error_message?: string;
+            drift?: components["schemas"]["ChangeDrift"];
+            results: components["schemas"]["ExecutionResult"][];
+        };
+        /** @description What the caller may do with the change now. The server checks every action again. */
+        ChangeActions: {
+            edit: boolean;
+            submit: boolean;
+            cancel: boolean;
+            approve: boolean;
+            reject: boolean;
+            refresh_preview: boolean;
+            execute_now: boolean;
+            retry_now: boolean;
+        };
+        ChangeSummary: {
+            id: string;
+            /** Format: int64 */
+            number: number;
+            connection: components["schemas"]["ChangeConnection"];
+            author: components["schemas"]["ChangePerson"];
+            /**
+             * @description `mcp` when an agent submitted it with the author's API token.
+             * @enum {string}
+             */
+            via: "web" | "mcp";
+            /** @description The name of the API token an agent used. */
+            agent_name?: string;
+            title: string;
+            status: components["schemas"]["ChangeStatus"];
+            status_code?: string;
+            status_detail?: string;
+            revision: number;
+            attempts: number;
+            /** Format: date-time */
+            next_attempt_at?: string;
+            statements: components["schemas"]["ChangeStatement"][];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            submitted_at?: string;
+        };
+        Change: {
+            id: string;
+            /** Format: int64 */
+            number: number;
+            connection: components["schemas"]["ChangeConnection"];
+            author: components["schemas"]["ChangePerson"];
+            /** @enum {string} */
+            via: "web" | "mcp";
+            agent_name?: string;
+            title: string;
+            reason: string;
+            status: components["schemas"]["ChangeStatus"];
+            /** @description Why the change is in its status, for example `drift`, `interrupted`, `author_removed`. */
+            status_code?: string;
+            /** @description For a drift, its kind (`rows` or `count`). */
+            status_detail?: string;
+            status_message?: string;
+            revision: number;
+            sql_hash: string;
+            preview_hash: string;
+            /** Format: date-time */
+            previewed_at?: string;
+            preview_error?: string;
+            /** @description The last preview update found different data than the one before it. */
+            preview_changed: boolean;
+            /** @description How old a preview may be for an approval. */
+            preview_max_age_seconds: number;
+            /**
+             * Format: date-time
+             * @description The server's clock when the response was made.
+             */
+            server_time: string;
+            required_approvals: number;
+            /** @description Approvals that count now. */
+            approvals: number;
+            auto_execute: boolean;
+            store_row_images: boolean;
+            /** @description Execution attempts that could not reach the database. */
+            attempts: number;
+            /** Format: date-time */
+            next_attempt_at?: string;
+            last_attempt_error?: string;
+            execute_requested: boolean;
+            statements: components["schemas"]["ChangeStatement"][];
+            reviews: components["schemas"]["ChangeReview"][];
+            executions: components["schemas"]["ChangeExecution"][];
+            actions: components["schemas"]["ChangeActions"];
+            already_existed: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            submitted_at?: string;
+            /** Format: date-time */
+            decided_at?: string;
+            /** Format: date-time */
+            executed_at?: string;
+            /** Format: date-time */
+            expires_at?: string;
+        };
+        ChangeList: {
+            changes: components["schemas"]["ChangeSummary"][];
+            /**
+             * Format: int64
+             * @description Pass as `before` for the next page; absent on the last page.
+             */
+            next_before?: number;
+            /** @description How many changes wait for the caller's review. */
+            needs_my_review: number;
+        };
+        Statements: string[];
+        ChangeCreate: {
+            connection_id: string;
+            title: string;
+            reason?: string;
+            statements: components["schemas"]["Statements"];
+            /** @description Submit for review at once instead of saving a draft. */
+            submit?: boolean;
+        };
+        ChangeUpdate: {
+            revision: number;
+            title?: string;
+            reason?: string;
+            statements?: components["schemas"]["Statements"];
+        };
+        ChangeRevision: {
+            revision: number;
+        };
+        ChangeCancel: {
+            reason?: string;
+        };
+        ReviewCreate: {
+            /** @enum {string} */
+            decision: "approve" | "reject";
+            comment?: string;
+            /** @description Required to approve; the SQL the reviewer is looking at. */
+            sql_hash?: string;
+            /** @description Required to approve; the preview the reviewer is looking at. */
+            preview_hash?: string;
+        };
+        ChangePreviewRequest: {
+            connection_id: string;
+            statements: components["schemas"]["Statements"];
+        };
+        PreviewStatement: {
+            position: number;
+            sql: string;
+            valid: boolean;
+            kind?: components["schemas"]["StatementKind"];
+            schema?: string;
+            table?: string;
+            has_primary_key: boolean;
+            issue?: components["schemas"]["ChangeIssue"];
+            preview?: components["schemas"]["RowPreview"];
+        };
+        ChangeRef: {
+            id: string;
+            /** Format: int64 */
+            number: number;
+        };
+        ChangePreview: {
+            /** @description Every statement is valid and the dry run succeeded. */
+            ok: boolean;
+            problem?: components["schemas"]["ChangeIssue"];
+            sql_hash: string;
+            statements: components["schemas"]["PreviewStatement"][];
+            duplicate?: components["schemas"]["ChangeRef"];
+        };
+        PreviewRefresh: {
+            change: components["schemas"]["Change"];
+            ok: boolean;
+            /** @description The affected rows or the values being overwritten differ from the previous preview. */
+            data_changed: boolean;
+            problem?: string;
+        };
+        ChangeEventActor: {
+            user_id?: string;
+            email?: string;
+            /** @enum {string} */
+            via: "web" | "mcp" | "cli" | "system";
+            api_token_id?: string;
+        };
+        ChangeEvent: {
+            /** Format: int64 */
+            seq: number;
+            /** Format: date-time */
+            occurred_at: string;
+            action: string;
+            actor: components["schemas"]["ChangeEventActor"];
+            payload: {
+                [key: string]: unknown;
+            };
+        };
+        ChangeEventList: {
+            events: components["schemas"]["ChangeEvent"][];
         };
         Health: {
             /** @enum {string} */
@@ -1787,6 +2356,333 @@ export interface operations {
                 };
             };
             502: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listChanges: {
+        parameters: {
+            query?: {
+                view?: "needs_my_review" | "mine" | "all";
+                status?: components["schemas"]["ChangeStatus"];
+                connection_id?: string;
+                author_id?: string;
+                /** @description Only drafts, changes in review, approved and executing changes. */
+                open?: boolean;
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of changes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeCreate"];
+            };
+        };
+        responses: {
+            /** @description An open change with identical SQL already existed; it is returned. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Change"];
+                };
+            };
+            /** @description The new change. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Change"];
+                };
+            };
+            422: components["responses"]["Error"];
+            502: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    previewChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description The outcome; `ok` is false when something must be fixed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangePreview"];
+                };
+            };
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Change"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeUpdate"];
+            };
+        };
+        responses: {
+            /** @description The change after the edit. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Change"];
+                };
+            };
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    submitChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeRevision"];
+            };
+        };
+        responses: {
+            /** @description The submitted change, or the existing one. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Change"];
+                };
+            };
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    cancelChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeCancel"];
+            };
+        };
+        responses: {
+            /** @description The cancelled change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Change"];
+                };
+            };
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    refreshChangePreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The outcome and the change afterwards. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewRefresh"];
+                };
+            };
+            409: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    reviewChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewCreate"];
+            };
+        };
+        responses: {
+            /** @description The change after the review. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Change"];
+                };
+            };
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    executeChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The change; the executor picks it up. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Change"];
+                };
+            };
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    retryChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Change"];
+                };
+            };
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listChangeEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Events. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeEventList"];
+                };
+            };
             default: components["responses"]["Error"];
         };
     };

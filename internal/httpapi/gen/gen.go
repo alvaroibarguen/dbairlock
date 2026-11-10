@@ -18,6 +18,189 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for ChangeVia.
+const (
+	ChangeViaMcp ChangeVia = "mcp"
+	ChangeViaWeb ChangeVia = "web"
+)
+
+// Valid indicates whether the value is a known member of the ChangeVia enum.
+func (e ChangeVia) Valid() bool {
+	switch e {
+	case ChangeViaMcp:
+		return true
+	case ChangeViaWeb:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ChangeDriftKind.
+const (
+	Count ChangeDriftKind = "count"
+	Rows  ChangeDriftKind = "rows"
+)
+
+// Valid indicates whether the value is a known member of the ChangeDriftKind enum.
+func (e ChangeDriftKind) Valid() bool {
+	switch e {
+	case Count:
+		return true
+	case Rows:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ChangeEventActorVia.
+const (
+	ChangeEventActorViaCli    ChangeEventActorVia = "cli"
+	ChangeEventActorViaMcp    ChangeEventActorVia = "mcp"
+	ChangeEventActorViaSystem ChangeEventActorVia = "system"
+	ChangeEventActorViaWeb    ChangeEventActorVia = "web"
+)
+
+// Valid indicates whether the value is a known member of the ChangeEventActorVia enum.
+func (e ChangeEventActorVia) Valid() bool {
+	switch e {
+	case ChangeEventActorViaCli:
+		return true
+	case ChangeEventActorViaMcp:
+		return true
+	case ChangeEventActorViaSystem:
+		return true
+	case ChangeEventActorViaWeb:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ChangeExecutionOutcome.
+const (
+	ChangeExecutionOutcomeExecuted    ChangeExecutionOutcome = "executed"
+	ChangeExecutionOutcomeFailed      ChangeExecutionOutcome = "failed"
+	ChangeExecutionOutcomeInterrupted ChangeExecutionOutcome = "interrupted"
+	ChangeExecutionOutcomeNotStarted  ChangeExecutionOutcome = "not_started"
+	ChangeExecutionOutcomeRunning     ChangeExecutionOutcome = "running"
+)
+
+// Valid indicates whether the value is a known member of the ChangeExecutionOutcome enum.
+func (e ChangeExecutionOutcome) Valid() bool {
+	switch e {
+	case ChangeExecutionOutcomeExecuted:
+		return true
+	case ChangeExecutionOutcomeFailed:
+		return true
+	case ChangeExecutionOutcomeInterrupted:
+		return true
+	case ChangeExecutionOutcomeNotStarted:
+		return true
+	case ChangeExecutionOutcomeRunning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ChangeReviewDecision.
+const (
+	ChangeReviewDecisionApprove ChangeReviewDecision = "approve"
+	ChangeReviewDecisionReject  ChangeReviewDecision = "reject"
+)
+
+// Valid indicates whether the value is a known member of the ChangeReviewDecision enum.
+func (e ChangeReviewDecision) Valid() bool {
+	switch e {
+	case ChangeReviewDecisionApprove:
+		return true
+	case ChangeReviewDecisionReject:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ChangeReviewOutdated.
+const (
+	PreviewChanged  ChangeReviewOutdated = "preview_changed"
+	ReviewerRemoved ChangeReviewOutdated = "reviewer_removed"
+	SqlChanged      ChangeReviewOutdated = "sql_changed"
+)
+
+// Valid indicates whether the value is a known member of the ChangeReviewOutdated enum.
+func (e ChangeReviewOutdated) Valid() bool {
+	switch e {
+	case PreviewChanged:
+		return true
+	case ReviewerRemoved:
+		return true
+	case SqlChanged:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ChangeStatus.
+const (
+	ChangeStatusApproved      ChangeStatus = "approved"
+	ChangeStatusCancelled     ChangeStatus = "cancelled"
+	ChangeStatusDraft         ChangeStatus = "draft"
+	ChangeStatusExecuted      ChangeStatus = "executed"
+	ChangeStatusExecuting     ChangeStatus = "executing"
+	ChangeStatusExpired       ChangeStatus = "expired"
+	ChangeStatusFailed        ChangeStatus = "failed"
+	ChangeStatusPendingReview ChangeStatus = "pending_review"
+	ChangeStatusRejected      ChangeStatus = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the ChangeStatus enum.
+func (e ChangeStatus) Valid() bool {
+	switch e {
+	case ChangeStatusApproved:
+		return true
+	case ChangeStatusCancelled:
+		return true
+	case ChangeStatusDraft:
+		return true
+	case ChangeStatusExecuted:
+		return true
+	case ChangeStatusExecuting:
+		return true
+	case ChangeStatusExpired:
+		return true
+	case ChangeStatusFailed:
+		return true
+	case ChangeStatusPendingReview:
+		return true
+	case ChangeStatusRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ChangeSummaryVia.
+const (
+	ChangeSummaryViaMcp ChangeSummaryVia = "mcp"
+	ChangeSummaryViaWeb ChangeSummaryVia = "web"
+)
+
+// Valid indicates whether the value is a known member of the ChangeSummaryVia enum.
+func (e ChangeSummaryVia) Valid() bool {
+	switch e {
+	case ChangeSummaryViaMcp:
+		return true
+	case ChangeSummaryViaWeb:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ConnectorFieldType.
 const (
 	Bool   ConnectorFieldType = "bool"
@@ -65,28 +248,49 @@ func (e HealthStatus) Valid() bool {
 
 // Defines values for Permission.
 const (
-	AuditRead      Permission = "audit.read"
-	ChangeReview   Permission = "change.review"
-	ChangeSubmit   Permission = "change.submit"
-	DatabaseManage Permission = "database.manage"
-	SettingsManage Permission = "settings.manage"
-	UserManage     Permission = "user.manage"
+	PermissionAuditRead        Permission = "audit.read"
+	PermissionChangeAdminister Permission = "change.administer"
+	PermissionChangeReview     Permission = "change.review"
+	PermissionChangeSubmit     Permission = "change.submit"
+	PermissionDatabaseManage   Permission = "database.manage"
+	PermissionSettingsManage   Permission = "settings.manage"
+	PermissionUserManage       Permission = "user.manage"
 )
 
 // Valid indicates whether the value is a known member of the Permission enum.
 func (e Permission) Valid() bool {
 	switch e {
-	case AuditRead:
+	case PermissionAuditRead:
 		return true
-	case ChangeReview:
+	case PermissionChangeAdminister:
 		return true
-	case ChangeSubmit:
+	case PermissionChangeReview:
 		return true
-	case DatabaseManage:
+	case PermissionChangeSubmit:
 		return true
-	case SettingsManage:
+	case PermissionDatabaseManage:
 		return true
-	case UserManage:
+	case PermissionSettingsManage:
+		return true
+	case PermissionUserManage:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReviewCreateDecision.
+const (
+	ReviewCreateDecisionApprove ReviewCreateDecision = "approve"
+	ReviewCreateDecisionReject  ReviewCreateDecision = "reject"
+)
+
+// Valid indicates whether the value is a known member of the ReviewCreateDecision enum.
+func (e ReviewCreateDecision) Valid() bool {
+	switch e {
+	case ReviewCreateDecisionApprove:
+		return true
+	case ReviewCreateDecisionReject:
 		return true
 	default:
 		return false
@@ -147,6 +351,27 @@ func (e SetupState) Valid() bool {
 	}
 }
 
+// Defines values for StatementKind.
+const (
+	Delete StatementKind = "delete"
+	Insert StatementKind = "insert"
+	Update StatementKind = "update"
+)
+
+// Valid indicates whether the value is a known member of the StatementKind enum.
+func (e StatementKind) Valid() bool {
+	switch e {
+	case Delete:
+		return true
+	case Insert:
+		return true
+	case Update:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TokenCreateExpiresInDays.
 const (
 	N30  TokenCreateExpiresInDays = 30
@@ -168,6 +393,27 @@ func (e TokenCreateExpiresInDays) Valid() bool {
 	}
 }
 
+// Defines values for ListChangesParamsView.
+const (
+	All           ListChangesParamsView = "all"
+	Mine          ListChangesParamsView = "mine"
+	NeedsMyReview ListChangesParamsView = "needs_my_review"
+)
+
+// Valid indicates whether the value is a known member of the ListChangesParamsView enum.
+func (e ListChangesParamsView) Valid() bool {
+	switch e {
+	case All:
+		return true
+	case Mine:
+		return true
+	case NeedsMyReview:
+		return true
+	default:
+		return false
+	}
+}
+
 // ApiToken defines model for ApiToken.
 type ApiToken struct {
 	CreatedAt time.Time `json:"created_at"`
@@ -182,6 +428,304 @@ type ApiToken struct {
 
 	// Prefix The first characters of the token, for recognising it. Never used for lookup.
 	Prefix string `json:"prefix"`
+}
+
+// Cell A cell value: null, a boolean, a number, a string, a JSON array or
+// object, or `{type, value, size, truncated}` for binary data and
+// values truncated for display. Always rendered as plain text.
+type Cell = interface{}
+
+// Change defines model for Change.
+type Change struct {
+	// Actions What the caller may do with the change now. The server checks every action again.
+	Actions        ChangeActions `json:"actions"`
+	AgentName      *string       `json:"agent_name,omitempty"`
+	AlreadyExisted bool          `json:"already_existed"`
+
+	// Approvals Approvals that count now.
+	Approvals int `json:"approvals"`
+
+	// Attempts Execution attempts that could not reach the database.
+	Attempts         int               `json:"attempts"`
+	Author           ChangePerson      `json:"author"`
+	AutoExecute      bool              `json:"auto_execute"`
+	Connection       ChangeConnection  `json:"connection"`
+	CreatedAt        time.Time         `json:"created_at"`
+	DecidedAt        *time.Time        `json:"decided_at,omitempty"`
+	ExecuteRequested bool              `json:"execute_requested"`
+	ExecutedAt       *time.Time        `json:"executed_at,omitempty"`
+	Executions       []ChangeExecution `json:"executions"`
+	ExpiresAt        *time.Time        `json:"expires_at,omitempty"`
+	Id               string            `json:"id"`
+	LastAttemptError *string           `json:"last_attempt_error,omitempty"`
+	NextAttemptAt    *time.Time        `json:"next_attempt_at,omitempty"`
+	Number           int64             `json:"number"`
+
+	// PreviewChanged The last preview update found different data than the one before it.
+	PreviewChanged bool    `json:"preview_changed"`
+	PreviewError   *string `json:"preview_error,omitempty"`
+	PreviewHash    string  `json:"preview_hash"`
+
+	// PreviewMaxAgeSeconds How old a preview may be for an approval.
+	PreviewMaxAgeSeconds int            `json:"preview_max_age_seconds"`
+	PreviewedAt          *time.Time     `json:"previewed_at,omitempty"`
+	Reason               string         `json:"reason"`
+	RequiredApprovals    int            `json:"required_approvals"`
+	Reviews              []ChangeReview `json:"reviews"`
+	Revision             int            `json:"revision"`
+
+	// ServerTime The server's clock when the response was made.
+	ServerTime time.Time         `json:"server_time"`
+	SqlHash    string            `json:"sql_hash"`
+	Statements []ChangeStatement `json:"statements"`
+	Status     ChangeStatus      `json:"status"`
+
+	// StatusCode Why the change is in its status, for example `drift`, `interrupted`, `author_removed`.
+	StatusCode *string `json:"status_code,omitempty"`
+
+	// StatusDetail For a drift, its kind (`rows` or `count`).
+	StatusDetail   *string    `json:"status_detail,omitempty"`
+	StatusMessage  *string    `json:"status_message,omitempty"`
+	StoreRowImages bool       `json:"store_row_images"`
+	SubmittedAt    *time.Time `json:"submitted_at,omitempty"`
+	Title          string     `json:"title"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	Via            ChangeVia  `json:"via"`
+}
+
+// ChangeVia defines model for Change.Via.
+type ChangeVia string
+
+// ChangeActions What the caller may do with the change now. The server checks every action again.
+type ChangeActions struct {
+	Approve        bool `json:"approve"`
+	Cancel         bool `json:"cancel"`
+	Edit           bool `json:"edit"`
+	ExecuteNow     bool `json:"execute_now"`
+	RefreshPreview bool `json:"refresh_preview"`
+	Reject         bool `json:"reject"`
+	RetryNow       bool `json:"retry_now"`
+	Submit         bool `json:"submit"`
+}
+
+// ChangeCancel defines model for ChangeCancel.
+type ChangeCancel struct {
+	Reason *string `json:"reason,omitempty"`
+}
+
+// ChangeConnection defines model for ChangeConnection.
+type ChangeConnection struct {
+	Connector string `json:"connector"`
+	Id        string `json:"id"`
+	Name      string `json:"name"`
+}
+
+// ChangeCreate defines model for ChangeCreate.
+type ChangeCreate struct {
+	ConnectionId string     `json:"connection_id"`
+	Reason       *string    `json:"reason,omitempty"`
+	Statements   Statements `json:"statements"`
+
+	// Submit Submit for review at once instead of saving a draft.
+	Submit *bool  `json:"submit,omitempty"`
+	Title  string `json:"title"`
+}
+
+// ChangeDrift defines model for ChangeDrift.
+type ChangeDrift struct {
+	Actual    string          `json:"actual"`
+	Expected  string          `json:"expected"`
+	Kind      ChangeDriftKind `json:"kind"`
+	Statement int             `json:"statement"`
+}
+
+// ChangeDriftKind defines model for ChangeDrift.Kind.
+type ChangeDriftKind string
+
+// ChangeEvent defines model for ChangeEvent.
+type ChangeEvent struct {
+	Action     string                 `json:"action"`
+	Actor      ChangeEventActor       `json:"actor"`
+	OccurredAt time.Time              `json:"occurred_at"`
+	Payload    map[string]interface{} `json:"payload"`
+	Seq        int64                  `json:"seq"`
+}
+
+// ChangeEventActor defines model for ChangeEventActor.
+type ChangeEventActor struct {
+	ApiTokenId *string             `json:"api_token_id,omitempty"`
+	Email      *string             `json:"email,omitempty"`
+	UserId     *string             `json:"user_id,omitempty"`
+	Via        ChangeEventActorVia `json:"via"`
+}
+
+// ChangeEventActorVia defines model for ChangeEventActor.Via.
+type ChangeEventActorVia string
+
+// ChangeEventList defines model for ChangeEventList.
+type ChangeEventList struct {
+	Events []ChangeEvent `json:"events"`
+}
+
+// ChangeExecution defines model for ChangeExecution.
+type ChangeExecution struct {
+	Attempt      int                    `json:"attempt"`
+	Drift        *ChangeDrift           `json:"drift,omitempty"`
+	ErrorCode    *string                `json:"error_code,omitempty"`
+	ErrorMessage *string                `json:"error_message,omitempty"`
+	FinishedAt   *time.Time             `json:"finished_at,omitempty"`
+	Id           string                 `json:"id"`
+	Outcome      ChangeExecutionOutcome `json:"outcome"`
+	Results      []ExecutionResult      `json:"results"`
+	StartedAt    time.Time              `json:"started_at"`
+}
+
+// ChangeExecutionOutcome defines model for ChangeExecution.Outcome.
+type ChangeExecutionOutcome string
+
+// ChangeIssue Why a statement or a dry run failed. Plain text.
+type ChangeIssue struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+
+	// Position Byte offset into the statement the message refers to, or -1.
+	Position int `json:"position"`
+}
+
+// ChangeList defines model for ChangeList.
+type ChangeList struct {
+	Changes []ChangeSummary `json:"changes"`
+
+	// NeedsMyReview How many changes wait for the caller's review.
+	NeedsMyReview int `json:"needs_my_review"`
+
+	// NextBefore Pass as `before` for the next page; absent on the last page.
+	NextBefore *int64 `json:"next_before,omitempty"`
+}
+
+// ChangePerson defines model for ChangePerson.
+type ChangePerson struct {
+	Email   string `json:"email"`
+	Id      string `json:"id"`
+	Name    string `json:"name"`
+	Removed bool   `json:"removed"`
+}
+
+// ChangePreview defines model for ChangePreview.
+type ChangePreview struct {
+	Duplicate *ChangeRef `json:"duplicate,omitempty"`
+
+	// Ok Every statement is valid and the dry run succeeded.
+	Ok bool `json:"ok"`
+
+	// Problem Why a statement or a dry run failed. Plain text.
+	Problem    *ChangeIssue       `json:"problem,omitempty"`
+	SqlHash    string             `json:"sql_hash"`
+	Statements []PreviewStatement `json:"statements"`
+}
+
+// ChangePreviewRequest defines model for ChangePreviewRequest.
+type ChangePreviewRequest struct {
+	ConnectionId string     `json:"connection_id"`
+	Statements   Statements `json:"statements"`
+}
+
+// ChangeRef defines model for ChangeRef.
+type ChangeRef struct {
+	Id     string `json:"id"`
+	Number int64  `json:"number"`
+}
+
+// ChangeReview defines model for ChangeReview.
+type ChangeReview struct {
+	Comment string `json:"comment"`
+
+	// Counts True for an approval that counts towards the required number now.
+	Counts    bool                 `json:"counts"`
+	CreatedAt time.Time            `json:"created_at"`
+	Decision  ChangeReviewDecision `json:"decision"`
+	Id        string               `json:"id"`
+
+	// Outdated Why an approval no longer counts.
+	Outdated    *ChangeReviewOutdated `json:"outdated,omitempty"`
+	PreviewHash string                `json:"preview_hash"`
+	Reviewer    ChangePerson          `json:"reviewer"`
+	Revision    int                   `json:"revision"`
+	SqlHash     string                `json:"sql_hash"`
+}
+
+// ChangeReviewDecision defines model for ChangeReview.Decision.
+type ChangeReviewDecision string
+
+// ChangeReviewOutdated Why an approval no longer counts.
+type ChangeReviewOutdated string
+
+// ChangeRevision defines model for ChangeRevision.
+type ChangeRevision struct {
+	Revision int `json:"revision"`
+}
+
+// ChangeStatement defines model for ChangeStatement.
+type ChangeStatement struct {
+	ExpectedRows  *int64  `json:"expected_rows,omitempty"`
+	Fingerprint   *string `json:"fingerprint,omitempty"`
+	HasPrimaryKey bool    `json:"has_primary_key"`
+
+	// Issue Why a statement or a dry run failed. Plain text.
+	Issue    *ChangeIssue   `json:"issue,omitempty"`
+	Kind     *StatementKind `json:"kind,omitempty"`
+	Position int            `json:"position"`
+
+	// Preview What a dry run (or execution) found for one statement. `before` and
+	// `after` are present only when `row_images` is true; rows follow
+	// `columns`.
+	Preview *RowPreview `json:"preview,omitempty"`
+
+	// PreviousPreview What a dry run (or execution) found for one statement. `before` and
+	// `after` are present only when `row_images` is true; rows follow
+	// `columns`.
+	PreviousPreview *RowPreview `json:"previous_preview,omitempty"`
+	Schema          string      `json:"schema"`
+	Sql             string      `json:"sql"`
+	Table           string      `json:"table"`
+}
+
+// ChangeStatus defines model for ChangeStatus.
+type ChangeStatus string
+
+// ChangeSummary defines model for ChangeSummary.
+type ChangeSummary struct {
+	// AgentName The name of the API token an agent used.
+	AgentName     *string           `json:"agent_name,omitempty"`
+	Attempts      int               `json:"attempts"`
+	Author        ChangePerson      `json:"author"`
+	Connection    ChangeConnection  `json:"connection"`
+	CreatedAt     time.Time         `json:"created_at"`
+	Id            string            `json:"id"`
+	NextAttemptAt *time.Time        `json:"next_attempt_at,omitempty"`
+	Number        int64             `json:"number"`
+	Revision      int               `json:"revision"`
+	Statements    []ChangeStatement `json:"statements"`
+	Status        ChangeStatus      `json:"status"`
+	StatusCode    *string           `json:"status_code,omitempty"`
+	StatusDetail  *string           `json:"status_detail,omitempty"`
+	SubmittedAt   *time.Time        `json:"submitted_at,omitempty"`
+	Title         string            `json:"title"`
+	UpdatedAt     time.Time         `json:"updated_at"`
+
+	// Via `mcp` when an agent submitted it with the author's API token.
+	Via ChangeSummaryVia `json:"via"`
+}
+
+// ChangeSummaryVia `mcp` when an agent submitted it with the author's API token.
+type ChangeSummaryVia string
+
+// ChangeUpdate defines model for ChangeUpdate.
+type ChangeUpdate struct {
+	Reason     *string     `json:"reason,omitempty"`
+	Revision   int         `json:"revision"`
+	Statements *Statements `json:"statements,omitempty"`
+	Title      *string     `json:"title,omitempty"`
 }
 
 // Connection defines model for Connection.
@@ -387,11 +931,30 @@ type ErrorBody struct {
 	// Examples: not_found
 	Code string `json:"code"`
 
+	// Details Structured detail for some errors. `statements_invalid` carries every
+	// statement's problem (with its byte offset in the statement, for the
+	// editor) and the run's `problem`; `duplicate` carries the existing
+	// change.
+	Details *ErrorDetails `json:"details,omitempty"`
+
 	// Fields Present on validation errors (`validation_failed`), one entry per invalid field.
 	Fields *[]FieldError `json:"fields,omitempty"`
 
 	// Message Human-readable message, safe to show to the user.
 	Message string `json:"message"`
+}
+
+// ErrorDetails Structured detail for some errors. `statements_invalid` carries every
+// statement's problem (with its byte offset in the statement, for the
+// editor) and the run's `problem`; `duplicate` carries the existing
+// change.
+type ErrorDetails struct {
+	ChangeId     *string `json:"change_id,omitempty"`
+	ChangeNumber *int64  `json:"change_number,omitempty"`
+
+	// Problem Why a statement or a dry run failed. Plain text.
+	Problem    *ChangeIssue      `json:"problem,omitempty"`
+	Statements *[]StatementIssue `json:"statements,omitempty"`
 }
 
 // ExcessPrivilege defines model for ExcessPrivilege.
@@ -403,6 +966,18 @@ type ExcessPrivilege struct {
 
 	// Privilege Examples: SUPERUSER
 	Privilege string `json:"privilege"`
+}
+
+// ExecutionResult defines model for ExecutionResult.
+type ExecutionResult struct {
+	Position int `json:"position"`
+
+	// Preview What a dry run (or execution) found for one statement. `before` and
+	// `after` are present only when `row_images` is true; rows follow
+	// `columns`.
+	Preview RowPreview `json:"preview"`
+	Schema  string     `json:"schema"`
+	Table   string     `json:"table"`
 }
 
 // FieldError defines model for FieldError.
@@ -449,6 +1024,35 @@ type Meta struct {
 // Permission An action the user may take (see identity.Can).
 type Permission string
 
+// PreviewRefresh defines model for PreviewRefresh.
+type PreviewRefresh struct {
+	Change Change `json:"change"`
+
+	// DataChanged The affected rows or the values being overwritten differ from the previous preview.
+	DataChanged bool    `json:"data_changed"`
+	Ok          bool    `json:"ok"`
+	Problem     *string `json:"problem,omitempty"`
+}
+
+// PreviewStatement defines model for PreviewStatement.
+type PreviewStatement struct {
+	HasPrimaryKey bool `json:"has_primary_key"`
+
+	// Issue Why a statement or a dry run failed. Plain text.
+	Issue    *ChangeIssue   `json:"issue,omitempty"`
+	Kind     *StatementKind `json:"kind,omitempty"`
+	Position int            `json:"position"`
+
+	// Preview What a dry run (or execution) found for one statement. `before` and
+	// `after` are present only when `row_images` is true; rows follow
+	// `columns`.
+	Preview *RowPreview `json:"preview,omitempty"`
+	Schema  *string     `json:"schema,omitempty"`
+	Sql     string      `json:"sql"`
+	Table   *string     `json:"table,omitempty"`
+	Valid   bool        `json:"valid"`
+}
+
 // PrivilegeReport defines model for PrivilegeReport.
 type PrivilegeReport struct {
 	CanDelete bool `json:"can_delete"`
@@ -461,8 +1065,39 @@ type PrivilegeReport struct {
 	User   string            `json:"user"`
 }
 
+// ReviewCreate defines model for ReviewCreate.
+type ReviewCreate struct {
+	Comment  *string              `json:"comment,omitempty"`
+	Decision ReviewCreateDecision `json:"decision"`
+
+	// PreviewHash Required to approve; the preview the reviewer is looking at.
+	PreviewHash *string `json:"preview_hash,omitempty"`
+
+	// SqlHash Required to approve; the SQL the reviewer is looking at.
+	SqlHash *string `json:"sql_hash,omitempty"`
+}
+
+// ReviewCreateDecision defines model for ReviewCreate.Decision.
+type ReviewCreateDecision string
+
 // Role defines model for Role.
 type Role string
+
+// RowPreview What a dry run (or execution) found for one statement. `before` and
+// `after` are present only when `row_images` is true; rows follow
+// `columns`.
+type RowPreview struct {
+	After         *[][]Cell          `json:"after,omitempty"`
+	Before        *[][]Cell          `json:"before,omitempty"`
+	Columns       []string           `json:"columns"`
+	Fingerprint   *string            `json:"fingerprint,omitempty"`
+	HasPrimaryKey bool               `json:"has_primary_key"`
+	PrimaryKey    []string           `json:"primary_key"`
+	RowImages     bool               `json:"row_images"`
+	RowsAffected  int64              `json:"rows_affected"`
+	Session       *map[string]string `json:"session,omitempty"`
+	Truncated     bool               `json:"truncated"`
+}
 
 // Schema defines model for Schema.
 type Schema struct {
@@ -665,6 +1300,24 @@ type SetupSignInUpdate struct {
 // `ready` once an administrator has finished setup.
 type SetupState string
 
+// StatementIssue defines model for StatementIssue.
+type StatementIssue struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+
+	// Position Byte offset into the statement the message refers to, or -1.
+	Position int `json:"position"`
+
+	// Statement Zero-based index of the statement.
+	Statement int `json:"statement"`
+}
+
+// StatementKind defines model for StatementKind.
+type StatementKind string
+
+// Statements defines model for Statements.
+type Statements = []string
+
 // TokenCreate defines model for TokenCreate.
 type TokenCreate struct {
 	// ExpiresInDays 30, 90 or 365; omit for a token that does not expire.
@@ -730,10 +1383,44 @@ type StartGoogleSignInParams struct {
 	Next *string `form:"next,omitempty" json:"next,omitempty"`
 }
 
+// ListChangesParams defines parameters for ListChanges.
+type ListChangesParams struct {
+	View         *ListChangesParamsView `form:"view,omitempty" json:"view,omitempty"`
+	Status       *ChangeStatus          `form:"status,omitempty" json:"status,omitempty"`
+	ConnectionId *string                `form:"connection_id,omitempty" json:"connection_id,omitempty"`
+	AuthorId     *string                `form:"author_id,omitempty" json:"author_id,omitempty"`
+
+	// Open Only drafts, changes in review, approved and executing changes.
+	Open   *bool  `form:"open,omitempty" json:"open,omitempty"`
+	Before *int64 `form:"before,omitempty" json:"before,omitempty"`
+	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListChangesParamsView defines parameters for ListChanges.
+type ListChangesParamsView string
+
 // ListTokensParams defines parameters for ListTokens.
 type ListTokensParams struct {
 	All *bool `form:"all,omitempty" json:"all,omitempty"`
 }
+
+// CreateChangeJSONRequestBody defines body for CreateChange for application/json ContentType.
+type CreateChangeJSONRequestBody = ChangeCreate
+
+// PreviewChangeJSONRequestBody defines body for PreviewChange for application/json ContentType.
+type PreviewChangeJSONRequestBody = ChangePreviewRequest
+
+// UpdateChangeJSONRequestBody defines body for UpdateChange for application/json ContentType.
+type UpdateChangeJSONRequestBody = ChangeUpdate
+
+// CancelChangeJSONRequestBody defines body for CancelChange for application/json ContentType.
+type CancelChangeJSONRequestBody = ChangeCancel
+
+// ReviewChangeJSONRequestBody defines body for ReviewChange for application/json ContentType.
+type ReviewChangeJSONRequestBody = ReviewCreate
+
+// SubmitChangeJSONRequestBody defines body for SubmitChange for application/json ContentType.
+type SubmitChangeJSONRequestBody = ChangeRevision
 
 // CreateConnectionJSONRequestBody defines body for CreateConnection for application/json ContentType.
 type CreateConnectionJSONRequestBody = ConnectionCreate
@@ -779,6 +1466,42 @@ type ServerInterface interface {
 	// SignOutEverywhere Sign out of every browser
 	// (POST /api/auth/signout-everywhere)
 	SignOutEverywhere(w http.ResponseWriter, r *http.Request)
+	// ListChanges Changes
+	// (GET /api/changes)
+	ListChanges(w http.ResponseWriter, r *http.Request, params ListChangesParams)
+	// CreateChange Create a change
+	// (POST /api/changes)
+	CreateChange(w http.ResponseWriter, r *http.Request)
+	// PreviewChange Preview statements
+	// (POST /api/changes/preview)
+	PreviewChange(w http.ResponseWriter, r *http.Request)
+	// GetChange One change
+	// (GET /api/changes/{id})
+	GetChange(w http.ResponseWriter, r *http.Request, id ID)
+	// UpdateChange Edit a change
+	// (PATCH /api/changes/{id})
+	UpdateChange(w http.ResponseWriter, r *http.Request, id ID)
+	// CancelChange Cancel a change
+	// (POST /api/changes/{id}/cancel)
+	CancelChange(w http.ResponseWriter, r *http.Request, id ID)
+	// ListChangeEvents The timeline of a change
+	// (GET /api/changes/{id}/events)
+	ListChangeEvents(w http.ResponseWriter, r *http.Request, id ID)
+	// ExecuteChange Execute an approved change now
+	// (POST /api/changes/{id}/execute)
+	ExecuteChange(w http.ResponseWriter, r *http.Request, id ID)
+	// RefreshChangePreview Update the preview
+	// (POST /api/changes/{id}/refresh-preview)
+	RefreshChangePreview(w http.ResponseWriter, r *http.Request, id ID)
+	// RetryChange Try a waiting change now
+	// (POST /api/changes/{id}/retry)
+	RetryChange(w http.ResponseWriter, r *http.Request, id ID)
+	// ReviewChange Approve or reject a change
+	// (POST /api/changes/{id}/reviews)
+	ReviewChange(w http.ResponseWriter, r *http.Request, id ID)
+	// SubmitChange Submit a draft for review
+	// (POST /api/changes/{id}/submit)
+	SubmitChange(w http.ResponseWriter, r *http.Request, id ID)
 	// ListConnections Connections
 	// (GET /api/connections)
 	ListConnections(w http.ResponseWriter, r *http.Request)
@@ -988,6 +1711,379 @@ func (siw *ServerInterfaceWrapper) SignOutEverywhere(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SignOutEverywhere(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListChanges operation middleware
+func (siw *ServerInterfaceWrapper) ListChanges(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListChangesParams
+
+	// ------------- Optional query parameter "view" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "view", r.URL.Query(), &params.View, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "view"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "view", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "connection_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "connection_id", r.URL.Query(), &params.ConnectionId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "connection_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "connection_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "author_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "author_id", r.URL.Query(), &params.AuthorId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "author_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "author_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "open" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "open", r.URL.Query(), &params.Open, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "open"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "open", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", r.URL.Query(), &params.Before, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListChanges(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateChange operation middleware
+func (siw *ServerInterfaceWrapper) CreateChange(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateChange(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreviewChange operation middleware
+func (siw *ServerInterfaceWrapper) PreviewChange(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewChange(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetChange operation middleware
+func (siw *ServerInterfaceWrapper) GetChange(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetChange(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateChange operation middleware
+func (siw *ServerInterfaceWrapper) UpdateChange(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateChange(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelChange operation middleware
+func (siw *ServerInterfaceWrapper) CancelChange(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelChange(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListChangeEvents operation middleware
+func (siw *ServerInterfaceWrapper) ListChangeEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListChangeEvents(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ExecuteChange operation middleware
+func (siw *ServerInterfaceWrapper) ExecuteChange(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExecuteChange(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RefreshChangePreview operation middleware
+func (siw *ServerInterfaceWrapper) RefreshChangePreview(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RefreshChangePreview(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RetryChange operation middleware
+func (siw *ServerInterfaceWrapper) RetryChange(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RetryChange(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReviewChange operation middleware
+func (siw *ServerInterfaceWrapper) ReviewChange(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReviewChange(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SubmitChange operation middleware
+func (siw *ServerInterfaceWrapper) SubmitChange(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SubmitChange(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1683,6 +2779,18 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/connections/{id}/archive", wrapper.ArchiveConnection)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/connections/{id}/test", wrapper.TestConnection)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/connections/{id}/schema", wrapper.GetConnectionSchema)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/changes", wrapper.ListChanges)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/changes", wrapper.CreateChange)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/changes/preview", wrapper.PreviewChange)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/changes/{id}", wrapper.GetChange)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/api/changes/{id}", wrapper.UpdateChange)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/changes/{id}/submit", wrapper.SubmitChange)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/changes/{id}/cancel", wrapper.CancelChange)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/changes/{id}/refresh-preview", wrapper.RefreshChangePreview)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/changes/{id}/reviews", wrapper.ReviewChange)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/changes/{id}/execute", wrapper.ExecuteChange)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/changes/{id}/retry", wrapper.RetryChange)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/changes/{id}/events", wrapper.ListChangeEvents)
 
 	return m
 }
@@ -1815,6 +2923,702 @@ type SignOutEverywheredefaultJSONResponse struct {
 }
 
 func (response SignOutEverywheredefaultJSONResponse) VisitSignOutEverywhereResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListChangesRequestObject struct {
+	Params ListChangesParams
+}
+
+type ListChangesResponseObject interface {
+	VisitListChangesResponse(w http.ResponseWriter) error
+}
+
+type ListChanges200JSONResponse ChangeList
+
+func (response ListChanges200JSONResponse) VisitListChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListChangesdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListChangesdefaultJSONResponse) VisitListChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateChangeRequestObject struct {
+	Body *CreateChangeJSONRequestBody
+}
+
+type CreateChangeResponseObject interface {
+	VisitCreateChangeResponse(w http.ResponseWriter) error
+}
+
+type CreateChange200JSONResponse Change
+
+func (response CreateChange200JSONResponse) VisitCreateChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateChange201JSONResponse Change
+
+func (response CreateChange201JSONResponse) VisitCreateChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateChange422JSONResponse struct{ ErrorJSONResponse }
+
+func (response CreateChange422JSONResponse) VisitCreateChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateChange502JSONResponse Error
+
+func (response CreateChange502JSONResponse) VisitCreateChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateChangedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response CreateChangedefaultJSONResponse) VisitCreateChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewChangeRequestObject struct {
+	Body *PreviewChangeJSONRequestBody
+}
+
+type PreviewChangeResponseObject interface {
+	VisitPreviewChangeResponse(w http.ResponseWriter) error
+}
+
+type PreviewChange200JSONResponse ChangePreview
+
+func (response PreviewChange200JSONResponse) VisitPreviewChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewChange422JSONResponse struct{ ErrorJSONResponse }
+
+func (response PreviewChange422JSONResponse) VisitPreviewChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewChangedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response PreviewChangedefaultJSONResponse) VisitPreviewChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetChangeRequestObject struct {
+	Id ID `json:"id"`
+}
+
+type GetChangeResponseObject interface {
+	VisitGetChangeResponse(w http.ResponseWriter) error
+}
+
+type GetChange200JSONResponse Change
+
+func (response GetChange200JSONResponse) VisitGetChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetChangedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetChangedefaultJSONResponse) VisitGetChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateChangeRequestObject struct {
+	Id   ID `json:"id"`
+	Body *UpdateChangeJSONRequestBody
+}
+
+type UpdateChangeResponseObject interface {
+	VisitUpdateChangeResponse(w http.ResponseWriter) error
+}
+
+type UpdateChange200JSONResponse Change
+
+func (response UpdateChange200JSONResponse) VisitUpdateChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateChange409JSONResponse struct{ ErrorJSONResponse }
+
+func (response UpdateChange409JSONResponse) VisitUpdateChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateChange422JSONResponse Error
+
+func (response UpdateChange422JSONResponse) VisitUpdateChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateChangedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response UpdateChangedefaultJSONResponse) VisitUpdateChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelChangeRequestObject struct {
+	Id   ID `json:"id"`
+	Body *CancelChangeJSONRequestBody
+}
+
+type CancelChangeResponseObject interface {
+	VisitCancelChangeResponse(w http.ResponseWriter) error
+}
+
+type CancelChange200JSONResponse Change
+
+func (response CancelChange200JSONResponse) VisitCancelChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelChange409JSONResponse struct{ ErrorJSONResponse }
+
+func (response CancelChange409JSONResponse) VisitCancelChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelChangedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response CancelChangedefaultJSONResponse) VisitCancelChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListChangeEventsRequestObject struct {
+	Id ID `json:"id"`
+}
+
+type ListChangeEventsResponseObject interface {
+	VisitListChangeEventsResponse(w http.ResponseWriter) error
+}
+
+type ListChangeEvents200JSONResponse ChangeEventList
+
+func (response ListChangeEvents200JSONResponse) VisitListChangeEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListChangeEventsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListChangeEventsdefaultJSONResponse) VisitListChangeEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExecuteChangeRequestObject struct {
+	Id ID `json:"id"`
+}
+
+type ExecuteChangeResponseObject interface {
+	VisitExecuteChangeResponse(w http.ResponseWriter) error
+}
+
+type ExecuteChange200JSONResponse Change
+
+func (response ExecuteChange200JSONResponse) VisitExecuteChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExecuteChange409JSONResponse struct{ ErrorJSONResponse }
+
+func (response ExecuteChange409JSONResponse) VisitExecuteChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExecuteChangedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ExecuteChangedefaultJSONResponse) VisitExecuteChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshChangePreviewRequestObject struct {
+	Id ID `json:"id"`
+}
+
+type RefreshChangePreviewResponseObject interface {
+	VisitRefreshChangePreviewResponse(w http.ResponseWriter) error
+}
+
+type RefreshChangePreview200JSONResponse PreviewRefresh
+
+func (response RefreshChangePreview200JSONResponse) VisitRefreshChangePreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshChangePreview409JSONResponse struct{ ErrorJSONResponse }
+
+func (response RefreshChangePreview409JSONResponse) VisitRefreshChangePreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshChangePreview429JSONResponse Error
+
+func (response RefreshChangePreview429JSONResponse) VisitRefreshChangePreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshChangePreviewdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RefreshChangePreviewdefaultJSONResponse) VisitRefreshChangePreviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetryChangeRequestObject struct {
+	Id ID `json:"id"`
+}
+
+type RetryChangeResponseObject interface {
+	VisitRetryChangeResponse(w http.ResponseWriter) error
+}
+
+type RetryChange200JSONResponse Change
+
+func (response RetryChange200JSONResponse) VisitRetryChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetryChange409JSONResponse struct{ ErrorJSONResponse }
+
+func (response RetryChange409JSONResponse) VisitRetryChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetryChangedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RetryChangedefaultJSONResponse) VisitRetryChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewChangeRequestObject struct {
+	Id   ID `json:"id"`
+	Body *ReviewChangeJSONRequestBody
+}
+
+type ReviewChangeResponseObject interface {
+	VisitReviewChangeResponse(w http.ResponseWriter) error
+}
+
+type ReviewChange200JSONResponse Change
+
+func (response ReviewChange200JSONResponse) VisitReviewChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewChange403JSONResponse struct{ ErrorJSONResponse }
+
+func (response ReviewChange403JSONResponse) VisitReviewChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewChange409JSONResponse Error
+
+func (response ReviewChange409JSONResponse) VisitReviewChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewChange422JSONResponse Error
+
+func (response ReviewChange422JSONResponse) VisitReviewChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewChangedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ReviewChangedefaultJSONResponse) VisitReviewChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitChangeRequestObject struct {
+	Id   ID `json:"id"`
+	Body *SubmitChangeJSONRequestBody
+}
+
+type SubmitChangeResponseObject interface {
+	VisitSubmitChangeResponse(w http.ResponseWriter) error
+}
+
+type SubmitChange200JSONResponse Change
+
+func (response SubmitChange200JSONResponse) VisitSubmitChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitChange409JSONResponse struct{ ErrorJSONResponse }
+
+func (response SubmitChange409JSONResponse) VisitSubmitChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitChange422JSONResponse Error
+
+func (response SubmitChange422JSONResponse) VisitSubmitChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitChangedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response SubmitChangedefaultJSONResponse) VisitSubmitChangeResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -3150,6 +4954,42 @@ type StrictServerInterface interface {
 	// SignOutEverywhere Sign out of every browser
 	// (POST /api/auth/signout-everywhere)
 	SignOutEverywhere(ctx context.Context, request SignOutEverywhereRequestObject) (SignOutEverywhereResponseObject, error)
+	// ListChanges Changes
+	// (GET /api/changes)
+	ListChanges(ctx context.Context, request ListChangesRequestObject) (ListChangesResponseObject, error)
+	// CreateChange Create a change
+	// (POST /api/changes)
+	CreateChange(ctx context.Context, request CreateChangeRequestObject) (CreateChangeResponseObject, error)
+	// PreviewChange Preview statements
+	// (POST /api/changes/preview)
+	PreviewChange(ctx context.Context, request PreviewChangeRequestObject) (PreviewChangeResponseObject, error)
+	// GetChange One change
+	// (GET /api/changes/{id})
+	GetChange(ctx context.Context, request GetChangeRequestObject) (GetChangeResponseObject, error)
+	// UpdateChange Edit a change
+	// (PATCH /api/changes/{id})
+	UpdateChange(ctx context.Context, request UpdateChangeRequestObject) (UpdateChangeResponseObject, error)
+	// CancelChange Cancel a change
+	// (POST /api/changes/{id}/cancel)
+	CancelChange(ctx context.Context, request CancelChangeRequestObject) (CancelChangeResponseObject, error)
+	// ListChangeEvents The timeline of a change
+	// (GET /api/changes/{id}/events)
+	ListChangeEvents(ctx context.Context, request ListChangeEventsRequestObject) (ListChangeEventsResponseObject, error)
+	// ExecuteChange Execute an approved change now
+	// (POST /api/changes/{id}/execute)
+	ExecuteChange(ctx context.Context, request ExecuteChangeRequestObject) (ExecuteChangeResponseObject, error)
+	// RefreshChangePreview Update the preview
+	// (POST /api/changes/{id}/refresh-preview)
+	RefreshChangePreview(ctx context.Context, request RefreshChangePreviewRequestObject) (RefreshChangePreviewResponseObject, error)
+	// RetryChange Try a waiting change now
+	// (POST /api/changes/{id}/retry)
+	RetryChange(ctx context.Context, request RetryChangeRequestObject) (RetryChangeResponseObject, error)
+	// ReviewChange Approve or reject a change
+	// (POST /api/changes/{id}/reviews)
+	ReviewChange(ctx context.Context, request ReviewChangeRequestObject) (ReviewChangeResponseObject, error)
+	// SubmitChange Submit a draft for review
+	// (POST /api/changes/{id}/submit)
+	SubmitChange(ctx context.Context, request SubmitChangeRequestObject) (SubmitChangeResponseObject, error)
 	// ListConnections Connections
 	// (GET /api/connections)
 	ListConnections(ctx context.Context, request ListConnectionsRequestObject) (ListConnectionsResponseObject, error)
@@ -3371,6 +5211,356 @@ func (sh *strictHandler) SignOutEverywhere(w http.ResponseWriter, r *http.Reques
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SignOutEverywhereResponseObject); ok {
 		if err := validResponse.VisitSignOutEverywhereResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListChanges operation middleware
+func (sh *strictHandler) ListChanges(w http.ResponseWriter, r *http.Request, params ListChangesParams) {
+	var request ListChangesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListChanges(ctx, request.(ListChangesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListChanges")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListChangesResponseObject); ok {
+		if err := validResponse.VisitListChangesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateChange operation middleware
+func (sh *strictHandler) CreateChange(w http.ResponseWriter, r *http.Request) {
+	var request CreateChangeRequestObject
+
+	var body CreateChangeJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateChange(ctx, request.(CreateChangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateChange")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateChangeResponseObject); ok {
+		if err := validResponse.VisitCreateChangeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PreviewChange operation middleware
+func (sh *strictHandler) PreviewChange(w http.ResponseWriter, r *http.Request) {
+	var request PreviewChangeRequestObject
+
+	var body PreviewChangeJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewChange(ctx, request.(PreviewChangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewChange")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewChangeResponseObject); ok {
+		if err := validResponse.VisitPreviewChangeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetChange operation middleware
+func (sh *strictHandler) GetChange(w http.ResponseWriter, r *http.Request, id ID) {
+	var request GetChangeRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetChange(ctx, request.(GetChangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetChange")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetChangeResponseObject); ok {
+		if err := validResponse.VisitGetChangeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateChange operation middleware
+func (sh *strictHandler) UpdateChange(w http.ResponseWriter, r *http.Request, id ID) {
+	var request UpdateChangeRequestObject
+
+	request.Id = id
+
+	var body UpdateChangeJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateChange(ctx, request.(UpdateChangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateChange")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateChangeResponseObject); ok {
+		if err := validResponse.VisitUpdateChangeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CancelChange operation middleware
+func (sh *strictHandler) CancelChange(w http.ResponseWriter, r *http.Request, id ID) {
+	var request CancelChangeRequestObject
+
+	request.Id = id
+
+	var body CancelChangeJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CancelChange(ctx, request.(CancelChangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CancelChange")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CancelChangeResponseObject); ok {
+		if err := validResponse.VisitCancelChangeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListChangeEvents operation middleware
+func (sh *strictHandler) ListChangeEvents(w http.ResponseWriter, r *http.Request, id ID) {
+	var request ListChangeEventsRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListChangeEvents(ctx, request.(ListChangeEventsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListChangeEvents")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListChangeEventsResponseObject); ok {
+		if err := validResponse.VisitListChangeEventsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ExecuteChange operation middleware
+func (sh *strictHandler) ExecuteChange(w http.ResponseWriter, r *http.Request, id ID) {
+	var request ExecuteChangeRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ExecuteChange(ctx, request.(ExecuteChangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ExecuteChange")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ExecuteChangeResponseObject); ok {
+		if err := validResponse.VisitExecuteChangeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RefreshChangePreview operation middleware
+func (sh *strictHandler) RefreshChangePreview(w http.ResponseWriter, r *http.Request, id ID) {
+	var request RefreshChangePreviewRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RefreshChangePreview(ctx, request.(RefreshChangePreviewRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RefreshChangePreview")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RefreshChangePreviewResponseObject); ok {
+		if err := validResponse.VisitRefreshChangePreviewResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RetryChange operation middleware
+func (sh *strictHandler) RetryChange(w http.ResponseWriter, r *http.Request, id ID) {
+	var request RetryChangeRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RetryChange(ctx, request.(RetryChangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RetryChange")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RetryChangeResponseObject); ok {
+		if err := validResponse.VisitRetryChangeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReviewChange operation middleware
+func (sh *strictHandler) ReviewChange(w http.ResponseWriter, r *http.Request, id ID) {
+	var request ReviewChangeRequestObject
+
+	request.Id = id
+
+	var body ReviewChangeJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReviewChange(ctx, request.(ReviewChangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReviewChange")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReviewChangeResponseObject); ok {
+		if err := validResponse.VisitReviewChangeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SubmitChange operation middleware
+func (sh *strictHandler) SubmitChange(w http.ResponseWriter, r *http.Request, id ID) {
+	var request SubmitChangeRequestObject
+
+	request.Id = id
+
+	var body SubmitChangeJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SubmitChange(ctx, request.(SubmitChangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SubmitChange")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SubmitChangeResponseObject); ok {
+		if err := validResponse.VisitSubmitChangeResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -31,7 +31,7 @@ A self-hosted service where engineers and AI agents submit row-level SQL changes
 - [x] Phase 4: Setup and identity (the fake OpenID provider for tests is `internal/identity/oidctest` and `web/e2e/fake-oidc.ts`; the hidden setting `auth.oidc_issuer` accepts only Google or a loopback address)
 - [x] Phase 5: Connector contract and Postgres (sample targets: `docker compose -f deploy/dev/compose.yml up -d`; the e2e suite starts them and skips the connection tests without Docker)
 - [x] Phase 6: MySQL connector
-- [ ] Phase 7: Changes and executor
+- [x] Phase 7: Changes and executor (integration tests in `internal/app/changes_test.go` start their own Postgres and MySQL containers; the e2e suite signs in a second user, bob, saved as `web/test-results/.auth/member.json`)
 - [ ] Phase 8: MCP server
 - [ ] Phase 9: Audit page, notifications and remaining settings
 - [ ] Phase 10: Packaging

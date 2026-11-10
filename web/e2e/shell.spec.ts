@@ -5,7 +5,10 @@ import { expect, test } from '@playwright/test'
 test('loads the app shell on /changes', async ({ page }) => {
   await page.goto('/changes')
   await expect(page).toHaveTitle('dbairlock')
-  await expect(page.getByText('No changes are waiting for review.')).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Needs my review/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
 })
 
 test('every page in the shell is reachable by keyboard', async ({ page }) => {

@@ -1,21 +1,35 @@
+import { Plus } from 'lucide-react'
 import { Link } from 'react-router'
-import { Button, EmptyState } from '@/ui'
+import { Button, EmptyState, Tooltip } from '@/ui'
+import { ChangeQueue, QueueCount } from './ChangeQueue'
 import { ChangesLayout } from './ChangesLayout'
 
-/** /changes. The queue is empty until the changes API exists (phase 7). */
+export function NewChangeButton() {
+  return (
+    <Tooltip content="New change">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="-mr-2 size-8"
+        aria-label="New change"
+        render={<Link to="/changes/new" />}
+        nativeButton={false}
+        icon={<Plus aria-hidden="true" className="size-4" />}
+      />
+    </Tooltip>
+  )
+}
+
+/** /changes: the review queue, nothing selected yet. */
 export function ChangesPage() {
   return (
     <ChangesLayout
-      queue={
-        <EmptyState
-          title="No changes are waiting for review."
-          description="Changes submitted by your team or their agents appear here."
-          action={
-            <Button variant="primary" render={<Link to="/changes/new" />} nativeButton={false}>
-              New change
-            </Button>
-          }
-        />
+      queue={<ChangeQueue />}
+      queueActions={
+        <>
+          <QueueCount />
+          <NewChangeButton />
+        </>
       }
       detail={
         <EmptyState

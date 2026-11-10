@@ -16,9 +16,11 @@ import (
 	"time"
 
 	"github.com/alvaroibarguen/dbairlock/internal/audit"
+	"github.com/alvaroibarguen/dbairlock/internal/changes"
 	"github.com/alvaroibarguen/dbairlock/internal/connector"
 	"github.com/alvaroibarguen/dbairlock/internal/connector/mysql"
 	"github.com/alvaroibarguen/dbairlock/internal/connector/postgres"
+	"github.com/alvaroibarguen/dbairlock/internal/executor"
 	"github.com/alvaroibarguen/dbairlock/internal/httpapi"
 	"github.com/alvaroibarguen/dbairlock/internal/identity"
 	"github.com/alvaroibarguen/dbairlock/internal/platform/clock"
@@ -65,6 +67,8 @@ type App struct {
 	identity *identity.Service
 	setup    *setup.Service
 	targets  *targets.Service
+	changes  *changes.Service
+	executor *executor.Executor
 	handler  http.Handler
 }
 
@@ -139,6 +143,7 @@ func build(ctx context.Context, opts Options, st *store.Store) (*App, error) {
 		Identity:  mods.identity,
 		Settings:  mods.settings,
 		Targets:   mods.targets,
+		Changes:   mods.changes,
 	})
 
 	mux := http.NewServeMux()
@@ -171,7 +176,8 @@ func build(ctx context.Context, opts Options, st *store.Store) (*App, error) {
 
 	return &App{
 		opts: opts, log: opts.Logger, store: st, secrets: sec, settings: set,
-		identity: mods.identity, setup: mods.setup, targets: mods.targets, handler: handler,
+		identity: mods.identity, setup: mods.setup, targets: mods.targets,
+		changes: mods.changes, executor: mods.executor, handler: handler,
 	}, nil
 }
 
@@ -180,6 +186,8 @@ type modules struct {
 	identity *identity.Service
 	setup    *setup.Service
 	targets  *targets.Service
+	changes  *changes.Service
+	executor *executor.Executor
 }
 
 // Connectors returns the registry of every database connector this binary
@@ -239,7 +247,24 @@ func buildModules(ctx context.Context, opts Options, st *store.Store, recorder *
 	if err != nil {
 		return modules{}, err
 	}
-	return modules{settings: set, identity: idn, setup: su, targets: tg}, nil
+	chg, err := changes.New(changes.Options{
+		Store: st, Audit: recorder, AuditLog: audit.NewReader(st.Reader()), Targets: tg, Directory: idn,
+		Settings: set, Clock: opts.Clock, IDs: opts.IDs, Logger: opts.Logger,
+	})
+	if err != nil {
+		return modules{}, err
+	}
+	// Removing a user cancels their open changes and voids their approvals,
+	// in the same transaction as the removal.
+	idn.OnUserRemoved(chg.OnUserRemoved)
+	ex, err := executor.New(executor.Options{
+		Changes: chg, Targets: tg, Clock: opts.Clock, Logger: opts.Logger,
+	})
+	if err != nil {
+		return modules{}, err
+	}
+	chg.SetWaker(ex.Wake)
+	return modules{settings: set, identity: idn, setup: su, targets: tg, changes: chg, executor: ex}, nil
 }
 
 // urlHint is the address to open while no public URL is set.
@@ -282,11 +307,10 @@ func VerifyAudit(ctx context.Context, dataDir string) (AuditResult, error) {
 // Handler returns the root HTTP handler.
 func (a *App) Handler() http.Handler { return a.handler }
 
-// Run runs background work until ctx is cancelled. There is none yet; the
-// executor joins in a later phase.
+// Run runs background work until ctx is cancelled: the executor, which
+// first marks changes left executing by a previous process as failed.
 func (a *App) Run(ctx context.Context) error {
-	<-ctx.Done()
-	return nil
+	return a.executor.Run(ctx)
 }
 
 // Serve listens on opts.Listen, serves HTTP and runs background work until ctx

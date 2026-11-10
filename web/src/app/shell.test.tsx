@@ -8,8 +8,18 @@ import { createQueryClient } from './queryClient'
 import { routes } from './router'
 
 function renderAt(path: string) {
-  // The shell asks for /api/meta; no server in tests.
-  vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('offline'))
+  // No server in tests: the queue is empty, everything else is offline.
+  vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
+    const url = input instanceof Request ? input.url : String(input)
+    if (new URL(url).pathname === '/api/changes') {
+      return Promise.resolve(
+        new Response(JSON.stringify({ changes: [], needs_my_review: 0 }), {
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    }
+    return Promise.reject(new TypeError('offline'))
+  })
   const router = createMemoryRouter(routes, { initialEntries: [path] })
   render(
     <Providers client={createQueryClient()}>
@@ -30,7 +40,11 @@ describe('app shell', () => {
       'aria-current',
       'page',
     )
-    expect(screen.getByText('No changes are waiting for review.')).toBeInTheDocument()
+    expect(await screen.findByText('Nothing is waiting for your review.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Needs my review/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
     expect(screen.getByText('Select a change from the queue to review it.')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /Affected rows/ })).toBeInTheDocument()
   })

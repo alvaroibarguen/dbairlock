@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test'
 import { CLIENT_ID, CLIENT_SECRET } from './fake-oidc.ts'
-import { ADMIN_STATE } from './state.ts'
+import { ADMIN_STATE, MEMBER_STATE } from './state.ts'
 
 /** Clicks through the fake Google's account chooser. */
 async function chooseAccount(page: Page, email: string) {
@@ -101,4 +101,13 @@ test('setup wizard, sign out, sign in, create and revoke a token', async ({ page
   await expect(page.getByText('You have no active tokens.')).toBeVisible()
 
   await page.context().storageState({ path: ADMIN_STATE })
+
+  // A second person, a member, signs in once; the change tests review as them.
+  const member = await page.context().browser()?.newContext()
+  if (member) {
+    const p = await member.newPage()
+    await signIn(p, 'bob@example.com')
+    await member.storageState({ path: MEMBER_STATE })
+    await member.close()
+  }
 })

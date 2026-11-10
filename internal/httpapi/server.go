@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alvaroibarguen/dbairlock/internal/changes"
 	"github.com/alvaroibarguen/dbairlock/internal/httpapi/gen"
 	"github.com/alvaroibarguen/dbairlock/internal/identity"
 	"github.com/alvaroibarguen/dbairlock/internal/platform/httpx"
@@ -35,6 +36,7 @@ type Deps struct {
 	Identity  Identity
 	Settings  Settings
 	Targets   Targets
+	Changes   Changes
 }
 
 // Server implements gen.StrictServerInterface.
@@ -130,6 +132,27 @@ var errorTable = []struct {
 		"This connection is archived and cannot be changed or used.")},
 	{targets.ErrNoPassword, httpx.NewError(http.StatusConflict, "no_password",
 		"This connection has no password. Set one first.")},
+	{changes.ErrNotFound, httpx.ErrNotFound},
+	{changes.ErrConflict, httpx.NewError(http.StatusConflict, "revision_conflict",
+		"This change was modified since you loaded it. Reload it and try again.")},
+	{changes.ErrSelfReview, httpx.NewError(http.StatusForbidden, "self_review",
+		"You cannot review your own change. Another person has to.")},
+	{changes.ErrAgentReview, httpx.NewError(http.StatusForbidden, "agent_review",
+		"Changes are reviewed by people in the dashboard, never through an API token.")},
+	{changes.ErrNotAuthor, httpx.NewError(http.StatusForbidden, "not_author",
+		"Only the author of this change can do this.")},
+	{changes.ErrPreviewStale, httpx.NewError(http.StatusConflict, "preview_stale",
+		"The preview is too old to approve. Update it, check the rows, then approve.")},
+	{changes.ErrPreviewFailed, httpx.NewError(http.StatusConflict, "preview_failed",
+		"The last preview failed, so this change cannot be approved until the author edits it or a new preview succeeds.")},
+	{changes.ErrPreviewChanged, httpx.NewError(http.StatusConflict, "preview_changed",
+		"The preview changed since you loaded it. Check the latest rows, then approve.")},
+	{changes.ErrSQLChanged, httpx.NewError(http.StatusConflict, "sql_changed",
+		"The SQL changed since you loaded it. Review the latest version, then approve.")},
+	{changes.ErrAlreadyApproved, httpx.NewError(http.StatusConflict, "already_approved",
+		"You already approved this change.")},
+	{changes.ErrInvalidState, httpx.NewError(http.StatusConflict, "invalid_state",
+		"This is not possible in the change's current status. Reload it.")},
 }
 
 // mapError converts an error returned by a module into an *httpx.Error, or
@@ -159,6 +182,9 @@ func mapError(err error) error {
 		}
 		return httpx.NewValidationError("Some fields are invalid. Nothing was changed.", fields)
 	}
+	if he := changeError(err); he != nil {
+		return he
+	}
 	if _, ok := retryAfter(err); ok {
 		return errRateLimited
 	}
@@ -179,6 +205,10 @@ func retryAfter(err error) (time.Duration, bool) {
 	var b *setup.RateLimitedError
 	if errors.As(err, &b) {
 		return b.RetryAfter, true
+	}
+	var c *changes.TooSoonError
+	if errors.As(err, &c) {
+		return c.RetryAfter, true
 	}
 	return 0, false
 }

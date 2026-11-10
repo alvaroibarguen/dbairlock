@@ -11,11 +11,11 @@ import (
 func TestCanTable(t *testing.T) {
 	want := map[Role]map[Action]bool{
 		RoleAdmin: {
-			ActionChangeSubmit: true, ActionChangeReview: true, ActionDatabaseManage: true,
+			ActionChangeSubmit: true, ActionChangeReview: true, ActionChangeAdminister: true, ActionDatabaseManage: true,
 			ActionSettingsManage: true, ActionUserManage: true, ActionAuditRead: true,
 		},
 		RoleMember: {
-			ActionChangeSubmit: true, ActionChangeReview: true, ActionDatabaseManage: false,
+			ActionChangeSubmit: true, ActionChangeReview: true, ActionChangeAdminister: false, ActionDatabaseManage: false,
 			ActionSettingsManage: false, ActionUserManage: false, ActionAuditRead: true,
 		},
 	}

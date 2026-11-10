@@ -50,3 +50,11 @@ sql:
         package: targetsdb
         out: internal/targets/targetsdb
         emit_empty_slices: true
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/changes/queries.sql
+    gen:
+      go:
+        package: changesdb
+        out: internal/changes/changesdb
+        emit_empty_slices: true

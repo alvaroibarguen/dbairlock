@@ -671,6 +671,355 @@ paths:
           $ref: "#/components/responses/Error"
         default:
           $ref: "#/components/responses/Error"
+  /api/changes:
+    get:
+      operationId: listChanges
+      summary: Changes
+      description: |
+        Changes, newest first, without row images. `view` picks a tab:
+        `needs_my_review` (in review, not authored by the caller and not yet
+        approved by them for the current SQL and preview), `mine` (authored
+        by the caller) or `all`. Continue with `before` = the previous page's
+        `next_before`. Any signed-in user.
+      tags: [changes]
+      parameters:
+        - name: view
+          in: query
+          schema:
+            type: string
+            enum: [needs_my_review, mine, all]
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/ChangeStatus"
+        - name: connection_id
+          in: query
+          schema:
+            type: string
+            maxLength: 64
+        - name: author_id
+          in: query
+          schema:
+            type: string
+            maxLength: 64
+        - name: open
+          in: query
+          description: Only drafts, changes in review, approved and executing changes.
+          schema:
+            type: boolean
+        - name: before
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        "200":
+          description: One page of changes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createChange
+      summary: Create a change
+      description: |
+        Without `submit` the change is saved as a draft, even when statements
+        are invalid or the dry run fails (the problems are stored and shown).
+        With `submit` it is created and submitted in one step: statements
+        must pass validation and the dry run, or nothing is created (422
+        `statements_invalid`, or 502 `target_unavailable`). If the caller
+        already has an open change with identical SQL on the connection, that
+        change is returned (200) with `already_existed` and nothing is
+        created.
+      tags: [changes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangeCreate"
+      responses:
+        "200":
+          description: An open change with identical SQL already existed; it is returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Change"
+        "201":
+          description: The new change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Change"
+        "422":
+          $ref: "#/components/responses/Error"
+        "502":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/changes/preview:
+    post:
+      operationId: previewChange
+      summary: Preview statements
+      description: |
+        Validates the statements and, when all are valid, dry-runs them in
+        one transaction that is always rolled back. Saves nothing. Every
+        statement's outcome is reported. Any signed-in user.
+      tags: [changes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePreviewRequest"
+      responses:
+        "200":
+          description: The outcome; `ok` is false when something must be fixed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangePreview"
+        "422":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/changes/{id}:
+    get:
+      operationId: getChange
+      summary: One change
+      description: |
+        The change with its statements, previews (row images), reviews and
+        executions. `id` is the change's id or its number. `server_time`
+        lets the dashboard count the preview's age on the server's clock.
+        Any signed-in user.
+      tags: [changes]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Change"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateChange
+      summary: Edit a change
+      description: |
+        The author edits a draft or a change in review. `revision` is the
+        revision the edit is based on (409 `revision_conflict` if it moved).
+        New statements get a new SQL hash and a new dry run, so earlier
+        approvals no longer count. A change in review must keep passing
+        validation and the dry run (422 `statements_invalid`).
+      tags: [changes]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangeUpdate"
+      responses:
+        "200":
+          description: The change after the edit.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Change"
+        "409":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/changes/{id}/submit:
+    post:
+      operationId: submitChange
+      summary: Submit a draft for review
+      description: |
+        Dry-runs the draft again and sends it for review. If the author
+        already has an open change with identical SQL on the connection, that
+        change is returned with `already_existed` and the draft stays a
+        draft.
+      tags: [changes]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangeRevision"
+      responses:
+        "200":
+          description: The submitted change, or the existing one.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Change"
+        "409":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/changes/{id}/cancel:
+    post:
+      operationId: cancelChange
+      summary: Cancel a change
+      description: The author or an admin cancels a draft, a change in review or an approved change.
+      tags: [changes]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangeCancel"
+      responses:
+        "200":
+          description: The cancelled change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Change"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/changes/{id}/refresh-preview:
+    post:
+      operationId: refreshChangePreview
+      summary: Update the preview
+      description: |
+        Re-runs the dry run of a change in review for its current SQL. When
+        the affected rows or the values being overwritten differ from the
+        previous preview, earlier approvals stop counting
+        (`data_changed`). A failed dry run is stored and blocks approval.
+        At most one update per change every 10 seconds (429). Any signed-in
+        user.
+      tags: [changes]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The outcome and the change afterwards.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreviewRefresh"
+        "409":
+          $ref: "#/components/responses/Error"
+        "429":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/changes/{id}/reviews:
+    post:
+      operationId: reviewChange
+      summary: Approve or reject a change
+      description: |
+        An approval carries the `sql_hash` and `preview_hash` the reviewer is
+        looking at and needs a preview from the last
+        `policy.preview_max_age_minutes` (409 `preview_stale`,
+        `preview_failed`, `preview_changed` or `sql_changed`). A rejection
+        needs a comment. The author cannot review (403 `self_review`).
+      tags: [changes]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewCreate"
+      responses:
+        "200":
+          description: The change after the review.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Change"
+        "403":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/changes/{id}/execute:
+    post:
+      operationId: executeChange
+      summary: Execute an approved change now
+      description: |
+        For connections that do not run approved changes automatically. The
+        author or an admin.
+      tags: [changes]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The change; the executor picks it up.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Change"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/changes/{id}/retry:
+    post:
+      operationId: retryChange
+      summary: Try a waiting change now
+      description: |
+        Clears the wait of an approved change whose database could not be
+        reached, so the executor tries again at once. Admin only.
+      tags: [changes]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Change"
+        "409":
+          $ref: "#/components/responses/Error"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/changes/{id}/events:
+    get:
+      operationId: listChangeEvents
+      summary: The timeline of a change
+      description: The change's audit events, oldest first. Any signed-in user.
+      tags: [changes]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeEventList"
+        default:
+          $ref: "#/components/responses/Error"
 components:
   parameters:
     ID:
@@ -785,7 +1134,7 @@ components:
     Permission:
       type: string
       description: An action the user may take (see identity.Can).
-      enum: [change.submit, change.review, database.manage, settings.manage, user.manage, audit.read]
+      enum: [change.submit, change.review, change.administer, database.manage, settings.manage, user.manage, audit.read]
     User:
       type: object
       required: [id, email, name, role, created_at]
@@ -926,6 +1275,43 @@ components:
           description: Present on validation errors (`validation_failed`), one entry per invalid field.
           items:
             $ref: "#/components/schemas/FieldError"
+        details:
+          $ref: "#/components/schemas/ErrorDetails"
+    ErrorDetails:
+      type: object
+      description: |
+        Structured detail for some errors. `statements_invalid` carries every
+        statement's problem (with its byte offset in the statement, for the
+        editor) and the run's `problem`; `duplicate` carries the existing
+        change.
+      additionalProperties: false
+      properties:
+        statements:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatementIssue"
+        problem:
+          $ref: "#/components/schemas/ChangeIssue"
+        change_id:
+          type: string
+        change_number:
+          type: integer
+          format: int64
+    StatementIssue:
+      type: object
+      required: [statement, code, message, position]
+      additionalProperties: false
+      properties:
+        statement:
+          type: integer
+          description: Zero-based index of the statement.
+        code:
+          type: string
+        message:
+          type: string
+        position:
+          type: integer
+          description: Byte offset into the statement the message refers to, or -1.
     FieldError:
       type: object
       required: [field, message]
@@ -1432,6 +1818,624 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SchemaNamespace"
+    ChangeStatus:
+      type: string
+      enum: [draft, pending_review, approved, executing, executed, failed, rejected, expired, cancelled]
+    StatementKind:
+      type: string
+      enum: [insert, update, delete]
+    ChangePerson:
+      type: object
+      required: [id, email, name, removed]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        removed:
+          type: boolean
+    ChangeConnection:
+      type: object
+      required: [id, name, connector]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        connector:
+          type: string
+    ChangeIssue:
+      type: object
+      description: Why a statement or a dry run failed. Plain text.
+      required: [code, message, position]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        position:
+          type: integer
+          description: Byte offset into the statement the message refers to, or -1.
+    Cell:
+      description: |
+        A cell value: null, a boolean, a number, a string, a JSON array or
+        object, or `{type, value, size, truncated}` for binary data and
+        values truncated for display. Always rendered as plain text.
+    RowPreview:
+      type: object
+      description: |
+        What a dry run (or execution) found for one statement. `before` and
+        `after` are present only when `row_images` is true; rows follow
+        `columns`.
+      required: [rows_affected, has_primary_key, primary_key, columns, truncated, row_images]
+      additionalProperties: false
+      properties:
+        rows_affected:
+          type: integer
+          format: int64
+        fingerprint:
+          type: string
+        has_primary_key:
+          type: boolean
+        primary_key:
+          type: array
+          items:
+            type: string
+        columns:
+          type: array
+          items:
+            type: string
+        before:
+          type: array
+          items:
+            type: array
+            items:
+              $ref: "#/components/schemas/Cell"
+        after:
+          type: array
+          items:
+            type: array
+            items:
+              $ref: "#/components/schemas/Cell"
+        truncated:
+          type: boolean
+        row_images:
+          type: boolean
+        session:
+          type: object
+          additionalProperties:
+            type: string
+    ChangeStatement:
+      type: object
+      required: [position, sql, schema, table, has_primary_key]
+      additionalProperties: false
+      properties:
+        position:
+          type: integer
+        sql:
+          type: string
+        kind:
+          $ref: "#/components/schemas/StatementKind"
+        schema:
+          type: string
+        table:
+          type: string
+        expected_rows:
+          type: integer
+          format: int64
+        fingerprint:
+          type: string
+        has_primary_key:
+          type: boolean
+        issue:
+          $ref: "#/components/schemas/ChangeIssue"
+        preview:
+          $ref: "#/components/schemas/RowPreview"
+        previous_preview:
+          $ref: "#/components/schemas/RowPreview"
+    ChangeReview:
+      type: object
+      required: [id, reviewer, decision, comment, sql_hash, preview_hash, revision, created_at, counts]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        reviewer:
+          $ref: "#/components/schemas/ChangePerson"
+        decision:
+          type: string
+          enum: [approve, reject]
+        comment:
+          type: string
+        sql_hash:
+          type: string
+        preview_hash:
+          type: string
+        revision:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        counts:
+          type: boolean
+          description: True for an approval that counts towards the required number now.
+        outdated:
+          type: string
+          enum: [sql_changed, preview_changed, reviewer_removed]
+          description: Why an approval no longer counts.
+    ChangeDrift:
+      type: object
+      required: [kind, statement, expected, actual]
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum: [rows, count]
+        statement:
+          type: integer
+        expected:
+          type: string
+        actual:
+          type: string
+    ExecutionResult:
+      type: object
+      required: [position, schema, table, preview]
+      additionalProperties: false
+      properties:
+        position:
+          type: integer
+        schema:
+          type: string
+        table:
+          type: string
+        preview:
+          $ref: "#/components/schemas/RowPreview"
+    ChangeExecution:
+      type: object
+      required: [id, attempt, started_at, outcome, results]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        attempt:
+          type: integer
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+        outcome:
+          type: string
+          enum: [running, executed, failed, not_started, interrupted]
+        error_code:
+          type: string
+        error_message:
+          type: string
+        drift:
+          $ref: "#/components/schemas/ChangeDrift"
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExecutionResult"
+    ChangeActions:
+      type: object
+      description: What the caller may do with the change now. The server checks every action again.
+      required: [edit, submit, cancel, approve, reject, refresh_preview, execute_now, retry_now]
+      additionalProperties: false
+      properties:
+        edit:
+          type: boolean
+        submit:
+          type: boolean
+        cancel:
+          type: boolean
+        approve:
+          type: boolean
+        reject:
+          type: boolean
+        refresh_preview:
+          type: boolean
+        execute_now:
+          type: boolean
+        retry_now:
+          type: boolean
+    ChangeSummary:
+      type: object
+      required: [id, number, connection, author, via, title, status, revision, attempts, statements, created_at, updated_at]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        number:
+          type: integer
+          format: int64
+        connection:
+          $ref: "#/components/schemas/ChangeConnection"
+        author:
+          $ref: "#/components/schemas/ChangePerson"
+        via:
+          type: string
+          enum: [web, mcp]
+          description: "`mcp` when an agent submitted it with the author's API token."
+        agent_name:
+          type: string
+          description: The name of the API token an agent used.
+        title:
+          type: string
+        status:
+          $ref: "#/components/schemas/ChangeStatus"
+        status_code:
+          type: string
+        status_detail:
+          type: string
+        revision:
+          type: integer
+        attempts:
+          type: integer
+        next_attempt_at:
+          type: string
+          format: date-time
+        statements:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChangeStatement"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        submitted_at:
+          type: string
+          format: date-time
+    Change:
+      type: object
+      required:
+        - id
+        - number
+        - connection
+        - author
+        - via
+        - title
+        - reason
+        - status
+        - revision
+        - sql_hash
+        - preview_hash
+        - preview_changed
+        - preview_max_age_seconds
+        - server_time
+        - required_approvals
+        - approvals
+        - auto_execute
+        - store_row_images
+        - attempts
+        - execute_requested
+        - statements
+        - reviews
+        - executions
+        - actions
+        - already_existed
+        - created_at
+        - updated_at
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        number:
+          type: integer
+          format: int64
+        connection:
+          $ref: "#/components/schemas/ChangeConnection"
+        author:
+          $ref: "#/components/schemas/ChangePerson"
+        via:
+          type: string
+          enum: [web, mcp]
+        agent_name:
+          type: string
+        title:
+          type: string
+        reason:
+          type: string
+        status:
+          $ref: "#/components/schemas/ChangeStatus"
+        status_code:
+          type: string
+          description: Why the change is in its status, for example `drift`, `interrupted`, `author_removed`.
+        status_detail:
+          type: string
+          description: For a drift, its kind (`rows` or `count`).
+        status_message:
+          type: string
+        revision:
+          type: integer
+        sql_hash:
+          type: string
+        preview_hash:
+          type: string
+        previewed_at:
+          type: string
+          format: date-time
+        preview_error:
+          type: string
+        preview_changed:
+          type: boolean
+          description: The last preview update found different data than the one before it.
+        preview_max_age_seconds:
+          type: integer
+          description: How old a preview may be for an approval.
+        server_time:
+          type: string
+          format: date-time
+          description: The server's clock when the response was made.
+        required_approvals:
+          type: integer
+        approvals:
+          type: integer
+          description: Approvals that count now.
+        auto_execute:
+          type: boolean
+        store_row_images:
+          type: boolean
+        attempts:
+          type: integer
+          description: Execution attempts that could not reach the database.
+        next_attempt_at:
+          type: string
+          format: date-time
+        last_attempt_error:
+          type: string
+        execute_requested:
+          type: boolean
+        statements:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChangeStatement"
+        reviews:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChangeReview"
+        executions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChangeExecution"
+        actions:
+          $ref: "#/components/schemas/ChangeActions"
+        already_existed:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        submitted_at:
+          type: string
+          format: date-time
+        decided_at:
+          type: string
+          format: date-time
+        executed_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+    ChangeList:
+      type: object
+      required: [changes, needs_my_review]
+      additionalProperties: false
+      properties:
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChangeSummary"
+        next_before:
+          type: integer
+          format: int64
+          description: Pass as `before` for the next page; absent on the last page.
+        needs_my_review:
+          type: integer
+          description: How many changes wait for the caller's review.
+    Statements:
+      type: array
+      minItems: 1
+      maxItems: 20
+      items:
+        type: string
+        maxLength: 65536
+    ChangeCreate:
+      type: object
+      required: [connection_id, title, statements]
+      additionalProperties: false
+      properties:
+        connection_id:
+          type: string
+          maxLength: 64
+        title:
+          type: string
+          maxLength: 1000
+        reason:
+          type: string
+          maxLength: 20000
+        statements:
+          $ref: "#/components/schemas/Statements"
+        submit:
+          type: boolean
+          description: Submit for review at once instead of saving a draft.
+    ChangeUpdate:
+      type: object
+      required: [revision]
+      additionalProperties: false
+      properties:
+        revision:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+          maxLength: 1000
+        reason:
+          type: string
+          maxLength: 20000
+        statements:
+          $ref: "#/components/schemas/Statements"
+    ChangeRevision:
+      type: object
+      required: [revision]
+      additionalProperties: false
+      properties:
+        revision:
+          type: integer
+          minimum: 1
+    ChangeCancel:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          maxLength: 4000
+    ReviewCreate:
+      type: object
+      required: [decision]
+      additionalProperties: false
+      properties:
+        decision:
+          type: string
+          enum: [approve, reject]
+        comment:
+          type: string
+          maxLength: 16000
+        sql_hash:
+          type: string
+          maxLength: 64
+          description: Required to approve; the SQL the reviewer is looking at.
+        preview_hash:
+          type: string
+          maxLength: 64
+          description: Required to approve; the preview the reviewer is looking at.
+    ChangePreviewRequest:
+      type: object
+      required: [connection_id, statements]
+      additionalProperties: false
+      properties:
+        connection_id:
+          type: string
+          maxLength: 64
+        statements:
+          $ref: "#/components/schemas/Statements"
+    PreviewStatement:
+      type: object
+      required: [position, sql, valid, has_primary_key]
+      additionalProperties: false
+      properties:
+        position:
+          type: integer
+        sql:
+          type: string
+        valid:
+          type: boolean
+        kind:
+          $ref: "#/components/schemas/StatementKind"
+        schema:
+          type: string
+        table:
+          type: string
+        has_primary_key:
+          type: boolean
+        issue:
+          $ref: "#/components/schemas/ChangeIssue"
+        preview:
+          $ref: "#/components/schemas/RowPreview"
+    ChangeRef:
+      type: object
+      required: [id, number]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        number:
+          type: integer
+          format: int64
+    ChangePreview:
+      type: object
+      required: [ok, sql_hash, statements]
+      additionalProperties: false
+      properties:
+        ok:
+          type: boolean
+          description: Every statement is valid and the dry run succeeded.
+        problem:
+          $ref: "#/components/schemas/ChangeIssue"
+        sql_hash:
+          type: string
+        statements:
+          type: array
+          items:
+            $ref: "#/components/schemas/PreviewStatement"
+        duplicate:
+          $ref: "#/components/schemas/ChangeRef"
+    PreviewRefresh:
+      type: object
+      required: [change, ok, data_changed]
+      additionalProperties: false
+      properties:
+        change:
+          $ref: "#/components/schemas/Change"
+        ok:
+          type: boolean
+        data_changed:
+          type: boolean
+          description: The affected rows or the values being overwritten differ from the previous preview.
+        problem:
+          type: string
+    ChangeEventActor:
+      type: object
+      required: [via]
+      additionalProperties: false
+      properties:
+        user_id:
+          type: string
+        email:
+          type: string
+        via:
+          type: string
+          enum: [web, mcp, cli, system]
+        api_token_id:
+          type: string
+    ChangeEvent:
+      type: object
+      required: [seq, occurred_at, action, actor, payload]
+      additionalProperties: false
+      properties:
+        seq:
+          type: integer
+          format: int64
+        occurred_at:
+          type: string
+          format: date-time
+        action:
+          type: string
+        actor:
+          $ref: "#/components/schemas/ChangeEventActor"
+        payload:
+          type: object
+          additionalProperties: true
+    ChangeEventList:
+      type: object
+      required: [events]
+      additionalProperties: false
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChangeEvent"
     Health:
       type: object
       required: [status]
