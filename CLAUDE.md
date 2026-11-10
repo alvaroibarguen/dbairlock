@@ -1,0 +1,36 @@
+# dbairlock
+
+A self-hosted service where engineers and AI agents submit row-level SQL changes for human review, after which the server executes them. Go backend, React and Tailwind frontend, MCP server, SQLite metadata store.
+
+## How to work in this repo
+
+- **Follow the plan in `plans/`.** Start with [plans/PLAN.md](plans/PLAN.md) for the overview and safety rules, then work through the phase files in order. The `plans/` folder is gitignored, so it exists only on the owner's machine.
+- **One phase at a time.** Each phase file ends with checks. All of them must pass before you commit and start the next phase.
+- **Record progress.** When a phase is done, tick it off below so a later session knows where to resume.
+- **Latest versions only.** Add dependencies with `go get <module>@latest` or `pnpm add <pkg>@latest`, never with a version typed from memory. Read the docs for the installed version before using an API.
+- **Respect module boundaries.** Each database connector is its own package behind the `connector` contract. The import rules in the plan are enforced by the linter; do not loosen them.
+- **Everything is configured in the dashboard.** No environment variables, no config files. The only process flags are `--data-dir`, `--listen` and `--dev`.
+- **Secrets are write-only.** Nothing may return or log a secret value.
+- **Fail closed.** Unparseable SQL is rejected. An execution with an uncertain outcome is marked failed and never retried.
+- **Audit in the same transaction** as every state change.
+- **Do not push, publish images, or create remote repos** unless the owner asks.
+
+## Settled
+
+- Go module path: `github.com/alvaroibarguen/dbairlock`.
+- License: MIT.
+
+## Progress
+
+- [x] Phase 0: Tooling (Docker: enable WSL integration in Docker Desktop; still pending)
+- [ ] Phase 1: Skeleton
+- [ ] Phase 2: Store and audit
+- [ ] Phase 3: Secrets and settings
+- [ ] Phase 4: Setup and identity
+- [ ] Phase 5: Connector contract and Postgres
+- [ ] Phase 6: MySQL connector
+- [ ] Phase 7: Changes and executor
+- [ ] Phase 8: MCP server
+- [ ] Phase 9: Audit page, notifications and remaining settings
+- [ ] Phase 10: Packaging
+- [ ] Phase 11: Hardening

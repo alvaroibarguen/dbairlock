@@ -1,0 +1,25 @@
+# Build output
+/bin/
+/dist/
+*.test
+*.out
+coverage.*
+
+# Frontend
+web/node_modules/
+web/dist/
+web/playwright-report/
+web/test-results/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Local planning documents
+/plans/
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
