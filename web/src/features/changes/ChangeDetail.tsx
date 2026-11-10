@@ -389,11 +389,6 @@ function Loaded({
         label={
           change.statements.length === 1 ? 'Statement' : `Statements (${change.statements.length})`
         }
-        aside={
-          change.statements.length === 1 && change.statements[0]
-            ? `${qualifiedTable(change.statements[0])} · ${change.statements[0].kind ?? 'invalid'}`
-            : undefined
-        }
       >
         <div className="flex flex-col gap-3">
           {change.statements.map((s) => (
