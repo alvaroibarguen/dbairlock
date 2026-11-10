@@ -9,7 +9,21 @@ export function mcpUrl(origin: string): string {
   return `${origin.replace(/\/+$/, '')}/mcp`
 }
 
-/** The Claude Code command that adds dbairlock as an HTTP MCP server. */
+/**
+ * The Claude Code command that adds dbairlock as an HTTP MCP server that
+ * signs in with OAuth: Claude Code opens the browser on first use (or from
+ * /mcp), and no token is pasted anywhere.
+ */
+export function claudeCodeOAuthCommand(url: string): string {
+  return `claude mcp add --transport http dbairlock ${url}`
+}
+
+/** A JSON configuration for clients that sign in with OAuth: just the URL. */
+export function genericOAuthConfig(url: string): string {
+  return JSON.stringify({ mcpServers: { dbairlock: { type: 'http', url } } }, null, 2)
+}
+
+/** The Claude Code command that adds dbairlock as an HTTP MCP server with an API token. */
 export function claudeCodeCommand(url: string, token: string = TOKEN_PLACEHOLDER): string {
   return `claude mcp add --transport http dbairlock ${url} \\\n  --header "Authorization: Bearer ${token}"`
 }

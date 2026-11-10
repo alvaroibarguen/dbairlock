@@ -425,6 +425,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/oauth/requests/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A pending OAuth authorization request
+         * @description What the consent page shows: the MCP client asking to act as the
+         *     signed-in person and where the code will be sent. Requests are
+         *     created by /oauth/authorize and expire after 10 minutes.
+         */
+        get: operations["getOAuthRequest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth/requests/{id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Allow or deny an OAuth authorization request
+         * @description Records the signed-in person's decision. Allowing creates a connected
+         *     app for this person. The response is where to send the browser: the
+         *     client's loopback redirect URI with a single-use code, or with
+         *     error=access_denied. A request can be decided once.
+         */
+        post: operations["decideOAuthRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Connected apps
+         * @description MCP clients the caller signed in with OAuth. With `all=true` (admin only), every user's.
+         */
+        get: operations["listOAuthGrants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth/grants/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Disconnect an app
+         * @description Revokes the app's access and refresh tokens. The owner or an admin. Permanent; the app can be connected again by signing in again.
+         */
+        delete: operations["revokeOAuthGrant"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings": {
         parameters: {
             query?: never;
@@ -1103,6 +1188,43 @@ export interface components {
             /** @description The MCP endpoint to configure in an agent. */
             mcp_url: string;
         };
+        OAuthRequest: {
+            id: string;
+            client_id: string;
+            /** @description The name the client registered itself with. Unverified; anyone can register any name. */
+            client_name: string;
+            /** Format: date-time */
+            client_registered_at: string;
+            /** @description The loopback address on this computer the code is sent to. */
+            redirect_uri: string;
+            /** @description Host and port of redirect_uri. */
+            redirect_host: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        OAuthDecision: {
+            approve: boolean;
+        };
+        OAuthDecisionResult: {
+            /** @description Where to send the browser next. With approval it carries the single-use authorization code for the client. */
+            redirect_url: string;
+        };
+        OAuthGrant: {
+            id: string;
+            client_id: string;
+            /** @description The name the client registered itself with, as the person approved it. */
+            client_name: string;
+            owner_id: string;
+            owner_email: string;
+            redirect_uri: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_used_at?: string;
+        };
+        OAuthGrantList: {
+            grants: components["schemas"]["OAuthGrant"][];
+        };
         /** @description The error envelope returned by every failing request. */
         Error: {
             error: components["schemas"]["ErrorBody"];
@@ -1197,6 +1319,8 @@ export interface components {
             /** @description Google Workspace domains whose accounts may sign in. */
             "auth.allowed_domains": string[];
             "auth.session_hours": number;
+            /** @description Whether MCP clients may sign in with OAuth (a browser login) instead of an API token. API tokens work either way. Needs instance.public_url. */
+            "mcp.oauth_enabled": boolean;
             "policy.default_required_approvals": number;
             "policy.default_max_rows": number;
             "policy.default_approval_ttl_hours": number;
@@ -1234,6 +1358,8 @@ export interface components {
             /** @description Google Workspace domains whose accounts may sign in. */
             "auth.allowed_domains"?: string[];
             "auth.session_hours"?: number;
+            /** @description Whether MCP clients may sign in with OAuth (a browser login) instead of an API token. API tokens work either way. Needs instance.public_url. */
+            "mcp.oauth_enabled"?: boolean;
             "policy.default_required_approvals"?: number;
             "policy.default_max_rows"?: number;
             "policy.default_approval_ttl_hours"?: number;
@@ -2389,6 +2515,100 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description The token was revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOAuthRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthRequest"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    decideOAuthRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthDecision"];
+            };
+        };
+        responses: {
+            /** @description Where to send the browser. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthDecisionResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOAuthGrants: {
+        parameters: {
+            query?: {
+                all?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active connected apps, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthGrantList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    revokeOAuthGrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The app was disconnected. */
             204: {
                 headers: {
                     [name: string]: unknown;

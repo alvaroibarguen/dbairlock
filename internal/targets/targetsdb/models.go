@@ -138,6 +138,48 @@ type NotifyOutbox struct {
 	LastError     string
 }
 
+type OauthClient struct {
+	ID           string
+	Name         string
+	RedirectUris string
+	CreatedAt    int64
+	CreatedIp    string
+	LastUsedAt   sql.NullInt64
+}
+
+type OauthCode struct {
+	CodeHash      []byte
+	GrantID       string
+	RedirectUri   string
+	CodeChallenge string
+	CreatedAt     int64
+	ExpiresAt     int64
+	UsedAt        sql.NullInt64
+}
+
+type OauthGrant struct {
+	ID            string
+	ClientID      string
+	UserID        string
+	ClientName    string
+	RedirectUri   string
+	Resource      string
+	Scope         string
+	CreatedAt     int64
+	LastUsedAt    sql.NullInt64
+	RevokedAt     sql.NullInt64
+	RevokedReason string
+}
+
+type OauthToken struct {
+	TokenHash []byte
+	GrantID   string
+	Kind      string
+	CreatedAt int64
+	ExpiresAt int64
+	UsedAt    sql.NullInt64
+}
+
 type Review struct {
 	ID          string
 	ChangeID    string

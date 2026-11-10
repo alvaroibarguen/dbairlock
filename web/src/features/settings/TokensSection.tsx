@@ -6,7 +6,10 @@ import {
   type ApiToken,
   createToken,
   isApiError,
+  type OAuthGrant,
+  oauthGrantsQuery,
   queryKeys,
+  revokeOAuthGrant,
   revokeToken,
   type TokenCreated,
   type TokenExpiryDays,
@@ -58,9 +61,13 @@ export function TokensSection({ title, canSeeAll }: { title: ReactNode; canSeeAl
         <div className="flex flex-wrap items-center justify-between gap-3 px-6 pt-5 pb-3">
           <p className="max-w-xl text-base text-dim">
             Tokens let your agents use dbairlock over MCP as you. Changes they submit are authored
-            by you and still need another person&apos;s review.
+            by you and still need another person&apos;s review. Agents that support OAuth, such as
+            Claude Code, can sign in with your browser instead; they are listed under Connected
+            apps.
           </p>
-          {canSeeAll && <Switch label="Everyone's tokens" checked={all} onCheckedChange={setAll} />}
+          {canSeeAll && (
+            <Switch label="Everyone's tokens and apps" checked={all} onCheckedChange={setAll} />
+          )}
         </div>
         {query.isPending ? (
           <div className="flex flex-col gap-2 px-6 py-2" aria-busy="true" aria-label="Loading">
@@ -100,8 +107,124 @@ export function TokensSection({ title, canSeeAll }: { title: ReactNode; canSeeAl
             </TBody>
           </Table>
         )}
+        <ConnectedApps all={all && canSeeAll} />
       </div>
     </>
+  )
+}
+
+/**
+ * Agents signed in with OAuth instead of a token: one row per approval.
+ * Disconnecting revokes the app's access and refresh tokens.
+ */
+function ConnectedApps({ all }: { all: boolean }) {
+  const query = useQuery(oauthGrantsQuery(all))
+  const grants = query.data ?? []
+  return (
+    <section aria-labelledby="connected-apps" className="mt-6 border-t border-seam">
+      <div className="flex flex-col gap-1 px-6 pt-5 pb-3">
+        <h3 id="connected-apps" className="text-base font-medium small-caps text-dim">
+          Connected apps
+        </h3>
+        <p className="max-w-xl text-base text-dim">
+          Agents you signed in with your browser, for example Claude Code through{' '}
+          <code className="font-mono">/mcp</code>. They act as you, exactly like a token.
+        </p>
+      </div>
+      {query.isPending ? (
+        <div className="flex flex-col gap-2 px-6 py-2" aria-busy="true" aria-label="Loading">
+          <Skeleton className="h-8 w-full" />
+        </div>
+      ) : query.isError ? (
+        <ErrorState
+          title="Connected apps could not be loaded."
+          message={query.error.message}
+          code={isApiError(query.error) ? query.error.code : undefined}
+          action={<Button onClick={() => void query.refetch()}>Retry</Button>}
+        />
+      ) : grants.length === 0 ? (
+        <EmptyState
+          title={all ? 'Nobody has a connected app.' : 'You have no connected apps.'}
+          description="Add dbairlock to your agent without a token and sign in when it asks."
+        />
+      ) : (
+        <Table aria-label="Connected apps">
+          <THead>
+            <Tr>
+              <Th className="pl-6">App</Th>
+              <Th>Sends sign-in to</Th>
+              {all && <Th>Owner</Th>}
+              <Th>Connected</Th>
+              <Th>Last used</Th>
+              <Th className="pr-6 text-right">
+                <span className="sr-only">Actions</span>
+              </Th>
+            </Tr>
+          </THead>
+          <TBody>
+            {grants.map((g) => (
+              <GrantRow key={g.id} grant={g} showOwner={all} />
+            ))}
+          </TBody>
+        </Table>
+      )}
+    </section>
+  )
+}
+
+function GrantRow({ grant, showOwner }: { grant: OAuthGrant; showOwner: boolean }) {
+  const queryClient = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const revoke = useMutation({
+    mutationFn: () => revokeOAuthGrant(grant.id),
+    onSuccess: async () => {
+      setOpen(false)
+      await queryClient.invalidateQueries({ queryKey: queryKeys.oauthGrantsAll })
+      toast.success(`"${grant.client_name}" was disconnected.`)
+    },
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : 'The app could not be disconnected.'),
+  })
+  let host = grant.redirect_uri
+  try {
+    host = new URL(grant.redirect_uri).host
+  } catch {
+    // keep the URI as it is
+  }
+  return (
+    <Tr>
+      <Td className="pl-6 font-sans text-base text-text">{grant.client_name}</Td>
+      <Td>{host}</Td>
+      {showOwner && <Td>{grant.owner_email}</Td>}
+      <Td>{formatDate(grant.created_at)}</Td>
+      <Td>{formatTime(grant.last_used_at, 'Never')}</Td>
+      <Td className="pr-6 text-right">
+        <Dialog
+          open={open}
+          onOpenChange={setOpen}
+          trigger={
+            <Button size="sm" variant="destructive">
+              Disconnect
+            </Button>
+          }
+          title={`Disconnect "${grant.client_name}"?`}
+          description="The app is refused from its next request. To use it again, sign in from the app again."
+          footer={
+            <>
+              <DialogClose render={<Button>Cancel</Button>} />
+              <Button
+                variant="destructive"
+                className="ml-auto"
+                loading={revoke.isPending}
+                onClick={() => revoke.mutate()}
+              >
+                Disconnect app
+              </Button>
+            </>
+          }
+        />
+      </Td>
+    </Tr>
   )
 }
 

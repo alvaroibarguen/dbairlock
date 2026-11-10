@@ -273,7 +273,7 @@ describe('users and tokens', () => {
     await userEvent.click(within(row).getByRole('button', { name: 'Remove' }))
     const dialog = await screen.findByRole('dialog', { name: 'Remove bob@example.com?' })
     expect(dialog).toHaveTextContent(/Signs them out of every browser/)
-    expect(dialog).toHaveTextContent(/Revokes all their API tokens permanently/)
+    expect(dialog).toHaveTextContent(/Revokes all their API tokens and connected apps permanently/)
     expect(dialog).toHaveTextContent(/Cancels their open changes/)
     await userEvent.click(within(dialog).getByRole('button', { name: 'Remove user' }))
     await waitFor(() => expect(calls.some((c) => c.path === '/api/users/u2/remove')).toBe(true))

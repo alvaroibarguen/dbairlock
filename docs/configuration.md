@@ -29,13 +29,14 @@ never its value.
 | Key | Default | Settings page | Effect |
 |---|---|---|---|
 | `instance.name` | `dbairlock` | General | Shown in the dashboard and on the sign-in page. |
-| `instance.public_url` | empty | General | Base of sign-in redirects, review links given to agents and links in notifications. |
+| `instance.public_url` | empty | General | Base of sign-in redirects, review links given to agents and links in notifications, and the OAuth issuer for agents. |
 | `instance.trusted_proxies` | none | Limits | CIDR ranges whose `X-Forwarded-For` header gives the client address. |
 | `auth.google.client_id` | empty | Sign-in | Google OAuth client. |
 | `auth.google.client_secret` | not set | Sign-in | Secret. |
 | `auth.allowed_domains` | none | Sign-in | Google Workspace domains whose accounts may sign in. |
 | `auth.session_hours` | 12 | Sign-in | Idle length of a sign-in, 1 to 720 hours. |
 | `auth.oidc_issuer` | Google | hidden | Google's issuer; another issuer is accepted only on a loopback address, for tests. |
+| `mcp.oauth_enabled` | on | Sign-in | MCP clients may sign in with OAuth (a browser login) instead of an API token ([agents.md](agents.md)). Needs `instance.public_url`, which is the issuer and the base of the token's resource. Off: the discovery documents answer 404 and every OAuth token is refused at once; API tokens keep working. |
 | `policy.default_required_approvals` | 1 | Policy defaults | Default for connections created afterwards. |
 | `policy.default_max_rows` | 100 | Policy defaults | Default for connections created afterwards. |
 | `policy.default_approval_ttl_hours` | 72 | Policy defaults | Default for connections created afterwards. |
@@ -82,6 +83,9 @@ in the form for a new connection.
 | Session absolute maximum 30 days | `identity` | However active, a sign-in ends; the idle length is the setting. |
 | Sign-in flow 10 minutes; setup session 30 minutes; recovery code 15 minutes | `identity`, `setup` | Short-lived by design. |
 | Sign-in and setup-code rate limits | `identity`, `setup` | Brute-force protection must not be switchable off. |
+| OAuth for agents: code 60 seconds, access token 1 hour, refresh token 30 days unused (rotated on every use), consent request 10 minutes, unapproved clients deleted after 1 day and at most 200 at once, up to 5 loopback redirect URIs per client | `identity` | Protocol safety margins ([security.md](security.md#oauth-sign-in-for-agents)). |
+| OAuth rate limits per address: registration 10 then 1 a minute, authorization 20 then 1 every 3 s, token and revocation 60 then 1 a second | `identity` | Like the sign-in limit, not switchable off. |
+| Request bodies of the OAuth endpoints 16 KB | `httpapi` | A registration or token form is a few hundred bytes. |
 | Schema cache 60 seconds | `targets` | Freshness of editor completion; not worth a setting. |
 | Connection test 30 seconds; connect timeout 10 seconds; pool idle 5 minutes, lifetime 30 minutes | `targets`, connectors | Operational defaults that every target tolerates. |
 | Cell values shown up to 4 KB | `connector` | Display truncation; complete values are fingerprinted regardless. |

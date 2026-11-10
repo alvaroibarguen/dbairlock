@@ -84,7 +84,7 @@ export function UsersSection({ title }: { title: ReactNode }) {
       <div className="min-h-0 flex-1 overflow-y-auto">
         <p className="px-6 pt-5 pb-3 text-base text-dim">
           Everyone who has signed in. Removing someone is how offboarding works: it signs them out,
-          revokes their API tokens and cancels their open changes.
+          revokes their API tokens and connected apps and cancels their open changes.
         </p>
         {query.isPending ? (
           <div className="flex flex-col gap-2 px-6 py-2" aria-busy="true" aria-label="Loading">
@@ -255,8 +255,8 @@ function UserRow({ user, isSelf }: { user: User; isSelf: boolean }) {
             <ul className="flex list-disc flex-col gap-1.5 pl-5 font-sans text-base text-dim">
               <li>Signs them out of every browser.</li>
               <li>
-                Revokes all their API tokens permanently. Restoring them does not bring the tokens
-                back.
+                Revokes all their API tokens and connected apps permanently. Restoring them does not
+                bring them back.
               </li>
               <li>Cancels their open changes, and their approvals stop counting.</li>
               <li>Their Google account can no longer sign in until restored.</li>

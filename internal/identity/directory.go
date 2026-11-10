@@ -38,8 +38,9 @@ func (s *Service) Users(ctx context.Context, db store.DBTX, ids []string) (map[s
 	return out, nil
 }
 
-// TokenName returns the name of API token id, revoked or not, or "" if
-// there is no such token.
+// TokenName returns the name of the agent credential id, revoked or not:
+// an API token's name, or for an OAuth grant the name of its client. It
+// returns "" if there is no such credential.
 func (s *Service) TokenName(ctx context.Context, db store.DBTX, id string) (string, error) {
 	if id == "" {
 		return "", nil
@@ -47,12 +48,20 @@ func (s *Service) TokenName(ctx context.Context, db store.DBTX, id string) (stri
 	if db == nil {
 		db = s.opts.Store.Reader()
 	}
-	row, err := identitydb.New(db).GetToken(ctx, id)
+	q := identitydb.New(db)
+	row, err := q.GetToken(ctx, id)
+	if err == nil {
+		return row.Name, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("identity: load token: %w", err)
+	}
+	g, err := q.GetOAuthGrant(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil
 	}
 	if err != nil {
-		return "", fmt.Errorf("identity: load token: %w", err)
+		return "", fmt.Errorf("identity: load grant: %w", err)
 	}
-	return row.Name, nil
+	return g.ClientName, nil
 }

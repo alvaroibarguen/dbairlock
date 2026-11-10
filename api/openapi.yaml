@@ -427,6 +427,87 @@ paths:
           description: The token was revoked.
         default:
           $ref: "#/components/responses/Error"
+  /api/oauth/requests/{id}:
+    get:
+      operationId: getOAuthRequest
+      summary: A pending OAuth authorization request
+      description: |
+        What the consent page shows: the MCP client asking to act as the
+        signed-in person and where the code will be sent. Requests are
+        created by /oauth/authorize and expire after 10 minutes.
+      tags: [tokens]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthRequest"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/oauth/requests/{id}/decision:
+    post:
+      operationId: decideOAuthRequest
+      summary: Allow or deny an OAuth authorization request
+      description: |
+        Records the signed-in person's decision. Allowing creates a connected
+        app for this person. The response is where to send the browser: the
+        client's loopback redirect URI with a single-use code, or with
+        error=access_denied. A request can be decided once.
+      tags: [tokens]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OAuthDecision"
+      responses:
+        "200":
+          description: Where to send the browser.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthDecisionResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/oauth/grants:
+    get:
+      operationId: listOAuthGrants
+      summary: Connected apps
+      description: MCP clients the caller signed in with OAuth. With `all=true` (admin only), every user's.
+      tags: [tokens]
+      parameters:
+        - name: all
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Active connected apps, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthGrantList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/oauth/grants/{id}:
+    delete:
+      operationId: revokeOAuthGrant
+      summary: Disconnect an app
+      description: Revokes the app's access and refresh tokens. The owner or an admin. Permanent; the app can be connected again by signing in again.
+      tags: [tokens]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          description: The app was disconnected.
+        default:
+          $ref: "#/components/responses/Error"
   /api/settings:
     get:
       operationId: getSettings
@@ -1437,6 +1518,78 @@ components:
         mcp_url:
           type: string
           description: The MCP endpoint to configure in an agent.
+    OAuthRequest:
+      type: object
+      required: [id, client_id, client_name, client_registered_at, redirect_uri, redirect_host, expires_at]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        client_id:
+          type: string
+        client_name:
+          type: string
+          description: The name the client registered itself with. Unverified; anyone can register any name.
+        client_registered_at:
+          type: string
+          format: date-time
+        redirect_uri:
+          type: string
+          description: The loopback address on this computer the code is sent to.
+        redirect_host:
+          type: string
+          description: Host and port of redirect_uri.
+        expires_at:
+          type: string
+          format: date-time
+    OAuthDecision:
+      type: object
+      required: [approve]
+      additionalProperties: false
+      properties:
+        approve:
+          type: boolean
+    OAuthDecisionResult:
+      type: object
+      required: [redirect_url]
+      additionalProperties: false
+      properties:
+        redirect_url:
+          type: string
+          description: Where to send the browser next. With approval it carries the single-use authorization code for the client.
+    OAuthGrant:
+      type: object
+      required: [id, client_id, client_name, owner_id, owner_email, redirect_uri, created_at]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        client_id:
+          type: string
+        client_name:
+          type: string
+          description: The name the client registered itself with, as the person approved it.
+        owner_id:
+          type: string
+        owner_email:
+          type: string
+        redirect_uri:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+    OAuthGrantList:
+      type: object
+      required: [grants]
+      additionalProperties: false
+      properties:
+        grants:
+          type: array
+          items:
+            $ref: "#/components/schemas/OAuthGrant"
     Error:
       type: object
       description: The error envelope returned by every failing request.
@@ -1586,6 +1739,7 @@ components:
         - auth.allowed_domains
         - auth.session_hours
         - auth.oidc_issuer
+        - mcp.oauth_enabled
         - policy.default_required_approvals
         - policy.default_max_rows
         - policy.default_approval_ttl_hours
@@ -1637,6 +1791,9 @@ components:
           type: integer
           minimum: 1
           maximum: 720
+        mcp.oauth_enabled:
+          type: boolean
+          description: Whether MCP clients may sign in with OAuth (a browser login) instead of an API token. API tokens work either way. Needs instance.public_url.
         policy.default_required_approvals:
           type: integer
           minimum: 1

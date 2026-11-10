@@ -164,7 +164,8 @@ func (s *Service) SetRole(ctx context.Context, p Principal, id string, role Role
 }
 
 // RemoveUser offboards a user. In one transaction it marks them removed,
-// deletes their sessions, revokes their API tokens permanently, publishes
+// deletes their sessions, revokes their API tokens and OAuth grants
+// (connected apps) permanently, publishes
 // UserRemoved (so their open changes are cancelled) and records
 // user.removed. The record is kept. The last enabled admin cannot be removed.
 func (s *Service) RemoveUser(ctx context.Context, p Principal, id string) (User, error) {
@@ -191,6 +192,10 @@ func (s *Service) RemoveUser(ctx context.Context, p Principal, id string) (User,
 		if err != nil {
 			return fmt.Errorf("identity: revoke tokens: %w", err)
 		}
+		grants, err := s.revokeUserGrants(ctx, tx, q, u.ID, s.now())
+		if err != nil {
+			return err
+		}
 		s.subMu.Lock()
 		subs := append([]RemovalSubscriber(nil), s.subscribers...)
 		s.subMu.Unlock()
@@ -201,7 +206,9 @@ func (s *Service) RemoveUser(ctx context.Context, p Principal, id string) (User,
 		}
 		return s.opts.Audit.Record(ctx, tx, audit.Event{
 			Action: audit.UserRemoved, SubjectType: "user", SubjectID: u.ID,
-			Payload: map[string]any{"email": u.Email, "sessions_ended": sessions, "tokens_revoked": tokens},
+			Payload: map[string]any{
+				"email": u.Email, "sessions_ended": sessions, "tokens_revoked": tokens, "oauth_grants_revoked": grants,
+			},
 		})
 	})
 }
