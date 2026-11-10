@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { Menu as MenuIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { Link, Navigate, Outlet, useLocation } from 'react-router'
+import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router'
 import { meQuery, metaQuery } from '@/api'
-import { Button, Drawer, Logo, MEDIUM, useMediaQuery } from '@/ui'
-import { NavList, Rail } from './Rail'
+import { Button, Drawer, Logo, MEDIUM, typing, useMediaQuery } from '@/ui'
+import { NEW_CHANGE_KEY, newChangeNav } from './nav'
+import { NavList, NewChangeLink, Rail } from './Rail'
 import { UserMenu } from './UserMenu'
 
 /**
@@ -31,6 +32,22 @@ function useKeepFocus() {
   }, [pathname])
 }
 
+/** N opens the change editor from any screen, unless a text field, editor or dialog has the key. */
+function useNewChangeShortcut() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== NEW_CHANGE_KEY || e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.repeat || typing() || e.defaultPrevented) return
+      if (newChangeNav.isActive(window.location.pathname)) return
+      e.preventDefault()
+      void navigate(newChangeNav.to)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [navigate])
+}
+
 const skipLink =
   'sr-only z-50 rounded-md bg-raise px-3 py-2 text-text focus:not-sr-only focus:fixed focus:top-2 focus:left-2'
 
@@ -42,6 +59,7 @@ export function AppShell() {
   const medium = useMediaQuery(MEDIUM, true)
   const [navOpen, setNavOpen] = useState(false)
   useKeepFocus()
+  useNewChangeShortcut()
   const meta = useQuery(metaQuery())
   // Loading the signed-in user is the route guard: a 401 sends the browser
   // to sign in (see the API client), remembering where it was.
@@ -100,6 +118,7 @@ export function AppShell() {
           <span className="font-mono text-base font-medium text-text">dbairlock</span>
         </Link>
         <div className="flex-1" />
+        <NewChangeLink side="bottom" className="size-8 rounded-md" />
         <UserMenu side="bottom" />
       </header>
       <main id="main" tabIndex={-1} className="flex min-w-0 flex-1 flex-col bg-bg outline-none">

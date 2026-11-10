@@ -7,7 +7,6 @@ import { AffectedRows, RowsLegend } from './AffectedRows'
 import { ChangeDetail } from './ChangeDetail'
 import { ChangeQueue, QueueCount } from './ChangeQueue'
 import { ChangesLayout } from './ChangesLayout'
-import { NewChangeButton } from './ChangesPage'
 import { useQueueView } from './hooks'
 
 function RowsPane({ id }: { id: string }) {
@@ -40,12 +39,7 @@ export function ChangeDetailPage() {
     <ChangesLayout
       mobileFocus="detail"
       queue={<ChangeQueue selected={id} />}
-      queueActions={
-        <>
-          <QueueCount />
-          <NewChangeButton />
-        </>
-      }
+      queueActions={<QueueCount />}
       detail={<ChangeDetail key={id} id={id} back={back} />}
       rows={<RowsPane id={id} />}
       rowsActions={<RowsLegend />}

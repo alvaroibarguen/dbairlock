@@ -201,6 +201,36 @@ test('reject by keyboard: the dialog traps focus and Escape returns it', async (
   await ctx.close()
 })
 
+test('N opens the change editor from any screen, but not while typing', async ({ page }) => {
+  await page.goto('/audit')
+  await expect(page).toHaveTitle(/^Audit log/)
+  await page.keyboard.press('n')
+  await expect(page).toHaveURL(/\/changes\/new$/)
+
+  // In a text field the key is just a letter.
+  const title = page.getByLabel('Title')
+  await title.focus()
+  await page.keyboard.press('n')
+  await expect(title).toHaveValue('n')
+  await expect(page).toHaveURL(/\/changes\/new$/)
+
+  // With a modifier it is not the shortcut.
+  await page.goto('/connections')
+  await expect(page).toHaveTitle(/^Connections/)
+  await page.keyboard.press('Alt+n')
+  await page.keyboard.press('Shift+Alt+n')
+  await expect(page).toHaveURL(/\/connections$/)
+})
+
+test('the New change button is visible on every screen', async ({ page }) => {
+  for (const path of ['/changes', '/audit', '/connections', '/settings']) {
+    await page.goto(path)
+    const link = page.getByRole('link', { name: 'New change' }).first()
+    await expect(link).toBeVisible()
+    await expect(link).toHaveAttribute('aria-keyshortcuts', 'N')
+  }
+})
+
 test('an audit event opens and closes by keyboard, returning focus', async ({ page }) => {
   await page.goto('/audit')
   const event = page

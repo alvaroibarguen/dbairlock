@@ -26,6 +26,7 @@ import {
   StatusBadge,
   toast,
   Tooltip,
+  typing,
 } from '@/ui'
 import { Executions, Reviews, Timeline } from './Activity'
 import { AuthorTag } from './AuthorTag'
@@ -54,17 +55,6 @@ function ago(fromMs: number, nowMs: number): string {
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'The request did not complete. Try again.'
-}
-
-/** Whether focus is in a text field, where Ctrl/Cmd+Enter belongs to the field. */
-function typing(): boolean {
-  const el = document.activeElement
-  return (
-    el instanceof HTMLInputElement ||
-    el instanceof HTMLTextAreaElement ||
-    (el instanceof HTMLElement && el.isContentEditable) ||
-    document.querySelector('[role="dialog"]') !== null
-  )
 }
 
 /**

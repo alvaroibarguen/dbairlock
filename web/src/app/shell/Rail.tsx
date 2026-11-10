@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from 'react-router'
 import { cn, Logo, Tooltip } from '@/ui'
-import { type NavItem, primaryNav, settingsNav } from './nav'
+import { NEW_CHANGE_KEY, type NavItem, newChangeNav, primaryNav, settingsNav } from './nav'
 import { UserMenu } from './UserMenu'
 
 const railItem =
@@ -25,6 +25,39 @@ function RailLink({ item }: { item: NavItem }) {
   )
 }
 
+/**
+ * The primary action: a solid green button, set apart from the navigation.
+ * `size` follows the surrounding control (rail item or top-bar icon button).
+ */
+export function NewChangeLink({
+  className,
+  side = 'right',
+}: {
+  className?: string
+  side?: 'right' | 'bottom'
+}) {
+  const { pathname } = useLocation()
+  const active = newChangeNav.isActive(pathname)
+  const Icon = newChangeNav.icon
+  return (
+    <Tooltip content={newChangeNav.label} shortcut={NEW_CHANGE_KEY.toUpperCase()} side={side}>
+      <NavLink
+        to={newChangeNav.to}
+        end
+        aria-label={newChangeNav.label}
+        aria-keyshortcuts={NEW_CHANGE_KEY.toUpperCase()}
+        aria-current={active ? 'page' : undefined}
+        className={cn(
+          'grid size-9 place-items-center rounded-lg border border-green bg-green text-on-green transition-[filter] duration-120 ease-out hover:brightness-110 active:brightness-95 aria-[current=page]:outline-2 aria-[current=page]:outline-offset-2 aria-[current=page]:outline-green/50',
+          className,
+        )}
+      >
+        <Icon aria-hidden="true" className="size-[18px]" strokeWidth={2.2} />
+      </NavLink>
+    </Tooltip>
+  )
+}
+
 /** The 52px icon rail on the far left (768px and wider). */
 export function Rail() {
   return (
@@ -32,6 +65,7 @@ export function Rail() {
       <NavLink to="/changes" aria-label="dbairlock home" className="mb-3 rounded-[7px]">
         <Logo />
       </NavLink>
+      <NewChangeLink className="mb-3" />
       {primaryNav.map((item) => (
         <RailLink key={item.to} item={item} />
       ))}
@@ -47,7 +81,7 @@ export function NavList({ onNavigate }: { onNavigate: () => void }) {
   const { pathname } = useLocation()
   return (
     <ul className="flex flex-col gap-0.5 p-2">
-      {[...primaryNav, settingsNav].map((item) => {
+      {[newChangeNav, ...primaryNav, settingsNav].map((item) => {
         const Icon = item.icon
         const active = item.isActive(pathname)
         return (

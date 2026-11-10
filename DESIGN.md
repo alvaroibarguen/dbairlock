@@ -8,7 +8,7 @@ Graphite panels, hairline seams, and colour only where state lives. The UI reads
 
 ## Layout
 
-- **Icon rail** (52 px, darkest ground) on the far left: logo, Changes, New change, Audit log, Connections, then Settings and the user avatar at the bottom. Every icon has a tooltip and an `aria-label`.
+- **Icon rail** (52 px, darkest ground) on the far left: logo, then the **New change** button (a solid green 36 px square with a `+`, set apart from the navigation below it; shortcut `N` from any screen outside text fields), then Changes, Audit log, Connections, Connect an agent, and Settings and the user avatar at the bottom. On phones the New change button sits in the top bar beside the avatar. Every icon has a tooltip and an `aria-label`.
 - **Persistent panes** tile the rest of the viewport and are separated by 1 px seams (the gap between panes shows the seam colour). No drop shadows anywhere except floating overlays (menus, dialogs, toasts).
 - The changes screen is three panes: **queue list** (320 px) · **change detail** (fluid) · **affected rows** (~548 px, collapsible). Navigation changes pane contents, not the layout.
 - Other screens (Audit log, Connections, Settings) use a list pane plus a detail pane, or one full-width pane with a 44 px pane header.
