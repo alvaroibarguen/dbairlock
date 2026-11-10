@@ -102,6 +102,10 @@ func dsn(path string, readOnly bool) string {
 	q.Add("_pragma", "journal_mode(WAL)")
 	q.Add("_pragma", "synchronous(FULL)")
 	q.Add("_pragma", "foreign_keys(ON)")
+	// Sorts and temporary tables stay in memory: the container image runs
+	// with a read-only root filesystem, so there is no writable /tmp, and
+	// the metadata store is small.
+	q.Add("_pragma", "temp_store(MEMORY)")
 	if readOnly {
 		q.Add("_pragma", "query_only(ON)")
 	} else {

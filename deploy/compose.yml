@@ -1,0 +1,26 @@
+# dbairlock: one service, one named volume, no environment and no .env file.
+# Everything else is configured in the browser. From the repository root:
+#
+#   docker compose -f deploy/compose.yml up -d
+#   docker compose -f deploy/compose.yml logs dbairlock   # shows the setup code
+#
+# The first `up` builds the image from this checkout (tagged dbairlock:latest).
+# After pulling new code: docker compose -f deploy/compose.yml up -d --build
+# docs/self-hosting.md shows a variant that keeps master.key in a Docker secret.
+name: dbairlock
+
+services:
+  dbairlock:
+    image: dbairlock:latest
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    ports: ["8080:8080"]
+    volumes: ["dbairlock-data:/data"]
+    read_only: true
+    restart: unless-stopped
+    # dbairlock allows itself 20 seconds to finish running work on SIGTERM.
+    stop_grace_period: 30s
+
+volumes:
+  dbairlock-data:

@@ -1,0 +1,201 @@
+# Continuous integration. Toolchain versions come from docs/VERSIONS.md
+# (Go from go.mod; Node and pnpm in .github/actions/setup).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint (Go and web)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          web: "true"
+      # golangci-lint (with the depguard import rules), eslint and prettier.
+      - run: make lint
+
+  generate-check:
+    name: Generated code is up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          web: "true"
+      - run: make generate-check
+
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          web: "true"
+      # -short skips the testcontainers suites; the integration job runs them.
+      - run: go test -short -count=1 ./...
+      - run: pnpm --dir web test
+
+  integration:
+    # Each connector's suite against the oldest and the newest supported
+    # version of its database (docs/VERSIONS.md, "Supported target
+    # databases"). The images are listed in each package's conformance_test.go
+    # (subtests postgres14/postgres18, mysql8/mysql9); change both together.
+    # Engine-specific tests (TestPostgresSpecific, TestMySQLSpecific) run on
+    # the newest version. The last entry runs everything the unit job skips
+    # with -short: the change, executor, MCP and notification flows in
+    # internal/app (Postgres 18 and MySQL 9.7 containers) and the audit export
+    # memory test.
+    name: Integration (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: postgres 14
+            args: -run 'TestConformance' -skip 'TestConformance/postgres18' ./internal/connector/postgres
+          - name: postgres 18
+            args: -run 'TestConformance|TestPostgresSpecific' -skip 'TestConformance/postgres14' ./internal/connector/postgres
+          - name: mysql 8.4
+            args: -run 'TestConformance' -skip 'TestConformance/mysql9' ./internal/connector/mysql
+          - name: mysql 9.7
+            args: -run 'TestConformance|TestMySQLSpecific' -skip 'TestConformance/mysql8' ./internal/connector/mysql
+          - name: app flows
+            args: ./internal/app ./internal/audit
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      # testcontainers uses the runner's Docker daemon.
+      - name: Run ${{ matrix.name }} suite
+        run: go test -count=1 -v ${{ matrix.args }}
+
+  e2e:
+    name: Playwright (built binary)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          web: "true"
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/pnpm-lock.yaml') }}
+      - run: pnpm --dir web exec playwright install --with-deps chromium
+      # The sample targets the connection and change tests use. The suite's
+      # global setup starts them too, but there a failure only skips those
+      # tests; here it fails the job.
+      - name: Start sample Postgres and MySQL
+        run: docker compose -f deploy/dev/compose.yml up -d --wait --wait-timeout 180
+      # Builds the dashboard, embeds it, builds bin/dbairlock, then runs
+      # Playwright against it (web/e2e/global-setup.ts starts the binary and
+      # the fake Google; setup.spec.ts signs in ada and bob). The notification
+      # test needs a non-loopback address, which the runner has.
+      - run: make e2e
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-traces
+          path: web/test-results
+          retention-days: 7
+      - if: always()
+        name: Stop sample targets
+        run: docker compose -f deploy/dev/compose.yml down -v
+
+  image:
+    name: Image (linux/amd64, linux/arm64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # The Dockerfile cross-compiles cgo with Debian's cross gcc, so the
+      # build stages need no emulation; the runtime stage has no RUN steps.
+      - uses: docker/setup-buildx-action@v4
+      - name: Build (no push)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: false
+          build-args: |
+            VERSION=${{ github.sha }}
+            COMMIT=${{ github.sha }}
+            DATE=${{ github.event.head_commit.timestamp || github.event.pull_request.updated_at }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  govulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: go tool govulncheck ./...
+
+  pnpm-audit:
+    name: pnpm audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          web: "true"
+      - run: pnpm --dir web audit --audit-level high
+
+  # ---------------------------------------------------------------------------
+  # Publishing is not enabled. Outline for the owner: push a multi-arch image
+  # to a registry when a version tag (v*) is pushed. To enable it, add
+  # `tags: ["v*"]` under on.push, uncomment the job and choose the registry.
+  #
+  # publish:
+  #   name: Publish image
+  #   if: startsWith(github.ref, 'refs/tags/v')
+  #   needs: [lint, generate-check, unit, integration, e2e, image, govulncheck, pnpm-audit]
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: read
+  #     packages: write
+  #   steps:
+  #     - uses: actions/checkout@v7
+  #     - uses: docker/setup-buildx-action@v4
+  #     - uses: docker/login-action@v4
+  #       with:
+  #         registry: ghcr.io
+  #         username: ${{ github.actor }}
+  #         password: ${{ secrets.GITHUB_TOKEN }}
+  #     - id: meta
+  #       uses: docker/metadata-action@v6
+  #       with:
+  #         images: ghcr.io/${{ github.repository }}
+  #         tags: |
+  #           type=semver,pattern={{version}}
+  #           type=semver,pattern={{major}}.{{minor}}
+  #     - uses: docker/build-push-action@v7
+  #       with:
+  #         context: .
+  #         file: deploy/Dockerfile
+  #         platforms: linux/amd64,linux/arm64
+  #         push: true
+  #         tags: ${{ steps.meta.outputs.tags }}
+  #         labels: ${{ steps.meta.outputs.labels }}
+  #         build-args: |
+  #           VERSION=${{ github.ref_name }}
+  #           COMMIT=${{ github.sha }}
+  #           DATE=${{ github.event.head_commit.timestamp }}
+  #         cache-from: type=gha
+  #         provenance: true
+  #         sbom: true

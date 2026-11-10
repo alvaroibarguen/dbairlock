@@ -47,6 +47,7 @@ type Options struct {
 	Listen  string
 	Dev     bool
 	Version string
+	Commit  string // VCS revision, shown in Settings > System; empty means unknown
 	Logger  *slog.Logger
 
 	// Banner receives the setup-code block printed in setup mode (stderr).
@@ -150,7 +151,7 @@ func build(ctx context.Context, opts Options, st *store.Store) (*App, error) {
 		AuditLog:   audit.NewReader(st.Reader()),
 		AuditCheck: audit.NewChecker(st.Reader(), st, recorder, opts.Clock, opts.Logger),
 		System: systemInfo{
-			version: opts.Version, dataDir: opts.DataDir, dev: opts.Dev, store: st,
+			version: opts.Version, commit: opts.Commit, dataDir: opts.DataDir, dev: opts.Dev, store: st,
 			identity: mods.identity, targets: mods.targets, changes: mods.changes,
 		},
 		Notify: mods.notify,

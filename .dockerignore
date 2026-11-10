@@ -1,0 +1,36 @@
+# Build context for deploy/Dockerfile. Keep it to what the build needs:
+# Go sources, go.mod/go.sum and the web/ sources with their lockfile.
+.git
+.github
+.idea
+.vscode
+.env
+.env.*
+**/master.key*
+backups
+**/.DS_Store
+
+# Local planning documents, build output and data
+plans
+bin
+data
+dist
+coverage.*
+*.test
+*.out
+
+# The dashboard is rebuilt inside the image; only the placeholder is needed
+internal/webui/dist/*
+!internal/webui/dist/.keep
+
+# Frontend dependencies and output (installed and built inside the image)
+web/node_modules
+web/dist
+web/playwright-report
+web/test-results
+
+# Not needed to build the image
+deploy
+docs
+*.md
+!LICENSE

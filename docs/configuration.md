@@ -20,7 +20,7 @@ never its value.
 
 | Flag | Default | Effect |
 |---|---|---|
-| `--data-dir` | `./data` | Holds `dbairlock.db` and `master.key` (see [operations.md](operations.md)). |
+| `--data-dir` | `./data` (the container image passes `/data`) | Holds `dbairlock.db` and `master.key` (see [operations.md](operations.md)). |
 | `--listen` | `:8080` | Address of the HTTP server (dashboard, `/api`, `/mcp`). |
 | `--dev` | off | Development only: binds to loopback, enables the dev sign-in, allows notifications to loopback and link-local receivers. |
 
@@ -36,12 +36,12 @@ never its value.
 | `auth.allowed_domains` | none | Sign-in | Google Workspace domains whose accounts may sign in. |
 | `auth.session_hours` | 12 | Sign-in | Idle length of a sign-in, 1 to 720 hours. |
 | `auth.oidc_issuer` | Google | hidden | Google's issuer; another issuer is accepted only on a loopback address, for tests. |
-| `policy.default_required_approvals` | 1 | Review policy | Default for connections created afterwards. |
-| `policy.default_max_rows` | 100 | Review policy | Default for connections created afterwards. |
-| `policy.default_approval_ttl_hours` | 72 | Review policy | Default for connections created afterwards. |
-| `policy.default_store_row_images` | on | Review policy | Default for connections created afterwards. |
-| `policy.default_auto_execute` | on | Review policy | Default for connections created afterwards. |
-| `policy.preview_max_age_minutes` | 5 | Review policy | Maximum age of the preview an approval needs; applies to every connection immediately. |
+| `policy.default_required_approvals` | 1 | Policy defaults | Default for connections created afterwards. |
+| `policy.default_max_rows` | 100 | Policy defaults | Default for connections created afterwards. |
+| `policy.default_approval_ttl_hours` | 72 | Policy defaults | Default for connections created afterwards. |
+| `policy.default_store_row_images` | on | Policy defaults | Default for connections created afterwards. |
+| `policy.default_auto_execute` | on | Policy defaults | Default for connections created afterwards. |
+| `policy.preview_max_age_minutes` | 5 | Policy defaults | Maximum age of the preview an approval needs; applies to every connection immediately. |
 | `limits.statement_timeout_ms` | 10000 | Limits | Statement timeout on targets, for dry runs and executions. |
 | `limits.lock_timeout_ms` | 3000 | Limits | Lock timeout on targets. |
 | `limits.mcp_calls_per_minute` | 60 | Limits | MCP tool calls per API token per minute. |
@@ -90,7 +90,8 @@ in the form for a new connection.
 | Notification attempt timeout 5 seconds, no redirects | `notify` | A receiver must never hold up the instance. |
 | Notification retries: 30 seconds, doubling to at most 1 hour, given up after 24 hours | `notify` | Notifications are a convenience, not the audit trail. |
 | Delivered and dropped notifications listed for 30 days | `notify` | Housekeeping. |
-| Shutdown grace 20 seconds | `app` | Must stay below orchestrators' default of 30 seconds. |
+| Shutdown grace 20 seconds | `app` | Must stay below orchestrators' default of 30 seconds (Kubernetes); `deploy/compose.yml` raises Docker's 10-second default to 30 with `stop_grace_period`. |
+| SQLite temporary storage in memory | `store` | The container's root filesystem is read-only; only `/data` is writable. |
 
 ## Notifications
 

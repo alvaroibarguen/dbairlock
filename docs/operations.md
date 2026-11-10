@@ -23,7 +23,10 @@ until SQLite checkpoints them into the main file. **Do not copy `dbairlock.db`
 (or the `-wal` file) with `cp`, `rsync` or a volume snapshot tool while the
 server is running.** The copy can be inconsistent or miss committed data.
 
-Take a consistent copy of the live database with either:
+The container image has no shell or `sqlite3`; [self-hosting.md](self-hosting.md#backups)
+shows the same commands run from a throwaway container on the volume. On a
+host where `sqlite3` is installed, take a consistent copy of the live
+database with either:
 
 - **`VACUUM INTO`** (simplest; works while the server runs):
 

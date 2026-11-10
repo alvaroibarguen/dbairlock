@@ -62,6 +62,7 @@ func (c changeNotifier) Notify(ctx context.Context, tx *store.Tx, n changes.Noti
 // systemInfo assembles the System page from the modules.
 type systemInfo struct {
 	version  string
+	commit   string
 	dataDir  string
 	dev      bool
 	store    *store.Store
@@ -73,7 +74,11 @@ type systemInfo struct {
 var _ httpapi.System = systemInfo{}
 
 func (s systemInfo) Info(ctx context.Context) (httpapi.SystemInfo, error) {
-	out := httpapi.SystemInfo{Version: s.version, Commit: buildCommit(), Dev: s.dev}
+	commit := s.commit
+	if commit == "" {
+		commit = buildCommit()
+	}
+	out := httpapi.SystemInfo{Version: s.version, Commit: commit, Dev: s.dev}
 	if abs, err := filepath.Abs(s.dataDir); err == nil {
 		out.DataDir = abs
 	} else {

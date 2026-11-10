@@ -22,6 +22,9 @@ web/test-results/
 .env
 .env.*
 !.env.example
+master.key
+master.key.*
+/backups/
 
 # Local planning documents
 /plans/

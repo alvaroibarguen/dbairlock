@@ -1,0 +1,55 @@
+# Shared toolchain setup for the CI jobs. Versions follow docs/VERSIONS.md.
+name: Set up toolchain
+description: Go (with module and build cache) and, optionally, Node, pnpm and the web dependencies.
+
+inputs:
+  web:
+    description: Also set up Node and pnpm and install web/ dependencies.
+    required: false
+    default: "false"
+  node-version:
+    description: Node version (docs/VERSIONS.md).
+    required: false
+    default: "26.13.0"
+  pnpm-version:
+    description: pnpm version (docs/VERSIONS.md).
+    required: false
+    default: "12.18.0"
+
+runs:
+  using: composite
+  steps:
+    # setup-go reads the version from go.mod and caches both the module
+    # cache and the build cache, keyed on go.sum.
+    - uses: actions/setup-go@v7
+      with:
+        go-version-file: go.mod
+        cache: true
+        cache-dependency-path: go.sum
+
+    - if: inputs.web == 'true'
+      uses: actions/setup-node@v7
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    # Node 26 no longer ships corepack, so install pnpm with npm.
+    - if: inputs.web == 'true'
+      name: Install pnpm
+      shell: bash
+      run: |
+        npm install -g "pnpm@${{ inputs.pnpm-version }}"
+        echo "PNPM_STORE=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+
+    - if: inputs.web == 'true'
+      name: Cache the pnpm store
+      uses: actions/cache@v6
+      with:
+        path: ${{ env.PNPM_STORE }}
+        key: pnpm-store-${{ runner.os }}-${{ inputs.pnpm-version }}-${{ hashFiles('web/pnpm-lock.yaml') }}
+        restore-keys: |
+          pnpm-store-${{ runner.os }}-${{ inputs.pnpm-version }}-
+
+    - if: inputs.web == 'true'
+      name: Install web dependencies
+      shell: bash
+      run: pnpm --dir web install --frozen-lockfile

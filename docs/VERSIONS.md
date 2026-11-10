@@ -12,6 +12,22 @@ Re-verified on 2026-11-09 with `go list -m -f '{{.Version}}' <module>@latest`, `
 | gcc | 13.3.0 | Needed by `pg_query_go` (cgo) |
 | Docker | 29.7.2 (Docker Desktop, WSL integration), Compose v5.5.1 | Required from Phase 5 |
 
+## Container base images (`deploy/Dockerfile`)
+
+Pinned by tag and multi-arch index digest, looked up on 2026-11-10 with `docker buildx imagetools inspect <image>`. To bump, re-run that command and update both the Dockerfile `ARG` and this table.
+
+| Stage | Image | Digest |
+|---|---|---|
+| web | `node:26-trixie-slim` (Node 26.13.0) | `sha256:5adad64f9a1fca2d51972caa65983634c8a774eb300d72b20f7f2a0f60368072` |
+| build | `golang:1.27.3-trixie` | `sha256:af1bfc2614ebb1dbd31af514b78740fd678850e76498762b425ecee4c5c6ea80` |
+| runtime | `gcr.io/distroless/base-nossl-debian13:nonroot` (glibc, CA certificates, tzdata; uid 65532) | `sha256:e6b0f82595aa1edde72c8054de7a9dca30f0f8f54820c37a167c0ddfc21c5c67` |
+
+The build and runtime stages are both Debian 13 (trixie), so the binary's glibc matches the runtime's. Measured on 2026-11-10 with both connectors linked: 78 MB for linux/amd64 (`docker image ls`), and the linux/arm64 image cross-compiles with `gcc-aarch64-linux-gnu` and runs under emulation. The image installs pnpm 12.18.0 with `npm install -g` (no corepack in Node 26).
+
+## GitHub Actions (`.github/`)
+
+Major tags, latest releases on 2026-11-10: `actions/checkout@v7`, `actions/setup-go@v7`, `actions/setup-node@v7`, `actions/cache@v6`, `actions/upload-artifact@v7`, `docker/setup-buildx-action@v4`, `docker/build-push-action@v7`; in the commented publish outline also `docker/login-action@v4` and `docker/metadata-action@v6`.
+
 ## Go tools (`tool` directive in `go.mod`, run with `go tool <name>`)
 
 | Tool | Version |
@@ -69,6 +85,13 @@ Installed in `web/` with `pnpm add <pkg>@latest` on 2026-11-09. pnpm 12 refuses 
 | sonner | 2.0.8 |
 | tailwind-merge | 3.7.0 |
 | `@codemirror/lang-sql` (editor dialect mapping, `web/src/ui/sqlDialect.ts`) | 6.10.0 |
+| `@uiw/react-codemirror` (SQL editor, phase 7) | 4.25.12 |
+| `@codemirror/view` | 6.43.15 |
+| `@codemirror/state` | 6.7.6 |
+| `@codemirror/language` | 6.13.1 |
+| `@codemirror/autocomplete` | 6.20.4 |
+| `@codemirror/lint` | 6.9.7 |
+| `@lezer/highlight` | 1.2.5 |
 | geist (self-hosted Geist and Geist Mono) | 1.9.2 |
 | vitest | 5.1.0 |
 | jsdom | 31.0.0 |
@@ -85,13 +108,6 @@ Installed in `web/` with `pnpm add <pkg>@latest` on 2026-11-09. pnpm 12 refuses 
 | globals | 17.14.0 |
 | prettier | 3.9.10 |
 | prettier-plugin-tailwindcss | 0.8.1 |
-| `@uiw/react-codemirror` (SQL editor, phase 7) | 4.25.12 |
-| `@codemirror/view` | 6.43.15 |
-| `@codemirror/state` | 6.7.6 |
-| `@codemirror/language` | 6.13.1 |
-| `@codemirror/autocomplete` | 6.20.4 |
-| `@codemirror/lint` | 6.9.7 |
-| `@lezer/highlight` | 1.2.5 |
 | `@types/node` | 26.6.6 |
 | `@types/react`, `@types/react-dom` | 19.3.0 |
 

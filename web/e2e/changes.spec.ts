@@ -1,26 +1,12 @@
-import { spawnSync } from 'node:child_process'
 import { type Browser, expect, type Page, test } from '@playwright/test'
 import { MEMBER_STATE } from './state.ts'
-import { reachable, SAMPLE_MYSQL, SAMPLE_POSTGRES } from './targets.ts'
+import { db, reachable, SAMPLE_MYSQL, SAMPLE_POSTGRES } from './targets.ts'
 
 // The core flow on both connectors, against the sample targets of
 // deploy/dev/compose.yml: ada (the admin from setup.spec.ts) writes and
 // submits a change, bob reviews it, and the server executes it. Each test
 // works on rows it inserts with ids of its own, so projects and reruns do
 // not interfere.
-
-const compose = ['compose', '-f', '../deploy/dev/compose.yml', 'exec', '-T']
-
-/** Runs SQL on a sample target as its superuser and returns the output. */
-function db(connector: 'postgres' | 'mysql', sql: string): string {
-  const args =
-    connector === 'postgres'
-      ? [...compose, 'postgres', 'psql', '-U', 'postgres', '-d', 'app', '-tAc', sql]
-      : [...compose, 'mysql', 'mysql', '-uroot', '-proot-secret', 'app', '-N', '-e', sql]
-  const res = spawnSync('docker', args, { encoding: 'utf8', timeout: 60_000 })
-  if (res.status !== 0) throw new Error(`${sql}: ${res.stderr}`)
-  return res.stdout.trim()
-}
 
 function freshId(): number {
   return 100_000 + Math.floor(Math.random() * 800_000)

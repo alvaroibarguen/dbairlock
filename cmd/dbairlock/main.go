@@ -17,8 +17,15 @@ import (
 	"github.com/alvaroibarguen/dbairlock/internal/platform/logx"
 )
 
-// version is set at build time with -ldflags "-X main.version=...".
-var version = ""
+// Build metadata, set at link time with
+// -ldflags "-X main.version=... -X main.commit=... -X main.date=...".
+// Empty values fall back to what the Go toolchain recorded (see resolveVersion
+// and resolveCommit).
+var (
+	version = ""
+	commit  = ""
+	date    = ""
+)
 
 const usage = `Usage: dbairlock [command] [flags]
 
@@ -27,7 +34,8 @@ Commands:
   audit verify   check the audit log's hash chain
   rotate-key     replace the master key and re-encrypt every secret (stop the server first)
   recover        print a one-time link that reopens the sign-in settings
-  version        print the version and exit
+  version        print the version, commit and build date, and exit
+  healthcheck    exit 0 if the local server answers /healthz (for container health checks)
 
 Run "dbairlock <command> -h" for flags.
 `
@@ -62,12 +70,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return rotateKey(args, stdout, stderr)
 	case "recover":
 		return recoverSignIn(args, stdout, stderr)
+	case "healthcheck":
+		return healthcheck(args, stderr)
 	case "version":
 		if len(args) > 0 {
 			_, _ = fmt.Fprintf(stderr, "version takes no arguments\n")
 			return 2
 		}
-		_, _ = fmt.Fprintln(stdout, resolveVersion())
+		_, _ = fmt.Fprintln(stdout, versionLine())
 		return 0
 	case "help":
 		_, _ = fmt.Fprint(stdout, usage)
@@ -116,6 +126,7 @@ func serve(args []string, stderr io.Writer) int {
 		Listen:  f.listen,
 		Dev:     f.dev,
 		Version: resolveVersion(),
+		Commit:  resolveCommit(),
 		Logger:  logger,
 		Banner:  stderr,
 	})
@@ -240,4 +251,43 @@ func resolveVersion() string {
 		return bi.Main.Version
 	}
 	return "dev"
+}
+
+// resolveCommit returns the commit set at link time, or the VCS revision the
+// Go toolchain recorded (with "-dirty" for a modified tree), or "unknown".
+// Container builds have no .git directory, so they pass it with -ldflags.
+func resolveCommit() string {
+	if commit != "" {
+		return commit
+	}
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "unknown"
+	}
+	rev, dirty := "", false
+	for _, s := range bi.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			rev = s.Value
+		case "vcs.modified":
+			dirty = s.Value == "true"
+		}
+	}
+	if rev == "" {
+		return "unknown"
+	}
+	if dirty {
+		rev += "-dirty"
+	}
+	return rev
+}
+
+// versionLine is what "dbairlock version" prints: the version, then the
+// commit and build date when known.
+func versionLine() string {
+	line := resolveVersion() + " (commit " + resolveCommit()
+	if date != "" {
+		line += ", built " + date
+	}
+	return line + ")"
 }
