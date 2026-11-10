@@ -120,7 +120,9 @@ function EventDetail({ event: e }: { event: AuditEvent }) {
         <h4 id="payload-title" className="text-base font-medium small-caps text-dim">
           Payload
         </h4>
-        <CodeBlock copyLabel="Copy payload">{payload}</CodeBlock>
+        <CodeBlock caption="JSON" copyLabel="Copy payload">
+          {payload}
+        </CodeBlock>
       </section>
       <section aria-labelledby="hashes-title" className="flex flex-col gap-2">
         <h4 id="hashes-title" className="text-base font-medium small-caps text-dim">

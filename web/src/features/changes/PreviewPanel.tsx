@@ -109,7 +109,7 @@ export function PreviewStats({ change, freshness }: { change: Change; freshness:
     <div className="@container">
       <div
         className={cn(
-          'grid grid-cols-1 rounded-md border border-seam bg-bg',
+          'grid grid-cols-1 overflow-hidden rounded-md border border-seam bg-bg',
           live ? '@md:grid-cols-[1fr_1.3fr_1.4fr]' : '@md:grid-cols-[1fr_1.3fr]',
         )}
       >
@@ -131,15 +131,14 @@ export function PreviewStats({ change, freshness }: { change: Change; freshness:
                     / fresh until {clockTime(freshness.maxAge)}
                   </span>
                 </span>
+                {/* A meter flush along the cell's bottom edge: it takes no
+                    height, so all three cells keep the same padding. */}
                 <span
                   aria-hidden="true"
-                  className="mt-2 block h-[3px] overflow-hidden rounded-[2px] bg-seam"
+                  className="absolute inset-x-0 bottom-0 block h-[3px] bg-seam"
                 >
                   <span
-                    className={cn(
-                      'block h-[3px] rounded-[2px] transition-[width] duration-120',
-                      bar,
-                    )}
+                    className={cn('block h-[3px] transition-[width] duration-120', bar)}
                     style={{ width: `${pct}%` }}
                   />
                 </span>
@@ -173,7 +172,7 @@ export function PreviewStats({ change, freshness }: { change: Change; freshness:
 
 function Stat({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col border-seam px-3.5 py-3 not-first:border-t @md:not-first:border-t-0 @md:not-first:border-l">
+    <div className="relative flex flex-col border-seam px-3.5 py-3 not-first:border-t @md:not-first:border-t-0 @md:not-first:border-l">
       <span className="text-xs small-caps text-mute">{label}</span>
       <span className="mt-0.5 font-mono tabular">{children}</span>
     </div>

@@ -366,17 +366,19 @@ function CreateTokenDialog() {
           </div>
           <div className="flex flex-col gap-1.5">
             <span className="text-base font-medium text-text">Token</span>
-            <CodeBlock copyLabel="Copy token">{created.secret}</CodeBlock>
+            <CodeBlock caption="dbal_pat" copyLabel="Copy token">
+              {created.secret}
+            </CodeBlock>
           </div>
           <div className="flex flex-col gap-1.5">
             <span className="text-base font-medium text-text">Claude Code</span>
-            <CodeBlock copyLabel="Copy command">
+            <CodeBlock caption="Terminal" copyLabel="Copy command">
               {claudeCodeCommand(created.mcp_url, created.secret)}
             </CodeBlock>
           </div>
           <div className="flex flex-col gap-1.5">
             <span className="text-base font-medium text-text">Other MCP clients</span>
-            <CodeBlock copyLabel="Copy configuration">
+            <CodeBlock caption=".mcp.json" copyLabel="Copy configuration">
               {genericConfig(created.mcp_url, created.secret)}
             </CodeBlock>
             <span className="text-xs text-mute">

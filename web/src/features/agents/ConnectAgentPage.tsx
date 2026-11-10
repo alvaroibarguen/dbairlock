@@ -56,14 +56,18 @@ export function ConnectAgentPage() {
               </>
             }
           >
-            <CodeBlock copyLabel="Copy command">{claudeCodeOAuthCommand(url)}</CodeBlock>
+            <CodeBlock caption="Terminal" copyLabel="Copy command">
+              {claudeCodeOAuthCommand(url)}
+            </CodeBlock>
           </Section>
 
           <Section
             title="Other MCP clients with OAuth"
             hint="Clients that sign in to MCP servers with OAuth need only the URL, for example in .mcp.json or the client's MCP settings."
           >
-            <CodeBlock copyLabel="Copy configuration">{genericOAuthConfig(url)}</CodeBlock>
+            <CodeBlock caption=".mcp.json" copyLabel="Copy configuration">
+              {genericOAuthConfig(url)}
+            </CodeBlock>
           </Section>
 
           <Section
@@ -79,8 +83,12 @@ export function ConnectAgentPage() {
               </>
             }
           >
-            <CodeBlock copyLabel="Copy token command">{claudeCodeCommand(url)}</CodeBlock>
-            <CodeBlock copyLabel="Copy token configuration">{genericConfig(url)}</CodeBlock>
+            <CodeBlock caption="Terminal" copyLabel="Copy token command">
+              {claudeCodeCommand(url)}
+            </CodeBlock>
+            <CodeBlock caption=".mcp.json" copyLabel="Copy token configuration">
+              {genericConfig(url)}
+            </CodeBlock>
           </Section>
 
           <Section title="What agents can do">

@@ -99,7 +99,9 @@ export function TestResultView({ result }: { result: ConnectionTestResult }) {
               {fixes.length > 0 && (
                 <>
                   <p className="text-xs text-dim">Run these on the database to remove them:</p>
-                  <CodeBlock copyLabel="statements">{fixes.join('\n')}</CodeBlock>
+                  <CodeBlock caption="SQL" copyLabel="Copy statements">
+                    {fixes.join('\n')}
+                  </CodeBlock>
                 </>
               )}
             </div>

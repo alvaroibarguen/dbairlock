@@ -28,10 +28,18 @@ export function ageInWords(ms: number): string {
   return d === 1 ? '1 day' : `${d} days`
 }
 
-/** Minutes and seconds, "2:46". */
+/**
+ * A ticking duration: minutes and seconds under an hour ("2:46"), then
+ * hours and minutes ("2h 18m"), then days and hours ("3d 4h").
+ */
 export function clockTime(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000))
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+  if (s < 3600) return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+  const m = Math.floor(s / 60)
+  const h = Math.floor(m / 60)
+  if (h < 24) return m % 60 ? `${h}h ${m % 60}m` : `${h}h`
+  const d = Math.floor(h / 24)
+  return h % 24 ? `${d}d ${h % 24}h` : `${d}d`
 }
 
 /** A local time of day, "14:05". */

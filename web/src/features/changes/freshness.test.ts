@@ -36,6 +36,11 @@ describe('freshness', () => {
 describe('format', () => {
   it('formats ages and summaries', () => {
     expect(clockTime(166_000)).toBe('2:46')
+    expect(clockTime(3_599_000)).toBe('59:59')
+    expect(clockTime(3_600_000)).toBe('1h')
+    expect(clockTime(138 * 60_000 + 30_000)).toBe('2h 18m')
+    expect(clockTime(24 * 3_600_000)).toBe('1d')
+    expect(clockTime((3 * 24 + 4) * 3_600_000 + 59 * 60_000)).toBe('3d 4h')
     expect(shortAge(at, at + 4 * 60_000)).toBe('4m')
     expect(shortAge(at, at + 3 * 3_600_000)).toBe('3h')
     expect(
