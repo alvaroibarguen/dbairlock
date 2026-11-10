@@ -116,7 +116,19 @@ export function ChangesLayout({
         className="min-h-0 flex-1"
         items={[
           { value: 'detail', label: 'Detail', content: detail },
-          { value: 'rows', label: 'Affected rows', content: rows },
+          {
+            value: 'rows',
+            label: 'Affected rows',
+            // On a phone this tab is the whole screen, so it needs a page heading.
+            content: medium ? (
+              rows
+            ) : (
+              <>
+                <h1 className="sr-only">{ROWS_TITLE}</h1>
+                {rows}
+              </>
+            ),
+          },
         ]}
       />
     </Pane>

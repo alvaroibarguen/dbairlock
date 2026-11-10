@@ -104,6 +104,7 @@ Checked against `web/pnpm-lock.yaml` (`pnpm list --depth 0`) on 2026-11-10: ever
 | `@testing-library/user-event` | 14.6.8 |
 | `@testing-library/jest-dom` | 7.0.1 |
 | `@playwright/test` | 1.65.0 |
+| `@axe-core/playwright` (axe-core 4.14; accessibility checks in `web/e2e/axe.ts`, added 2026-11-10 in Phase 11) | 4.14.0 |
 | eslint | 10.14.0 |
 | `@eslint/js` | 10.0.1 |
 | typescript-eslint | 8.72.1 (8.72.2 held back by pnpm's minimum release age, see above) |

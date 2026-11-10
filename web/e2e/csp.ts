@@ -52,4 +52,4 @@ export const test = base.extend<{ cspViolations: string[] }>({
 })
 
 export { expect }
-export type { Browser, Page } from '@playwright/test'
+export type { Browser, Locator, Page } from '@playwright/test'

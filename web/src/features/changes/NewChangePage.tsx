@@ -32,6 +32,7 @@ import {
   SqlEditor,
   Textarea,
   toast,
+  useDocumentTitle,
   useMediaQuery,
   WIDE,
 } from '@/ui'
@@ -62,6 +63,7 @@ export function NewChangePage() {
   const { id } = useParams()
   const location = useLocation()
   const copyOf = (location.state as { from?: Change } | null)?.from
+  useDocumentTitle(id === undefined ? 'New change' : `Edit change #${id}`)
   const existing = useQuery({
     ...changeQuery(id ?? ''),
     enabled: id !== undefined,
@@ -81,7 +83,12 @@ export function NewChangePage() {
       return (
         <Pane className="h-full">
           <PageHeader as="h1" title="Edit change" />
-          <ErrorState title="The change could not be loaded." message={existing.error.message} />
+          <ErrorState
+            title="The change could not be loaded."
+            message={existing.error.message}
+            code={isApiError(existing.error) ? existing.error.code : undefined}
+            action={<Button onClick={() => void existing.refetch()}>Retry</Button>}
+          />
         </Pane>
       )
     }
@@ -163,7 +170,7 @@ function Editor({
 
   const handleError = (err: unknown) => {
     if (!isApiError(err)) {
-      toast.error('Something went wrong.')
+      toast.error(err instanceof Error ? err.message : 'The request did not complete. Try again.')
       return
     }
     const fields: Record<string, string> = {}
@@ -316,8 +323,25 @@ function Editor({
           <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,240px)_minmax(0,1fr)]">
             <FormField
               label="Connection"
-              error={fieldErrors.connection_id}
-              help={editing ? 'The connection of a saved change cannot change.' : undefined}
+              error={
+                fieldErrors.connection_id ??
+                (connections.isError
+                  ? `Connections could not be loaded: ${connections.error.message}`
+                  : undefined)
+              }
+              help={
+                editing ? (
+                  'The connection of a saved change cannot change.'
+                ) : connections.data?.length === 0 ? (
+                  <>
+                    No databases are connected yet. An admin adds them in{' '}
+                    <Link className="text-blue underline" to="/connections">
+                      Connections
+                    </Link>
+                    .
+                  </>
+                ) : undefined
+              }
             >
               <Select
                 aria-label="Connection"
@@ -469,7 +493,17 @@ function Editor({
           )}
         </div>
 
-        {!wide && <div className="border-t border-seam">{previewPane}</div>}
+        {!wide && (
+          <section aria-labelledby={`${formId}-preview`} className="border-t border-seam">
+            <h2
+              id={`${formId}-preview`}
+              className="border-b border-seam px-4 py-2.5 text-base font-medium small-caps text-dim sm:px-6"
+            >
+              Preview · before / after
+            </h2>
+            {previewPane}
+          </section>
+        )}
 
         <div className="sticky bottom-0 mt-auto flex flex-wrap items-center gap-2 border-t border-seam bg-panel px-4 py-3 sm:px-6">
           <Button

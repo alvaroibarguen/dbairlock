@@ -13,6 +13,7 @@ import {
   Select,
   Skeleton,
   type ThemePreference,
+  useDocumentTitle,
   useMediaQuery,
   useTheme,
 } from '@/ui'
@@ -63,6 +64,8 @@ export function SettingsPage() {
   const { section } = useParams()
   const medium = useMediaQuery(MEDIUM, true)
   const me = useQuery(meQuery())
+  const sectionTitle = allSections.find((s) => s.id === section)?.title
+  useDocumentTitle(sectionTitle ? `${sectionTitle} · Settings` : 'Settings')
 
   if (me.isPending) {
     return (

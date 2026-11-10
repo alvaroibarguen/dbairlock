@@ -57,9 +57,16 @@ export function ConnectionDetail({
   if (query.isError) {
     return (
       <>
-        <PageHeader title={back ?? 'Connection'} />
+        <PageHeader
+          title={
+            <span className="flex items-center gap-2">
+              {back}
+              <span>Connection</span>
+            </span>
+          }
+        />
         <ErrorState
-          title="This connection could not be loaded."
+          title="The connection could not be loaded."
           message={query.error.message}
           code={isApiError(query.error) ? query.error.code : undefined}
           action={<Button onClick={() => void query.refetch()}>Retry</Button>}

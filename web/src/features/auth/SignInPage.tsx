@@ -3,7 +3,7 @@ import { CircleCheck, TriangleAlert } from 'lucide-react'
 import { type SyntheticEvent, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router'
 import { devLogin, googleSignInUrl, metaQuery, type Role, signInErrorMessage } from '@/api'
-import { Button, CenteredPanel, FormField, Input, Select, Skeleton } from '@/ui'
+import { Button, CenteredPanel, FormField, Input, Select, Skeleton, useDocumentTitle } from '@/ui'
 
 /** A relative path on this site to return to after signing in, or "/". */
 function safeNext(next: string | null): string {
@@ -13,6 +13,7 @@ function safeNext(next: string | null): string {
 
 /** /signin: one button that signs in with Google. */
 export function SignInPage() {
+  useDocumentTitle('Sign in')
   const [params] = useSearchParams()
   const meta = useQuery(metaQuery())
   const next = safeNext(params.get('next'))
@@ -26,9 +27,13 @@ export function SignInPage() {
       <div className="flex flex-col gap-5 px-4 py-6">
         {meta.isPending ? (
           <Skeleton className="w-3/4" />
+        ) : meta.isError ? (
+          <p role="alert" className="text-base text-red">
+            The server did not answer: {meta.error.message} Reload the page to try again.
+          </p>
         ) : (
           <p className="text-base text-dim">
-            Sign in to <span className="font-medium text-text">{meta.data?.instanceName}</span> with
+            Sign in to <span className="font-medium text-text">{meta.data.instanceName}</span> with
             your company Google account.
           </p>
         )}
@@ -40,7 +45,7 @@ export function SignInPage() {
             <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
             <div className="flex flex-col gap-1">
               <span>{signInErrorMessage(error)}</span>
-              <span className="font-mono text-xs opacity-80">{error}</span>
+              <span className="font-mono text-xs">{error}</span>
             </div>
           </div>
         )}

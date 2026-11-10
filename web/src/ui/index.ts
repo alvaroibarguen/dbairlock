@@ -46,4 +46,5 @@ export {
 } from './theme'
 export type { ResolvedTheme, ThemePreference } from './theme'
 export { MEDIUM, useMediaQuery, WIDE } from './useMediaQuery'
+export { useDocumentTitle } from './useDocumentTitle'
 export { CenteredPanel, Logo } from './CenteredPanel'
